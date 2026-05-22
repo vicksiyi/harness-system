@@ -104,6 +104,12 @@ pnpm target:dev
 - `evidence`
 - `suggestedFix`
 
+真实浏览器验证还必须查看截图：
+
+1. `pnpm target:browser` 会输出 desktop/mobile 截图路径。
+2. Codex 必须读取截图，确认布局、可见内容、弹层、移动端显示和关键交互状态是否正常。
+3. 仅 DOM 可见性通过但截图中存在截断、遮挡、溢出、错位或不可读，也要判定为失败并修复。
+
 如果失败不可自动修复，必须把阻塞原因写入 `docs/test-log.md` 和 `docs/agent-journal.md`。
 
 ## 自动修复与重跑

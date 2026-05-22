@@ -134,3 +134,23 @@
 - 发现并修复：移动端操作区因新增 Commands 按钮产生横向溢出；浏览器门禁没有把单个 failed check 转成失败退出码。
 - 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图编辑器增加命令面板和键盘快捷操作"` 均通过。
 - 下一步：继续增加更复杂产品能力，例如 JSON 导入导出、节点拖拽布局、版本差异对比、后端同步或协作状态。
+
+## Run run_mphe8410_4fygji8e
+
+- At: 2026-05-22T20:49:51.479Z
+- Type: bugfix
+- Prompt: 移动端脑图节点截图显示被截断，浏览器门禁需要输出并检查桌面和移动截图
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Screenshot Visual QA Fix
+
+- At: 2026-05-23
+- 目标：让 Harness 的真实浏览器验证不只依赖 DOM 断言，而是产出截图并由 Codex 视觉复核。
+- 已完成：修复移动端脑图节点默认被截断的问题；浏览器质量脚本现在输出 desktop/mobile 截图，并检查移动端节点是否落在可视画布内。
+- 视觉复核：已读取 `.harness/browser/browser_mphe7uop-mobile-mindmap-editor.png`，确认移动端脑图节点现在纵向完整展示。
+- 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:bugfix "移动端脑图节点截图显示被截断，浏览器门禁需要输出并检查桌面和移动截图"` 通过。
+- 下一步：继续产品复杂度建设，优先补 JSON 导入/导出和导入预览。

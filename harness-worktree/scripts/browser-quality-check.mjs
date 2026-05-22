@@ -98,14 +98,30 @@ try {
 
   const desktopHasNoHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
   record("desktop layout overflow", desktopHasNoHorizontalOverflow, "1440px viewport has no horizontal overflow");
+  const desktopScreenshotPath = join(artifactDir, `${runId}-desktop-mindmap-editor.png`);
+  await page.screenshot({ path: desktopScreenshotPath, fullPage: true });
+  record("desktop visual screenshot", true, desktopScreenshotPath);
 
   await page.setViewportSize({ width: 390, height: 900 });
   const mobileHasNoHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
   record("mobile layout overflow", mobileHasNoHorizontalOverflow, "390px viewport has no horizontal overflow");
+  const mobileMapNodesVisible = await page.evaluate(() => {
+    const canvas = document.querySelector(".canvas-grid");
+    const nodes = Array.from(document.querySelectorAll(".map-node"));
+    if (!canvas || nodes.length === 0) {
+      return false;
+    }
+    const canvasRect = canvas.getBoundingClientRect();
+    return nodes.every((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.left >= canvasRect.left - 1 && rect.right <= canvasRect.right + 1;
+    });
+  });
+  record("mobile map nodes visible", mobileMapNodesVisible, "all mobile map nodes fit inside the visible canvas");
 
-  const screenshotPath = join(artifactDir, `${runId}-mindmap-editor.png`);
+  const screenshotPath = join(artifactDir, `${runId}-mobile-mindmap-editor.png`);
   await page.screenshot({ path: screenshotPath, fullPage: true });
-  record("browser screenshot", true, screenshotPath);
+  record("mobile visual screenshot", true, screenshotPath);
 
   const passed = checks.every((check) => check.ok);
   const result = finish(passed, screenshotPath, availability.started);
@@ -149,6 +165,10 @@ function finish(passed, screenshotPath, startedServer, failure) {
     targetUrl,
     startedServer,
     screenshotPath,
+    screenshots: {
+      mobile: screenshotPath,
+      desktop: checks.find((check) => check.name === "desktop visual screenshot")?.detail
+    },
     checks,
     rawLog: rawLog.join("\n"),
     failure

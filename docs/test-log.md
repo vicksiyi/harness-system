@@ -210,3 +210,24 @@
 - Retest commands: `pnpm target:test`, `pnpm typecheck`, `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`, `pnpm test`, `pnpm target:build`, `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`, and `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图编辑器增加命令面板和键盘快捷操作"`.
 - Retest result: 43 tests passed, browser quality passed on `5175`, and workflow `run_mphe0xvh_8iju59li` passed at `completed`.
 - Browser artifacts: `.harness/browser/browser_mphe0ej6-mindmap-editor.png`, `.harness/browser/browser_mphe0pro-mindmap-editor.png`, `.harness/browser/run_mphe0xvh_8iju59li-mindmap-editor.png`.
+
+## Screenshot-Guided Visual QA Loop
+
+- At: 2026-05-23
+- Trigger: user reported that some functions looked broken and requested headless browser validation with screenshots reviewed by Codex.
+- Initial visual finding: mobile screenshot showed map nodes clipped off the right side of the canvas even though DOM visibility checks had passed.
+- Fix action: changed the mobile canvas layout to stack map nodes vertically and hide connectors, keeping desktop as a canvas layout.
+- Harness improvement: `browser-quality-check.mjs` now writes both desktop and mobile screenshot paths and checks that all mobile `.map-node` elements fit inside the visible canvas.
+- Skill improvement: `skills/harness/SKILL.md` now requires Codex to inspect browser screenshots, not only DOM assertions.
+- Retest command: `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`.
+- Retest result: passed; screenshot paths recorded in the browser quality JSON.
+- Reviewed screenshots: `.harness/browser/browser_mphe6rzi-desktop-mindmap-editor.png` and `.harness/browser/browser_mphe6rzi-mobile-mindmap-editor.png`.
+
+## Workflow Validation run_mphe8410_4fygji8e
+
+- Command: pnpm workflow:bugfix "移动端脑图节点截图显示被截断，浏览器门禁需要输出并检查桌面和移动截图"
+- Target project: apps/mindmap-editor
+- Result: passed
+- Attempts: 1/2
+- Log summary: testing-rpc: running simulated regression suite for apps/mindmap-editor | typecheck passed | vitest passed | target app tests passed | target build passed | browser-quality: passed: target reachable - apps/mindmap-editor served at http://localhost:5175 | browser-quality: passed: main product heading - visible through role or accessible locator | browser-quality: passed: map canvas section - visible through role or accessible locator | browser-quality: passed: outline section - visible through role or accessible locator | browser-quality: passed: focus queue section - visible through role or accessible locator | browser-quality: passed: markdown export section - visible through role or accessible locator | browser-quality: passed: search filters idea rows - visible through role or accessible locator | browser-quality: passed: new child idea appears - visible through role or accessible locator | browser-quality: passed: title edit updates live UI - visible through role or accessible locator | browser-quality: passed: snapshots section - visible through role or accessible locator | browser-quality: passed: snapshot restore action appears - visible through role or accessible locator | browser-quality: passed: temporary title appears before restore - visible through role or accessible locator | browser-quality: passed: snapshot restores prior title - visible through role or accessible locator | browser-quality: passed: recent activity section - visible through role or accessible locator | browser-quality: passed: command palette opens from keyboard - visible through role or accessible locator | browser-quality: passed: command palette filters commands - visible through role or accessible locator | browser-quality: passed: command palette executes command - visible through role or accessible locator | browser-quality: passed: command focuses search - slash command moved focus to search | browser-quality: passed: accessible control names - all interactive controls expose a name | browser-quality: passed: desktop layout overflow - 1440px viewport has no horizontal overflow | browser-quality: passed: desktop visual screenshot - /Users/icezero/code/harness/harness-system/.harness/browser/run_mphe8410_4fygji8e-desktop-mindmap-editor.png | browser-quality: passed: mobile layout overflow - 390px viewport has no horizontal overflow | browser-quality: passed: mobile map nodes visible - all mobile map nodes fit inside the visible canvas | browser-quality: passed: mobile visual screenshot - /Users/icezero/code/harness/harness-system/.harness/browser/run_mphe8410_4fygji8e-mobile-mindmap-editor.png
+- Fix actions: none

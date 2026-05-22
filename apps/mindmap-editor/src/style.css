@@ -453,6 +453,20 @@ label {
   }
 
   .canvas-grid {
-    min-height: 460px;
+    display: grid;
+    gap: 10px;
+    min-height: auto;
+    overflow: visible;
+    padding: 12px;
+  }
+
+  .map-node {
+    position: static;
+    width: 100%;
+    min-height: 64px;
+  }
+
+  .connector {
+    display: none;
   }
 }
