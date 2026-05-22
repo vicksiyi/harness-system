@@ -11,3 +11,12 @@
 - Tests: 20 passed across 4 files.
 - Fix actions: 为 services 拆分 `analyzer.ts` 和 `log-parser.ts`，避免单测启动真实端口。
 
+## Full Local Verify
+
+- At: 2026-05-23
+- Command: `pnpm verify`
+- Result: passed
+- Typecheck: passed
+- Unit tests: 20 passed across 4 files
+- Frontend build: passed with Vite production build
+- Fix actions: none
