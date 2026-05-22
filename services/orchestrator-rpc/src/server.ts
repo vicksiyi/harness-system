@@ -190,7 +190,7 @@ async function getWorkflow(params: unknown): Promise<WorkflowRun | null> {
   }
 }
 
-async function serviceHealth() {
+async function dependencyHealth() {
   const entries = await Promise.all(
     Object.entries(serviceUrls).map(async ([name, url]) => ({
       name,
@@ -199,6 +199,22 @@ async function serviceHealth() {
     }))
   );
   return entries;
+}
+
+async function serviceHealth() {
+  return [
+    {
+      name: "orchestrator",
+      url: `http://localhost:${process.env.PORT ?? servicePorts.orchestrator}`,
+      health: {
+        service: "orchestrator-rpc",
+        status: "ok" as const,
+        at: new Date().toISOString(),
+        details: { runCount: runs.size }
+      }
+    },
+    ...(await dependencyHealth())
+  ];
 }
 
 createRpcServer({
@@ -217,8 +233,7 @@ createRpcServer({
     at: new Date().toISOString(),
     details: {
       runCount: runs.size,
-      dependencies: await serviceHealth()
+      dependencies: await dependencyHealth()
     }
   })
 });
-
