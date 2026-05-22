@@ -35,6 +35,21 @@ export function parseFailureLog(rawLog: string): ParsedFailure[] {
         evidence: line,
         suggestedFix: "Normalize multiline log input and add regression coverage for parser signatures."
       });
+    } else if (
+      (normalized.includes("browser-quality: failed") || normalized.includes("browser quality failed")) &&
+      (normalized.includes("accessible control") || normalized.includes("accessibility"))
+    ) {
+      failures.push({
+        reason: "Accessibility validation failed",
+        evidence: line,
+        suggestedFix: "Add accessible names or semantic roles and rerun the browser quality check."
+      });
+    } else if (normalized.includes("browser-quality: failed") || normalized.includes("browser quality failed")) {
+      failures.push({
+        reason: "Browser quality failed",
+        evidence: line,
+        suggestedFix: "Run pnpm target:browser, inspect the screenshot artifact, then fix the UI or accessibility regression."
+      });
     }
   }
 
@@ -48,4 +63,3 @@ export function parseFailureLog(rawLog: string): ParsedFailure[] {
 
   return failures;
 }
-

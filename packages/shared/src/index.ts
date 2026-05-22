@@ -88,6 +88,25 @@ export interface TestResult {
   failures: ParsedFailure[];
   suggestions: string[];
   score: number;
+  browserQuality?: BrowserQualityResult;
+}
+
+export interface BrowserQualityCheck {
+  name: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface BrowserQualityResult {
+  passed: boolean;
+  command: string;
+  targetProject: string;
+  targetUrl: string;
+  startedServer: boolean;
+  checks: BrowserQualityCheck[];
+  rawLog: string;
+  screenshotPath?: string;
+  failure?: string;
 }
 
 export interface DeploymentResult {

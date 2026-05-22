@@ -21,7 +21,7 @@ const services = [
 
 const type = process.argv[2] ?? "requirement";
 const prompt = process.argv.slice(3).join(" ").trim() || "Run a full harness workflow.";
-const targetProject = process.env.HARNESS_TARGET_PROJECT ?? "apps/card-editor";
+const targetProject = process.env.HARNESS_TARGET_PROJECT ?? "apps/mindmap-editor";
 
 if (!["requirement", "bugfix", "polish"].includes(type)) {
   console.error(`Unknown workflow type "${type}". Use requirement, bugfix, or polish.`);

@@ -25,7 +25,7 @@ $harness-requirement 增加一个工作流运行详情页
 1. 读取根目录 `AGENTS.md`。
 2. 读取 `harness-worktree/AGENTS.md`。
 3. 读取 `services/requirements-rpc/AGENTS.md` 和 `packages/workflow-core/AGENTS.md`。
-4. 如果需求涉及 UI，读取 `apps/card-editor/AGENTS.md`。
+4. 如果需求涉及 UI，读取 `apps/mindmap-editor/AGENTS.md`。
 5. 如果需求涉及部署，读取 `services/deploy-rpc/AGENTS.md`。
 
 ## 执行命令

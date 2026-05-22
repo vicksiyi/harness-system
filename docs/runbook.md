@@ -15,7 +15,7 @@ pnpm target:dev
 
 访问：
 
-- Card Editor Target: `http://localhost:5175`
+- Mind Map Studio Target: `http://localhost:5175`
 - Orchestrator: `http://localhost:4100`
 
 ## Skill 调用
@@ -34,10 +34,10 @@ pnpm workflow:bugfix "测试服务日志解析失败"
 pnpm workflow:polish "优化前端任务状态展示"
 ```
 
-默认目标项目是 `apps/card-editor`。如需显式指定：
+默认目标项目是 `apps/mindmap-editor`。如需显式指定：
 
 ```bash
-HARNESS_TARGET_PROJECT=apps/card-editor pnpm workflow:requirement "增加卡片模板"
+HARNESS_TARGET_PROJECT=apps/mindmap-editor pnpm workflow:requirement "增加脑图节点模板"
 ```
 
 ## 测试
@@ -47,6 +47,7 @@ pnpm typecheck
 pnpm test
 pnpm target:test
 pnpm target:build
+pnpm target:browser
 ```
 
 ## 健康检查
@@ -64,7 +65,7 @@ docker compose up --build
 如果目标产品端口已被其它项目占用，可以覆盖宿主机端口，例如：
 
 ```bash
-CARD_EDITOR_PORT=5176 docker compose up --build
+MINDMAP_EDITOR_PORT=5176 docker compose up --build
 ```
 
 如果失败：

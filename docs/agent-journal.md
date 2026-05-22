@@ -30,8 +30,8 @@
 
 - At: 2026-05-22T19:52:25.386Z
 - Type: requirement
-- Prompt: 给卡片编辑器增加模板和 Markdown 导出能力
-- Target project: apps/card-editor
+- Prompt: 给脑图编辑器增加结构化编辑能力
+- Target project: apps/mindmap-editor
 - Result: passed at completed
 - Tests: passed with score 96
 - Deployment: healthy
@@ -41,8 +41,8 @@
 
 - At: 2026-05-22T19:52:49.320Z
 - Type: requirement
-- Prompt: 给卡片编辑器增加模板和 Markdown 导出能力
-- Target project: apps/card-editor
+- Prompt: 给脑图编辑器增加结构化编辑能力
+- Target project: apps/mindmap-editor
 - Result: passed at completed
 - Tests: passed with score 96
 - Deployment: healthy
@@ -50,7 +50,37 @@
 
 ## Target Product Loop
 
-- 目标：将 Harness 和产品样例隔离，让 Harness 默认编排 Card Editor，而不是继续开发控制台。
-- 已完成：删除 Harness 前端控制台；将目标产品放到 `apps/card-editor`；新增模板、Board Summary、Markdown Export；新增目标产品单测；Docker Compose 只启动 Card Editor 和 RPC 服务。
-- 验证：`pnpm verify`、Docker Compose、浏览器烟测、`pnpm workflow:requirement "给卡片编辑器增加模板和 Markdown 导出能力"` 均通过。
-- 下一步：继续通过 `$harness requirement|bugfix|polish ...` 给 Card Editor 增加更复杂能力。
+- 目标：将 Harness 和产品样例隔离，让 Harness 默认编排 Mind Map Studio，而不是继续开发控制台。
+- 已完成：删除 Harness 前端控制台；将目标产品切换为 `apps/mindmap-editor`；产品 UI 不再出现 Harness/Agent/编排文案；Docker Compose 只启动 Mind Map Studio 和 RPC 服务。
+- 验证：`pnpm verify`、Docker Compose、浏览器烟测、`pnpm workflow:requirement "给脑图编辑器增加结构化编辑能力"` 均通过。
+- 下一步：继续通过 `$harness requirement|bugfix|polish ...` 给 Mind Map Studio 增加更复杂能力，同时保持 Harness 控制面隔离。
+
+## Run run_mphcdu9e_f6p05eh5
+
+- At: 2026-05-22T19:58:14.659Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加关联视图、反向引用和下一步焦点队列
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 96
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Run run_mphci54n_mldhhnlg
+
+- At: 2026-05-22T20:01:35.383Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加关联视图、反向引用和下一步焦点队列
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 96
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Mind Map Studio Isolation Pass
+
+- At: 2026-05-23
+- 目标：彻底移除 `apps/card-editor`，将唯一产品样例改为 `apps/mindmap-editor`，并让 Harness 只通过产品 `AGENTS.md` 获取上下文。
+- 已完成：新增独立 Mind Map Studio 产品；产品 UI 不含 Harness/Agent/编排文案；默认目标路径、RPC 分析、Skill 文档、Docker Compose、浏览器质量检查均切换到 `apps/mindmap-editor`。
+- 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm verify` 通过。
+- 阻塞：Docker Desktop 在移除旧容器/写入镜像 blob 时返回 `input/output error`，旧 `card-editor` 容器仍占用 `5175`；已记录到测试日志。

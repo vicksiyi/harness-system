@@ -52,7 +52,7 @@ function workflowInput(params: unknown): WorkflowInput {
     type: inferType(record.type),
     prompt: typeof record.prompt === "string" ? record.prompt : "Run the harness workflow.",
     requestedBy: typeof record.requestedBy === "string" ? record.requestedBy : "codex",
-    targetProject: typeof record.targetProject === "string" ? record.targetProject : "apps/card-editor"
+    targetProject: typeof record.targetProject === "string" ? record.targetProject : "apps/mindmap-editor"
   };
 }
 

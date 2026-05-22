@@ -2,7 +2,7 @@
 
 Harness System is a local-first Codex/Agent engineering harness. It provides multiple JSON-RPC services, a workflow state machine, Codex Skill instructions, Docker Compose deployment, and auditable execution records.
 
-The Harness control plane is intentionally isolated from the product under development. The default target product is `apps/card-editor`, a standalone card editing app that Codex can grow through Harness workflows.
+The Harness control plane is intentionally isolated from the product under development. The default target product is `apps/mindmap-editor`, a standalone mind map editor that Codex can grow through Harness workflows.
 
 Primary Codex entrypoints are the Skill-style commands documented in `skills/harness/SKILL.md`:
 
@@ -44,6 +44,7 @@ Target app commands:
 pnpm target:dev
 pnpm target:test
 pnpm target:build
+pnpm target:browser
 ```
 
 ## Verify

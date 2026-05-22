@@ -1,32 +1,33 @@
-# MR Summary: Implement: 给卡片编辑器增加模板和 Markdown 导出能力
+# MR Summary: Isolate Mind Map Studio Product Sample
 
 Type: requirement
-Target Project: apps/card-editor
+Target Project: apps/mindmap-editor
 Status: passed
 Stage: completed
 
 ## Background
-给卡片编辑器增加模板和 Markdown 导出能力
+Replace the previous target sample with a fully isolated Mind Map Studio product under `apps/mindmap-editor`, and add real browser quality validation to the Harness loop.
 
 ## Scope
-- Modify the isolated target project at apps/card-editor.
+- Modify the isolated target project at apps/mindmap-editor.
 - Keep Harness orchestration code unchanged unless the task explicitly asks for Harness behavior.
 - Expose product changes through the target project UI and tests.
 - Refresh generated MR summary, release notes, and execution records.
 
 ## Changes
-- Generated a requirement patch plan for apps/card-editor.
-- Recorded expected files, verification path, and operator-facing summary.
-- Returned test suggestions for the testing-rpc retry loop.
+- Replaced the target product with a standalone mind map editor.
+- Added domain tests for nodes, outlines, summaries, focus suggestions, and Markdown export.
+- Added browser quality validation covering visible UI, interaction, accessible names, and responsive overflow.
 
 ## Validation
-- Tests: passed via `pnpm typecheck && pnpm test && pnpm target:build` with score 96.
-- Deployment: healthy on docker-compose-local.
+- Tests: passed via `HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm verify`, including real browser quality validation.
+- Deployment: blocked by Docker Desktop `input/output error` while removing old containers and extracting Chromium image layers.
 
 ## Risks
 - Local Docker or port conflicts can block deployment validation.
 - A simulated Agent action may not reflect every real coding failure mode.
 - In-memory service state is reset when orchestrator-rpc restarts; persisted JSON run files are the audit source.
+- Local Docker Desktop currently has a metadata/blob I/O issue; restart Docker Desktop before rerunning Compose on port 5175.
 
 ## Rollback
 - Revert the feature branch or disable the generated workflow route from the orchestrator.

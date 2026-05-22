@@ -34,6 +34,14 @@ describe("parseFailureLog", () => {
     expect(chinese[0]?.reason).toBe("Log parser failed");
   });
 
+  it("classifies browser and accessibility quality failures", () => {
+    const browser = parseFailureLog("browser-quality: failed: mobile layout overflow - 390px viewport overflowed");
+    const accessibility = parseFailureLog("browser-quality: failed: accessible control names - missing name on #query");
+
+    expect(browser[0]?.reason).toBe("Browser quality failed");
+    expect(accessibility.map((failure) => failure.reason)).toContain("Accessibility validation failed");
+  });
+
   it("keeps unknown errors actionable", () => {
     const failures = parseFailureLog("Fatal error: something new happened");
 
@@ -41,4 +49,3 @@ describe("parseFailureLog", () => {
     expect(failures[0]?.suggestedFix).toContain("Inspect");
   });
 });
-

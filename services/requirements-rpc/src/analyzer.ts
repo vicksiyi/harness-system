@@ -14,7 +14,7 @@ export function normalizePrompt(value: unknown): string {
 }
 
 export function normalizeTargetProject(value: unknown): string {
-  return typeof value === "string" && value.trim() ? value.trim() : "apps/card-editor";
+  return typeof value === "string" && value.trim() ? value.trim() : "apps/mindmap-editor";
 }
 
 export function criteriaFor(type: WorkflowType, prompt: string): AcceptanceCriterion[] {
@@ -51,7 +51,7 @@ export function criteriaFor(type: WorkflowType, prompt: string): AcceptanceCrite
     return [
       {
         id: createId("ac"),
-        statement: "The improvement makes repeated target-app editing faster without adding marketing content.",
+        statement: "The improvement makes repeated target product editing faster without adding marketing content.",
         verification: "Build the target app and review the editing surface."
       },
       ...base

@@ -26,6 +26,12 @@
 
 ## 0005 Isolated Target Project
 
-- 决策：新增 `apps/card-editor` 作为 Harness 默认目标产品，并移除容易混淆的 Harness 前端控制台。
+- 决策：使用 `apps/mindmap-editor` 作为 Harness 默认目标产品，并移除容易混淆的 Harness 前端控制台。
 - 原因：Harness 应该编排 Agent 开发另一个产品，而不是把业务需求写进 Harness 控制面。
 - 取舍：Harness 观察面主要依赖 Skill、RPC、`.harness/runs` 和 `docs/*`；目标项目仍在同一 monorepo，便于本地测试和 Docker 部署。
+
+## 0006 Browser Quality Gate
+
+- 决策：testing-rpc 的验证结果必须包含真实浏览器质量检查，覆盖页面可见性、基础交互、可访问名称和响应式横向溢出。
+- 原因：仅靠单测和构建无法证明目标产品在浏览器中可用。
+- 取舍：单测通过可注入 runner 避免依赖本机浏览器；真实 workflow 和 `pnpm target:browser` 使用 Playwright Core + Chromium/Chrome。

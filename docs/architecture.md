@@ -14,7 +14,7 @@ Harness System 是一个本地优先的 Codex / Agent 研发闭环验证系统�
 - `packages/rpc-client`：RPC client 和健康检查。
 - `harness-worktree`：Skill 背后的流程执行入口。
 - `skills/*`：Codex Skill 包。
-- `apps/card-editor`：与 Harness 控制面隔离的目标产品，Agent 需求默认作用于这里。
+- `apps/mindmap-editor`：与 Harness 控制面隔离的目标产品，需求默认作用于这里；产品 UI 不展示 Harness/Agent/编排概念。
 
 ## 协议
 
@@ -53,4 +53,4 @@ testing/retesting -> summarizing -> deploying -> completed
 
 ## 控制面与目标项目隔离
 
-Harness 的职责是分析、计划、测试、部署和记录；目标产品的职责是承载真实需求。默认目标产品为 `apps/card-editor`，后续可以新增更多 `apps/*` 产品应用作为独立样例；涉及 RPC 的能力继续放在 `services/*`。
+Harness 的职责是分析、计划、测试、部署和记录；目标产品的职责是承载真实需求。默认目标产品为 `apps/mindmap-editor`，后续可以新增更多 `apps/*` 产品应用作为独立样例；涉及 RPC 的能力继续放在 `services/*`。目标产品只通过自己的 `AGENTS.md` 给编排提供上下文。

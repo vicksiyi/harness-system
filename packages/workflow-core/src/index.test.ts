@@ -96,5 +96,22 @@ describe("workflow-core", () => {
     expect(scoreRun(run)).toBeGreaterThan(0);
     expect(summarizeRun(run)).toContain("## Validation");
   });
-});
 
+  it("includes browser quality in MR validation summaries", () => {
+    const run = createWorkflowRun({ type: "polish", prompt: "优化可访问性" });
+    attachTestResult(run, {
+      ...passingTest(),
+      browserQuality: {
+        passed: true,
+        command: "pnpm target:browser",
+        targetProject: "apps/mindmap-editor",
+        targetUrl: "http://localhost:5175",
+        startedServer: false,
+        checks: [{ name: "accessible control names", ok: true, detail: "all named" }],
+        rawLog: "browser-quality: passed"
+      }
+    });
+
+    expect(summarizeRun(run)).toContain("Browser quality: passed");
+  });
+});

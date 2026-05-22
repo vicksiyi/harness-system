@@ -41,7 +41,7 @@ export function createWorkflowRun(input: WorkflowInput): WorkflowRun {
   const run: WorkflowRun = {
     id: createId("run"),
     type: input.type,
-    targetProject: input.targetProject ?? "apps/card-editor",
+    targetProject: input.targetProject ?? "apps/mindmap-editor",
     title: titleFromPrompt(input.type, input.prompt),
     prompt: input.prompt,
     stage: "created",
@@ -155,6 +155,9 @@ export function summarizeRun(run: WorkflowRun): string {
   const tests = run.tests
     ? `Tests: ${run.tests.passed ? "passed" : "failed"} via \`${run.tests.command}\` with score ${run.tests.score}.`
     : "Tests: not run.";
+  const browser = run.tests?.browserQuality
+    ? `Browser quality: ${run.tests.browserQuality.passed ? "passed" : "failed"} on ${run.tests.browserQuality.targetUrl}.`
+    : "Browser quality: not run.";
   const deploy = run.deployment ? `Deployment: ${run.deployment.status} on ${run.deployment.target}.` : "Deployment: not run.";
   return [
     `# MR Summary: ${run.title}`,
@@ -175,6 +178,7 @@ export function summarizeRun(run: WorkflowRun): string {
     "",
     "## Validation",
     `- ${tests}`,
+    `- ${browser}`,
     `- ${deploy}`,
     "",
     "## Risks",

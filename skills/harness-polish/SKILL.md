@@ -25,7 +25,7 @@ $harness-polish 优化前端任务状态展示
 
 1. 读取根目录 `AGENTS.md`。
 2. 读取 `harness-worktree/AGENTS.md`。
-3. UI 相关任务读取 `apps/card-editor/AGENTS.md`。
+3. UI 相关任务读取 `apps/mindmap-editor/AGENTS.md`。
 4. 流程相关任务读取 `packages/workflow-core/AGENTS.md` 和 `services/orchestrator-rpc/AGENTS.md`。
 5. 文档相关任务读取 `docs/AGENTS.md`。
 

@@ -37,7 +37,7 @@ $harness polish 优化前端任务状态展示
 4. 编码计划和模拟 Agent 执行：读 `services/coding-rpc/AGENTS.md`。
 5. 测试、日志解析、失败归因、重试：读 `services/testing-rpc/AGENTS.md`。
 6. Docker Compose、健康检查、部署记录：读 `services/deploy-rpc/AGENTS.md`。
-7. 目标产品 UI：读 `apps/card-editor/AGENTS.md`。
+7. 目标产品 UI：读 `apps/mindmap-editor/AGENTS.md`。
 8. 文档、MR Summary、Release Notes、测试日志：读 `docs/AGENTS.md`。
 
 ## 调用本地脚本
@@ -72,7 +72,7 @@ pnpm target:dev
 
 服务地址：
 
-- Card Editor Target: `http://localhost:5175`
+- Mind Map Studio Target: `http://localhost:5175`
 - Orchestrator RPC: `http://localhost:4100`
 - Requirements RPC: `http://localhost:4101`
 - Coding RPC: `http://localhost:4102`
@@ -118,6 +118,7 @@ pnpm target:dev
 pnpm typecheck
 pnpm test
 pnpm target:build
+pnpm target:browser
 ```
 
 6. 重跑原始 workflow 命令。

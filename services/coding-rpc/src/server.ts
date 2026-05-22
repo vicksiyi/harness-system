@@ -21,7 +21,7 @@ function planAndPatch(params: unknown): CodingResult {
   const analysis = toAnalysis(record.analysis);
   const type = inferType(record.type);
   const prompt = typeof record.prompt === "string" ? record.prompt : analysis?.title ?? "Harness task";
-  const targetProject = typeof record.targetProject === "string" ? record.targetProject : analysis?.targetProject ?? "apps/card-editor";
+  const targetProject = typeof record.targetProject === "string" ? record.targetProject : analysis?.targetProject ?? "apps/mindmap-editor";
 
   const files = analysis?.recommendedFiles ?? [
     `${targetProject}/src/domain.ts`,
