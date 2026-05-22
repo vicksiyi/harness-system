@@ -62,7 +62,9 @@ label,
 .node-row small,
 .map-node span,
 .outline-list span,
-.focus-list span {
+.focus-list span,
+.activity-list span,
+.snapshot-row span {
   color: #607086;
   font-size: 12px;
   font-weight: 750;
@@ -81,6 +83,14 @@ label,
   background: #0f766e;
   color: #fff;
   font-weight: 800;
+}
+
+.actions button:nth-child(3) {
+  background: #2563eb;
+}
+
+.actions button:nth-child(4) {
+  background: #475569;
 }
 
 .workspace {
@@ -109,7 +119,9 @@ label,
 .node-list,
 .field-grid,
 .focus-list,
-.outline-list {
+.outline-list,
+.activity-list,
+.snapshot-list {
   display: grid;
   gap: 8px;
 }
@@ -141,6 +153,7 @@ label {
 }
 
 .summary-grid div,
+.activity-panel,
 .context-panel,
 .outline-panel {
   border: 1px solid #dce4ef;
@@ -155,7 +168,9 @@ label {
   font-size: 22px;
 }
 
-.node-row {
+.node-row,
+.snapshot-row,
+.wide-button {
   display: grid;
   gap: 4px;
   min-height: 58px;
@@ -166,7 +181,20 @@ label {
   text-align: left;
 }
 
-.node-row span {
+.snapshot-row,
+.wide-button {
+  width: 100%;
+}
+
+.wide-button {
+  min-height: 42px;
+  background: #ecfdf5;
+  color: #0f766e;
+  font-weight: 850;
+}
+
+.node-row span,
+.snapshot-row strong {
   font-weight: 850;
 }
 
@@ -242,14 +270,16 @@ label {
 }
 
 .outline-list,
-.focus-list {
+.focus-list,
+.activity-list {
   margin: 0;
   padding-left: 0;
   list-style: none;
 }
 
 .outline-list li,
-.focus-list li {
+.focus-list li,
+.activity-list li {
   border-radius: 8px;
   background: #f3f6fa;
   padding: 10px;

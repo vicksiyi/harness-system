@@ -182,8 +182,28 @@ export const servicePorts = {
   coding: 4102,
   testing: 4103,
   deploy: 4104,
-  cardEditor: 5175
+  mindmapEditor: 5175
 } as const;
+
+export type ServicePortName = keyof typeof servicePorts;
+
+export function harnessPortOffset(value = process.env.HARNESS_PORT_OFFSET): number {
+  if (!value) {
+    return 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function servicePort(name: ServicePortName, explicitPort = process.env.PORT): number {
+  if (explicitPort !== undefined && explicitPort !== "") {
+    const parsed = Number(explicitPort);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return servicePorts[name] + harnessPortOffset();
+}
 
 export function nowIso(): string {
   return new Date().toISOString();

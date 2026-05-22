@@ -1,4 +1,4 @@
-import { asRecord, createRpcServer, servicePorts, type DeploymentResult, type ServiceHealth } from "@harness/shared";
+import { asRecord, createRpcServer, servicePort, servicePorts, type DeploymentResult, type ServiceHealth } from "@harness/shared";
 
 function deploy(params: unknown): DeploymentResult {
   const record = asRecord(params);
@@ -26,13 +26,13 @@ function deploy(params: unknown): DeploymentResult {
 
 createRpcServer({
   serviceName: "deploy-rpc",
-  port: Number(process.env.PORT ?? servicePorts.deploy),
+  port: servicePort("deploy"),
   methods: {
     deploy,
     preflight: () => ({
       checks: ["docker compose config", "pnpm verify", "pnpm target:browser", "pnpm health"],
       requiredPorts: [
-        servicePorts.cardEditor,
+        servicePorts.mindmapEditor,
         servicePorts.orchestrator,
         servicePorts.requirements,
         servicePorts.coding,

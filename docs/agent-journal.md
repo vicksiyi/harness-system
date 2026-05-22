@@ -84,3 +84,33 @@
 - 已完成：新增独立 Mind Map Studio 产品；产品 UI 不含 Harness/Agent/编排文案；默认目标路径、RPC 分析、Skill 文档、Docker Compose、浏览器质量检查均切换到 `apps/mindmap-editor`。
 - 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm verify` 通过。
 - 阻塞：Docker Desktop 在移除旧容器/写入镜像 blob 时返回 `input/output error`，旧 `card-editor` 容器仍占用 `5175`；已记录到测试日志。
+
+## Run run_mphdm02f_uphw8u30
+
+- At: 2026-05-22T20:32:43.048Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹
+- Target project: apps/mindmap-editor
+- Result: failed at failed
+- Tests: not passed with score n/a
+- Deployment: not run
+- MR Summary: docs/generated-mr-summary.md
+
+## Run run_mphdmxiw_eclrxm1r
+
+- At: 2026-05-22T20:33:22.600Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Snapshot Persistence Loop
+
+- At: 2026-05-23
+- 目标：继续通过 `$harness requirement` 增强 Mind Map Studio，同时让 Harness 在默认端口被旧容器占用时也能闭环。
+- 已完成：产品新增本地持久化、快照保存/恢复、最近活动轨迹；浏览器质量门禁覆盖快照恢复；RPC 服务支持 `HARNESS_PORT_OFFSET`；orchestrator 的测试 RPC 超时提升到可配置的 90s 默认。
+- 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm verify` 通过，`HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm workflow:requirement "给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹"` 通过。
+- 下一步：继续增加更复杂产品能力，例如节点拖拽布局、快捷键、导入导出 JSON、版本历史对比或后端同步。

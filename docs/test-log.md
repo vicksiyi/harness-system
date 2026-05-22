@@ -155,3 +155,36 @@
 - Failure observed: Docker Desktop returned `input/output error` while extracting Chromium layers, then returned `input/output error` writing `io.containerd.metadata.v1.bolt/meta.db` while removing the old container.
 - Fix attempted: split Chromium into `services/testing-rpc/Dockerfile` so only testing-rpc carries the browser dependency; attempted targeted removal of `harness-system-*` images and old containers.
 - Current blocker: old `harness-system-card-editor-1` still occupies `5175`; Docker daemon metadata write errors require Docker Desktop restart or local Docker storage repair outside the repo.
+
+## Workflow Validation run_mphdm02f_uphw8u30
+
+- Command: pnpm workflow:requirement "给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹"
+- Target project: apps/mindmap-editor
+- Result: failed or skipped
+- Attempts: 0/2
+- Log summary: No test log
+- Fix actions: none
+
+## Workflow Validation run_mphdmxiw_eclrxm1r
+
+- Command: pnpm workflow:requirement "给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹"
+- Target project: apps/mindmap-editor
+- Result: passed
+- Attempts: 1/2
+- Log summary: testing-rpc: running simulated regression suite for apps/mindmap-editor | typecheck passed | vitest passed | target app tests passed | target build passed | browser-quality: passed: target reachable - apps/mindmap-editor served at http://localhost:5176 | browser-quality: passed: main product heading - visible through role or accessible locator | browser-quality: passed: map canvas section - visible through role or accessible locator | browser-quality: passed: outline section - visible through role or accessible locator | browser-quality: passed: focus queue section - visible through role or accessible locator | browser-quality: passed: markdown export section - visible through role or accessible locator | browser-quality: passed: search filters idea rows - visible through role or accessible locator | browser-quality: passed: new child idea appears - visible through role or accessible locator | browser-quality: passed: title edit updates live UI - visible through role or accessible locator | browser-quality: passed: snapshots section - visible through role or accessible locator | browser-quality: passed: snapshot restore action appears - visible through role or accessible locator | browser-quality: passed: temporary title appears before restore - visible through role or accessible locator | browser-quality: passed: snapshot restores prior title - visible through role or accessible locator | browser-quality: passed: recent activity section - visible through role or accessible locator | browser-quality: passed: accessible control names - all interactive controls expose a name | browser-quality: passed: desktop layout overflow - 1440px viewport has no horizontal overflow | browser-quality: passed: mobile layout overflow - 390px viewport has no horizontal overflow | browser-quality: passed: browser screenshot - /Users/icezero/code/harness/harness-system/.harness/browser/run_mphdmxiw_eclrxm1r-mindmap-editor.png
+- Fix actions: none
+
+## Mind Map Snapshot Persistence Loop
+
+- At: 2026-05-23
+- Requirement: 给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹
+- TDD scope: added `createSnapshot`, `restoreSnapshot`, and `recentActivity` tests before wiring the UI.
+- Harness improvement: added `HARNESS_PORT_OFFSET` to move RPC services from `4100-4104` to `4200-4204` when default ports are occupied.
+- Failure observed: first workflow run `run_mphdm02f_uphw8u30` failed with `This operation was aborted` because orchestrator-rpc used the default 8s RPC timeout for a real browser validation.
+- Fix action: increased testing-rpc validation calls from orchestrator-rpc to `HARNESS_VALIDATION_TIMEOUT_MS` with a 90s default.
+- Browser check failure: first snapshot browser assertion looked for visible text instead of the control's accessible name.
+- Fix action: updated the browser quality script to assert `Restore latest snapshot`.
+- Retest commands: `HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm verify`, then `HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm workflow:requirement "给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹"`.
+- Retest result: verify passed with 41 tests; workflow `run_mphdmxiw_eclrxm1r` passed at `completed`.
+- Final pre-commit checks: `pnpm test`, `pnpm typecheck`, `pnpm target:build`, and `HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm target:browser` all passed.
+- Final browser artifact: `.harness/browser/browser_mphdqe66-mindmap-editor.png`.

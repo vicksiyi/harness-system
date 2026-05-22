@@ -10,13 +10,15 @@ const root = resolve(here, "../..");
 const logDir = join(root, ".harness", "logs");
 const runDir = join(root, ".harness", "runs");
 const serviceLog = join(logDir, "dev-services.log");
-const orchestratorUrl = process.env.ORCHESTRATOR_RPC_URL ?? "http://localhost:4100";
+const portOffset = Number(process.env.HARNESS_PORT_OFFSET ?? 0) || 0;
+const port = (base) => base + portOffset;
+const orchestratorUrl = process.env.ORCHESTRATOR_RPC_URL ?? `http://localhost:${port(4100)}`;
 const services = [
-  ["orchestrator", "http://localhost:4100"],
-  ["requirements", "http://localhost:4101"],
-  ["coding", "http://localhost:4102"],
-  ["testing", "http://localhost:4103"],
-  ["deploy", "http://localhost:4104"]
+  ["orchestrator", `http://localhost:${port(4100)}`],
+  ["requirements", `http://localhost:${port(4101)}`],
+  ["coding", `http://localhost:${port(4102)}`],
+  ["testing", `http://localhost:${port(4103)}`],
+  ["deploy", `http://localhost:${port(4104)}`]
 ];
 
 const type = process.argv[2] ?? "requirement";
@@ -58,7 +60,7 @@ try {
 
 async function startServices() {
   const stream = createWriteStream(serviceLog, { flags: "a" });
-  stream.write(`\n# pnpm dev:services ${new Date().toISOString()}\n`);
+  stream.write(`\n# pnpm dev:services ${new Date().toISOString()} offset=${portOffset}\n`);
   const proc = spawn("pnpm", ["dev:services"], {
     cwd: root,
     env: { ...process.env, HARNESS_ROOT: root },

@@ -41,6 +41,22 @@ export interface OutlineItem {
   status: IdeaStatus;
 }
 
+export interface MindMapSnapshot {
+  id: string;
+  label: string;
+  createdAt: string;
+  selectedId: string;
+  nodes: MindNode[];
+}
+
+export interface ActivityItem {
+  nodeId: string;
+  title: string;
+  status: IdeaStatus;
+  updatedAt: string;
+  summary: string;
+}
+
 export function createNode(input: {
   id: string;
   title: string;
@@ -216,6 +232,49 @@ export function exportMapAsMarkdown(nodes: MindNode[]): string {
   ]);
 
   return [...header, ...outline, ""].join("\n");
+}
+
+export function createSnapshot(input: {
+  nodes: MindNode[];
+  selectedId: string;
+  label?: string;
+  id?: string;
+  createdAt?: string;
+}): MindMapSnapshot {
+  const createdAt = input.createdAt ?? new Date().toISOString();
+  return {
+    id: input.id ?? `snapshot-${Date.parse(createdAt) || Date.now()}`,
+    label: normalizeTitle(input.label ?? `Snapshot ${createdAt.slice(0, 16).replace("T", " ")}`),
+    createdAt,
+    selectedId: input.nodes.some((node) => node.id === input.selectedId) ? input.selectedId : input.nodes[0]?.id ?? "",
+    nodes: input.nodes.map((node) => ({ ...node, tags: [...node.tags] }))
+  };
+}
+
+export function restoreSnapshot(snapshot: MindMapSnapshot): { nodes: MindNode[]; selectedId: string } {
+  const nodes = snapshot.nodes.map((node) =>
+    createNode({
+      ...node,
+      tags: [...node.tags],
+      updatedAt: node.updatedAt
+    })
+  );
+  return {
+    nodes,
+    selectedId: nodes.some((node) => node.id === snapshot.selectedId) ? snapshot.selectedId : nodes[0]?.id ?? ""
+  };
+}
+
+export function recentActivity(nodes: MindNode[], limit = 6): ActivityItem[] {
+  return sortNodes(nodes)
+    .slice(0, limit)
+    .map((node) => ({
+      nodeId: node.id,
+      title: node.title,
+      status: node.status,
+      updatedAt: node.updatedAt,
+      summary: node.notes || `${getChildren(nodes, node.id).length} child ideas`
+    }));
 }
 
 function outlineBranch(nodes: MindNode[], node: MindNode, depth: number): OutlineItem[] {

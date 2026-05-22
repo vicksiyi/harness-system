@@ -1,7 +1,7 @@
 import {
   asRecord,
   createRpcServer,
-  servicePorts,
+  servicePort,
   type CodingResult,
   type RequirementAnalysis,
   type ServiceHealth,
@@ -63,7 +63,7 @@ function planAndPatch(params: unknown): CodingResult {
 
 createRpcServer({
   serviceName: "coding-rpc",
-  port: Number(process.env.PORT ?? servicePorts.coding),
+  port: servicePort("coding"),
   methods: {
     planAndPatch
   },

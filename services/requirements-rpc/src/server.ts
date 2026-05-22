@@ -1,14 +1,14 @@
 import {
   asRecord,
   createRpcServer,
-  servicePorts,
+  servicePort,
   type ServiceHealth,
 } from "@harness/shared";
 import { analyzeRequirement } from "./analyzer.js";
 
 createRpcServer({
   serviceName: "requirements-rpc",
-  port: Number(process.env.PORT ?? servicePorts.requirements),
+  port: servicePort("requirements"),
   methods: {
     analyze: (params) => analyzeRequirement(asRecord(params)),
     templates: () => ({

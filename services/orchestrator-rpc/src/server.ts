@@ -6,6 +6,7 @@ import {
   addLog,
   asRecord,
   createRpcServer,
+  servicePort,
   servicePorts,
   type CodingResult,
   type DeploymentResult,
@@ -34,11 +35,12 @@ const runDir = join(rootDir, ".harness", "runs");
 const docsDir = join(rootDir, "docs");
 
 const serviceUrls = {
-  requirements: process.env.REQUIREMENTS_RPC_URL ?? `http://localhost:${servicePorts.requirements}`,
-  coding: process.env.CODING_RPC_URL ?? `http://localhost:${servicePorts.coding}`,
-  testing: process.env.TESTING_RPC_URL ?? `http://localhost:${servicePorts.testing}`,
-  deploy: process.env.DEPLOY_RPC_URL ?? `http://localhost:${servicePorts.deploy}`
+  requirements: process.env.REQUIREMENTS_RPC_URL ?? `http://localhost:${servicePort("requirements", undefined)}`,
+  coding: process.env.CODING_RPC_URL ?? `http://localhost:${servicePort("coding", undefined)}`,
+  testing: process.env.TESTING_RPC_URL ?? `http://localhost:${servicePort("testing", undefined)}`,
+  deploy: process.env.DEPLOY_RPC_URL ?? `http://localhost:${servicePort("deploy", undefined)}`
 };
+const validationTimeoutMs = Number(process.env.HARNESS_VALIDATION_TIMEOUT_MS ?? 90000);
 
 const runs = new Map<string, WorkflowRun>();
 
@@ -107,7 +109,7 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
       prompt: run.prompt,
       targetProject: run.targetProject,
       attempt: 1
-    });
+    }, validationTimeoutMs);
     attachTestResult(run, testResult);
     addLog(run, "testing-rpc", testResult.passed ? "Initial validation passed" : "Initial validation failed", testResult.passed ? "info" : "warn", {
       failures: testResult.failures,
@@ -127,7 +129,7 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
         prompt: run.prompt,
         targetProject: run.targetProject,
         attempt: run.attempts + 1
-      });
+      }, validationTimeoutMs);
       attachTestResult(run, testResult);
       addLog(run, "testing-rpc", testResult.passed ? "Regression validation passed" : "Regression validation failed", testResult.passed ? "info" : "warn", {
         failures: testResult.failures,
@@ -209,7 +211,7 @@ async function serviceHealth() {
   return [
     {
       name: "orchestrator",
-      url: `http://localhost:${process.env.PORT ?? servicePorts.orchestrator}`,
+      url: `http://localhost:${servicePort("orchestrator")}`,
       health: {
         service: "orchestrator-rpc",
         status: "ok" as const,
@@ -223,7 +225,7 @@ async function serviceHealth() {
 
 createRpcServer({
   serviceName: "orchestrator-rpc",
-  port: Number(process.env.PORT ?? servicePorts.orchestrator),
+  port: servicePort("orchestrator"),
   methods: {
     createWorkflow,
     runWorkflow,

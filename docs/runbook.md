@@ -40,6 +40,14 @@ pnpm workflow:polish "优化前端任务状态展示"
 HARNESS_TARGET_PROJECT=apps/mindmap-editor pnpm workflow:requirement "增加脑图节点模板"
 ```
 
+如果默认 RPC 端口被旧容器或其它项目占用，可以用备用端口 profile：
+
+```bash
+HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm workflow:requirement "增加脑图快照"
+```
+
+该命令会将 RPC 服务移到 `4200-4204`，并让浏览器门禁使用 `5176`。
+
 ## 测试
 
 ```bash

@@ -34,6 +34,10 @@ try {
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   await page.goto(targetUrl, { waitUntil: "networkidle" });
+  await page.evaluate(() => {
+    window.localStorage.clear();
+  });
+  await page.reload({ waitUntil: "networkidle" });
   await visible(page.getByRole("heading", { name: "Mind Map Studio" }), "main product heading");
   await visible(page.getByRole("heading", { name: "Map Canvas" }), "map canvas section");
   await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
@@ -50,6 +54,15 @@ try {
 
   await page.getByLabel("Idea title").fill("Browser verified branch");
   await visible(page.getByRole("button", { name: /Browser verified branch/ }).first(), "title edit updates live UI");
+
+  await page.getByRole("button", { name: "Save snapshot" }).click();
+  await visible(page.getByRole("heading", { name: "Snapshots" }), "snapshots section");
+  await visible(page.getByRole("button", { name: "Restore latest snapshot" }), "snapshot restore action appears");
+  await page.getByLabel("Idea title").fill("Temporary browser title");
+  await visible(page.getByRole("button", { name: /Temporary browser title/ }).first(), "temporary title appears before restore");
+  await page.getByRole("button", { name: "Restore latest snapshot" }).click();
+  await visible(page.getByRole("button", { name: /Browser verified branch/ }).first(), "snapshot restores prior title");
+  await visible(page.getByRole("heading", { name: "Recent Activity" }), "recent activity section");
 
   const unlabeledControls = await page.locator("button,input,select,textarea").evaluateAll((controls) =>
     controls

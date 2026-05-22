@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildOutline,
   collectTags,
+  createSnapshot,
   completionScore,
   createChildNode,
   createNode,
@@ -9,6 +10,8 @@ import {
   filterNodes,
   getAncestors,
   getChildren,
+  recentActivity,
+  restoreSnapshot,
   summarizeMap,
   suggestFocusQueue,
   updateNode
@@ -128,5 +131,47 @@ describe("mind map domain", () => {
     expect(markdown).toContain("- Launch plan (exploring)");
     expect(markdown).toContain("  - Research signals (committed)");
     expect(markdown).toContain("Notes: Coordinate the product launch");
+  });
+
+  it("creates restorable snapshots without sharing mutable node arrays", () => {
+    const snapshot = createSnapshot({
+      nodes,
+      selectedId: "story",
+      label: "  Launch checkpoint  ",
+      id: "snap-1",
+      createdAt: "2026-05-23T05:00:00.000Z"
+    });
+
+    const restored = restoreSnapshot(snapshot);
+    restored.nodes[0].tags.push("mutated");
+
+    expect(snapshot.label).toBe("Launch checkpoint");
+    expect(snapshot.selectedId).toBe("story");
+    expect(restored.selectedId).toBe("story");
+    expect(snapshot.nodes[0].tags).not.toContain("mutated");
+  });
+
+  it("falls back to a valid selected node when restoring snapshots", () => {
+    const snapshot = createSnapshot({
+      nodes,
+      selectedId: "missing",
+      id: "snap-2",
+      createdAt: "2026-05-23T05:30:00.000Z"
+    });
+
+    expect(snapshot.selectedId).toBe("root");
+    expect(restoreSnapshot(snapshot).selectedId).toBe("root");
+  });
+
+  it("summarizes recent activity by newest node update", () => {
+    const activity = recentActivity(nodes, 2);
+
+    expect(activity).toHaveLength(2);
+    expect(activity[0]).toMatchObject({
+      nodeId: "root",
+      title: "Launch plan",
+      status: "exploring"
+    });
+    expect(activity[1]?.summary).toBe("Interview notes and market scans");
   });
 });

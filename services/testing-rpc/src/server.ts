@@ -1,7 +1,7 @@
 import {
   asRecord,
   createRpcServer,
-  servicePorts,
+  servicePort,
   type ServiceHealth,
 } from "@harness/shared";
 import { runBrowserQualityCheck } from "./browser-quality.js";
@@ -10,7 +10,7 @@ import { runHarnessValidation } from "./test-runner.js";
 
 createRpcServer({
   serviceName: "testing-rpc",
-  port: Number(process.env.PORT ?? servicePorts.testing),
+  port: servicePort("testing"),
   methods: {
     runTests: (params) => runHarnessValidation(params, { browserQualityRunner: runBrowserQualityCheck }),
     parseLogs: (params) => {

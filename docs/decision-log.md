@@ -35,3 +35,9 @@
 - 决策：testing-rpc 的验证结果必须包含真实浏览器质量检查，覆盖页面可见性、基础交互、可访问名称和响应式横向溢出。
 - 原因：仅靠单测和构建无法证明目标产品在浏览器中可用。
 - 取舍：单测通过可注入 runner 避免依赖本机浏览器；真实 workflow 和 `pnpm target:browser` 使用 Playwright Core + Chromium/Chrome。
+
+## 0007 Alternate Port Profile
+
+- 决策：RPC 服务和 workflow runner 支持 `HARNESS_PORT_OFFSET`，真实浏览器检查支持 `HARNESS_BROWSER_TARGET_URL` 推导 Vite 端口。
+- 原因：本地旧容器或其他项目占用默认端口时，Harness 仍需要完成 Skill -> RPC -> 测试 -> 浏览器验证闭环。
+- 取舍：默认端口保持不变；备用 profile 需要显式设置环境变量，例如 `HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176`。

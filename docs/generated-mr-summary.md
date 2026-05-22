@@ -1,4 +1,4 @@
-# MR Summary: Isolate Mind Map Studio Product Sample
+# MR Summary: Implement: 给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹
 
 Type: requirement
 Target Project: apps/mindmap-editor
@@ -6,7 +6,7 @@ Status: passed
 Stage: completed
 
 ## Background
-Replace the previous target sample with a fully isolated Mind Map Studio product under `apps/mindmap-editor`, and add real browser quality validation to the Harness loop.
+给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹
 
 ## Scope
 - Modify the isolated target project at apps/mindmap-editor.
@@ -15,19 +15,22 @@ Replace the previous target sample with a fully isolated Mind Map Studio product
 - Refresh generated MR summary, release notes, and execution records.
 
 ## Changes
-- Replaced the target product with a standalone mind map editor.
-- Added domain tests for nodes, outlines, summaries, focus suggestions, and Markdown export.
-- Added browser quality validation covering visible UI, interaction, accessible names, and responsive overflow.
+- Added local map persistence with safe loading from `localStorage`.
+- Added snapshots with save and restore controls.
+- Added a recent activity trail derived from node update times.
+- Added `HARNESS_PORT_OFFSET` support so RPC services can run on alternate ports during local conflicts.
+- Extended browser quality checks to verify snapshot save/restore and recent activity.
 
 ## Validation
-- Tests: passed via `HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm verify`, including real browser quality validation.
-- Deployment: blocked by Docker Desktop `input/output error` while removing old containers and extracting Chromium image layers.
+- Tests: passed via `pnpm typecheck && pnpm test && pnpm target:build && pnpm target:browser` with score 98.
+- Browser quality: passed on http://localhost:5176.
+- Deployment: healthy on docker-compose-local.
+- Workflow: `run_mphdmxiw_eclrxm1r` completed through the Skill-backed RPC loop on the alternate port profile.
 
 ## Risks
 - Local Docker or port conflicts can block deployment validation.
 - A simulated Agent action may not reflect every real coding failure mode.
 - In-memory service state is reset when orchestrator-rpc restarts; persisted JSON run files are the audit source.
-- Local Docker Desktop currently has a metadata/blob I/O issue; restart Docker Desktop before rerunning Compose on port 5175.
 
 ## Rollback
 - Revert the feature branch or disable the generated workflow route from the orchestrator.

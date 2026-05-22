@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Server } from "node:http";
-import { createRpcServer, type ServiceHealth } from "./index.js";
+import { createRpcServer, harnessPortOffset, servicePort, type ServiceHealth } from "./index.js";
 
 const servers: Server[] = [];
 
@@ -84,3 +84,32 @@ describe("createRpcServer", () => {
   });
 });
 
+describe("servicePort", () => {
+  it("adds HARNESS_PORT_OFFSET to default service ports", () => {
+    const previous = process.env.HARNESS_PORT_OFFSET;
+    process.env.HARNESS_PORT_OFFSET = "100";
+
+    expect(harnessPortOffset()).toBe(100);
+    expect(servicePort("orchestrator", undefined)).toBe(4200);
+    expect(servicePort("testing", undefined)).toBe(4203);
+
+    restoreEnv("HARNESS_PORT_OFFSET", previous);
+  });
+
+  it("prefers explicit PORT over offset", () => {
+    const previous = process.env.HARNESS_PORT_OFFSET;
+    process.env.HARNESS_PORT_OFFSET = "100";
+
+    expect(servicePort("deploy", "4999")).toBe(4999);
+
+    restoreEnv("HARNESS_PORT_OFFSET", previous);
+  });
+});
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}

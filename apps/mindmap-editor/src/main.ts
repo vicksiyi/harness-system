@@ -6,14 +6,18 @@ import {
   collectTags,
   createChildNode,
   createNode,
+  createSnapshot,
   exportMapAsMarkdown,
   filterNodes,
   getAncestors,
   getChildren,
+  recentActivity,
+  restoreSnapshot,
   suggestFocusQueue,
   summarizeMap,
   updateNode,
   type IdeaStatus,
+  type MindMapSnapshot,
   type MindNode
 } from "./domain.js";
 
@@ -23,10 +27,18 @@ interface EditorState {
   query: string;
   tag: string;
   status: IdeaStatus | "all";
+  snapshots: MindMapSnapshot[];
 }
 
-const state: EditorState = {
-  nodes: [
+const storageKeys = {
+  map: "mindmap-studio-state-v1",
+  snapshots: "mindmap-studio-snapshots-v1"
+};
+
+const state: EditorState = initialState();
+
+function seedNodes(): MindNode[] {
+  return [
     createNode({
       id: "idea-launch",
       title: "Launch plan",
@@ -59,15 +71,30 @@ const state: EditorState = {
       y: 240,
       updatedAt: "2026-05-23T00:30:00.000Z"
     })
-  ],
-  selectedId: "idea-launch",
-  query: "",
-  tag: "all",
-  status: "all"
-};
+  ];
+}
+
+function initialState(): EditorState {
+  const saved = loadSavedMap();
+  return {
+    nodes: saved?.nodes ?? seedNodes(),
+    selectedId: saved?.selectedId ?? "idea-launch",
+    query: "",
+    tag: "all",
+    status: "all",
+    snapshots: loadSnapshots()
+  };
+}
 
 function selectedNode(): MindNode {
   return state.nodes.find((node) => node.id === state.selectedId) ?? state.nodes[0];
+}
+
+function commit(nodes: MindNode[], selectedId = state.selectedId): void {
+  state.nodes = nodes;
+  state.selectedId = nodes.some((node) => node.id === selectedId) ? selectedId : nodes[0]?.id ?? "";
+  persistMap();
+  render();
 }
 
 function addRootIdea(): void {
@@ -79,28 +106,147 @@ function addRootIdea(): void {
     y: 420,
     tags: ["new"]
   });
-  state.nodes = [node, ...state.nodes];
-  state.selectedId = id;
-  render();
+  commit([node, ...state.nodes], id);
 }
 
 function addChildIdea(): void {
   const parent = selectedNode();
   const id = `idea-${Date.now().toString(36)}`;
   const child = createChildNode(parent, getChildren(state.nodes, parent.id).length + 1, id);
-  state.nodes = [child, ...state.nodes];
-  state.selectedId = id;
-  render();
+  commit([child, ...state.nodes], id);
 }
 
 function patchSelected(patch: Partial<Omit<MindNode, "id">>): void {
-  state.nodes = state.nodes.map((node) => (node.id === state.selectedId ? updateNode(node, patch) : node));
-  render();
+  commit(state.nodes.map((node) => (node.id === state.selectedId ? updateNode(node, patch) : node)));
 }
 
 function setSelected(id: string): void {
   state.selectedId = id;
+  persistMap();
   render();
+}
+
+function saveSnapshot(): void {
+  const snapshot = createSnapshot({
+    nodes: state.nodes,
+    selectedId: state.selectedId,
+    label: `Checkpoint ${state.snapshots.length + 1}`
+  });
+  state.snapshots = [snapshot, ...state.snapshots].slice(0, 6);
+  persistSnapshots();
+  render();
+}
+
+function restoreSnapshotById(id: string): void {
+  const snapshot = state.snapshots.find((item) => item.id === id);
+  if (!snapshot) {
+    return;
+  }
+  const restored = restoreSnapshot(snapshot);
+  commit(restored.nodes, restored.selectedId);
+}
+
+function resetMap(): void {
+  commit(seedNodes(), "idea-launch");
+}
+
+function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId"> | null {
+  const raw = readStorage(storageKeys.map);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as { nodes?: MindNode[]; selectedId?: string };
+    const nodes = normalizeStoredNodes(parsed.nodes);
+    if (nodes.length === 0) {
+      return null;
+    }
+    return {
+      nodes,
+      selectedId: typeof parsed.selectedId === "string" && nodes.some((node) => node.id === parsed.selectedId) ? parsed.selectedId : nodes[0].id
+    };
+  } catch {
+    return null;
+  }
+}
+
+function loadSnapshots(): MindMapSnapshot[] {
+  const raw = readStorage(storageKeys.snapshots);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as MindMapSnapshot[];
+    return Array.isArray(parsed)
+      ? parsed
+          .map((snapshot) =>
+            createSnapshot({
+              id: snapshot.id,
+              label: snapshot.label,
+              createdAt: snapshot.createdAt,
+              selectedId: snapshot.selectedId,
+              nodes: normalizeStoredNodes(snapshot.nodes)
+            })
+          )
+          .filter((snapshot) => snapshot.nodes.length > 0)
+          .slice(0, 6)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeStoredNodes(value: unknown): MindNode[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is MindNode => Boolean(item && typeof item === "object" && "id" in item && "title" in item))
+    .map((node) =>
+      createNode({
+        id: String(node.id),
+        title: String(node.title),
+        notes: typeof node.notes === "string" ? node.notes : "",
+        tags: Array.isArray(node.tags) ? node.tags.map(String) : [],
+        status: node.status === "exploring" || node.status === "committed" || node.status === "seed" ? node.status : "seed",
+        x: Number(node.x),
+        y: Number(node.y),
+        parentId: typeof node.parentId === "string" ? node.parentId : undefined,
+        updatedAt: typeof node.updatedAt === "string" ? node.updatedAt : undefined
+      })
+    );
+}
+
+function persistMap(): void {
+  writeStorage(
+    storageKeys.map,
+    JSON.stringify({
+      nodes: state.nodes,
+      selectedId: state.selectedId
+    })
+  );
+}
+
+function persistSnapshots(): void {
+  writeStorage(storageKeys.snapshots, JSON.stringify(state.snapshots));
+}
+
+function readStorage(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage may be unavailable in private windows; the editor still works in memory.
+  }
 }
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -128,9 +274,11 @@ function render(): void {
   const summary = summarizeMap(state.nodes);
   const outline = buildOutline(state.nodes);
   const focusQueue = suggestFocusQueue(state.nodes);
+  const activity = recentActivity(state.nodes);
   const ancestors = getAncestors(state.nodes, node.id);
   const children = getChildren(state.nodes, node.id);
   const markdown = exportMapAsMarkdown(state.nodes);
+  const latestSnapshot = state.snapshots[0];
 
   app.innerHTML = `
     <section class="studio">
@@ -142,6 +290,8 @@ function render(): void {
         <div class="actions">
           <button id="add-root" aria-label="Add root idea">Root</button>
           <button id="add-child" aria-label="Add child idea">Child</button>
+          <button id="save-snapshot" aria-label="Save snapshot">Save</button>
+          <button id="reset-map" aria-label="Reset map">Reset</button>
         </div>
       </header>
 
@@ -166,6 +316,25 @@ function render(): void {
             <div><span>Leaves</span><strong>${summary.leaves}</strong></div>
             <div><span>Done</span><strong>${summary.completion}</strong></div>
           </div>
+
+          <section class="activity-panel">
+            <div class="section-head">
+              <h2>Recent Activity</h2>
+              <span>${activity.length}</span>
+            </div>
+            <ol class="activity-list">
+              ${activity
+                .map(
+                  (item) => `
+                    <li>
+                      <strong>${escapeHtml(item.title)}</strong>
+                      <span>${item.status} · ${new Date(item.updatedAt).toLocaleString()}</span>
+                    </li>
+                  `
+                )
+                .join("")}
+            </ol>
+          </section>
 
           <div class="node-list">
             ${
@@ -267,6 +436,30 @@ function render(): void {
 
           <section class="context-panel">
             <div class="section-head">
+              <h2>Snapshots</h2>
+              <span>${state.snapshots.length}</span>
+            </div>
+            ${
+              latestSnapshot
+                ? `<button id="restore-latest" class="wide-button" aria-label="Restore latest snapshot">Restore ${escapeHtml(latestSnapshot.label)}</button>`
+                : `<p>No snapshots saved.</p>`
+            }
+            <div class="snapshot-list">
+              ${state.snapshots
+                .map(
+                  (snapshot) => `
+                    <button class="snapshot-row" data-snapshot-id="${snapshot.id}">
+                      <strong>${escapeHtml(snapshot.label)}</strong>
+                      <span>${new Date(snapshot.createdAt).toLocaleString()} · ${snapshot.nodes.length} ideas</span>
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>
+          </section>
+
+          <section class="context-panel">
+            <div class="section-head">
               <h2>Focus Queue</h2>
               <span>${focusQueue.length}</span>
             </div>
@@ -291,6 +484,13 @@ function render(): void {
 
   byId<HTMLButtonElement>("add-root").addEventListener("click", addRootIdea);
   byId<HTMLButtonElement>("add-child").addEventListener("click", addChildIdea);
+  byId<HTMLButtonElement>("save-snapshot").addEventListener("click", saveSnapshot);
+  byId<HTMLButtonElement>("reset-map").addEventListener("click", resetMap);
+  document.getElementById("restore-latest")?.addEventListener("click", () => {
+    if (state.snapshots[0]) {
+      restoreSnapshotById(state.snapshots[0].id);
+    }
+  });
   byId<HTMLInputElement>("query").addEventListener("input", (event) => {
     state.query = (event.target as HTMLInputElement).value;
     render();
@@ -319,6 +519,13 @@ function render(): void {
     button.addEventListener("click", () => {
       if (button.dataset.nodeId) {
         setSelected(button.dataset.nodeId);
+      }
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-snapshot-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.snapshotId) {
+        restoreSnapshotById(button.dataset.snapshotId);
       }
     });
   });
