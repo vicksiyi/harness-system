@@ -8,6 +8,8 @@ coverage/
 .harness/logs/*.log
 .harness/runs/*.json
 .harness/browser/
+.harness/mindmap/
+**/.harness/mindmap/
 .harness/tmp/
 
 # Local environment

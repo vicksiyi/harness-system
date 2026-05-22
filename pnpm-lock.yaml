@@ -30,7 +30,11 @@ importers:
         specifier: ^3.1.4
         version: 3.2.4(@types/node@22.19.19)(tsx@4.22.3)
 
-  apps/mindmap-editor: {}
+  apps/mindmap-editor:
+    dependencies:
+      '@harness/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   packages/rpc-client:
     dependencies:
@@ -53,6 +57,12 @@ importers:
         version: link:../../packages/shared
 
   services/deploy-rpc:
+    dependencies:
+      '@harness/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+
+  services/mindmap-rpc:
     dependencies:
       '@harness/shared':
         specifier: workspace:*

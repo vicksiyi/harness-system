@@ -19,7 +19,8 @@ function deploy(params: unknown): DeploymentResult {
     healthChecks: [
       { name: "compose-file", ok: true, detail: "docker-compose.yml is present in the repository root." },
       { name: "service-health", ok: true, detail: "All RPC services expose GET /health." },
-      { name: "target-app", ok: true, detail: "The isolated mind map editor target is configured for port 5175." }
+      { name: "target-app", ok: true, detail: "The isolated mind map editor target is configured for port 5175." },
+      { name: "target-rpc", ok: true, detail: "The isolated mind map RPC target is configured for port 4105 and SQLite storage." }
     ]
   };
 }
@@ -33,6 +34,7 @@ createRpcServer({
       checks: ["docker compose config", "pnpm verify", "pnpm target:browser", "pnpm health"],
       requiredPorts: [
         servicePorts.mindmapEditor,
+        servicePorts.mindmap,
         servicePorts.orchestrator,
         servicePorts.requirements,
         servicePorts.coding,

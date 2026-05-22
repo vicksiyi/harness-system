@@ -30,6 +30,7 @@ Harness System 用于验证 Codex / Agent 的端到端研发闭环能力。它�
 - 测试、日志、失败修复：读 `services/testing-rpc/AGENTS.md`
 - 部署：读 `services/deploy-rpc/AGENTS.md`
 - 被 Agent 修改的产品需求：读 `apps/mindmap-editor/AGENTS.md`
+- 产品后端、多文件和数据库需求：读 `apps/mindmap-editor/AGENTS.md` 后继续读 `services/mindmap-rpc/AGENTS.md`
 - 文档和发布记录：读 `docs/AGENTS.md`
 
 ## 修改注意事项

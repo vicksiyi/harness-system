@@ -12,15 +12,20 @@ const args = parseArgs(process.argv.slice(2));
 const runId = args["run-id"] ?? `browser_${Date.now().toString(36)}`;
 const targetProject = args.target ?? process.env.HARNESS_TARGET_PROJECT ?? "apps/mindmap-editor";
 const targetUrl = args.url ?? process.env.HARNESS_BROWSER_TARGET_URL ?? "http://localhost:5175";
+const mindmapRpcUrl = args["mindmap-rpc-url"] ?? process.env.MINDMAP_RPC_URL ?? "http://localhost:4105";
 const artifactDir = resolve(root, ".harness", "browser");
 const checks = [];
 const rawLog = [];
 
 let devServer;
+let mindmapRpcServer;
 let browser;
 
 try {
   await mkdir(artifactDir, { recursive: true });
+  const rpcAvailability = await ensureServiceAvailable(mindmapRpcUrl, "@target/mindmap-rpc", "mindmap-rpc");
+  mindmapRpcServer = rpcAvailability.devServer;
+  record("mindmap rpc reachable", true, `mindmap-rpc served at ${mindmapRpcUrl}`);
   const availability = await ensureTargetAvailable(targetUrl);
   devServer = availability.devServer;
   record("target reachable", true, `${targetProject} served at ${targetUrl}`);
@@ -40,6 +45,11 @@ try {
   await page.reload({ waitUntil: "networkidle" });
   await visible(page.getByRole("heading", { name: "Mind Map Studio" }), "main product heading");
   await visible(page.getByRole("heading", { name: "Map Canvas" }), "map canvas section");
+  await visible(page.getByRole("heading", { name: "Map Files" }), "map files section");
+  await visible(page.getByText(/SQLite|RPC/).first(), "mindmap rpc status");
+  await page.getByRole("button", { name: "Create map file" }).click();
+  await page.waitForFunction(() => document.querySelectorAll("[data-map-file-id]").length > 0);
+  record("database map file creation", true, "front-end created a SQLite-backed map through mindmap-rpc");
   await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
   await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");
   await visible(page.getByRole("heading", { name: "Markdown Export" }), "markdown export section");
@@ -261,7 +271,7 @@ try {
   record("mobile visual screenshot", true, screenshotPath);
 
   const passed = checks.every((check) => check.ok);
-  const result = finish(passed, screenshotPath, availability.started);
+  const result = finish(passed, screenshotPath, availability.started || rpcAvailability.started);
   await writeFile(join(artifactDir, `${runId}-quality.json`), `${JSON.stringify(result, null, 2)}\n`, "utf8");
   console.log(JSON.stringify(result, null, 2));
   if (!passed) {
@@ -270,7 +280,7 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : "Unknown browser quality failure";
   record("browser quality failed", false, message);
-  const result = finish(false, undefined, Boolean(devServer), message);
+  const result = finish(false, undefined, Boolean(devServer) || Boolean(mindmapRpcServer), message);
   await mkdir(artifactDir, { recursive: true });
   await writeFile(join(artifactDir, `${runId}-quality.json`), `${JSON.stringify(result, null, 2)}\n`, "utf8");
   console.log(JSON.stringify(result, null, 2));
@@ -281,6 +291,9 @@ try {
   }
   if (devServer) {
     devServer.kill("SIGTERM");
+  }
+  if (mindmapRpcServer) {
+    mindmapRpcServer.kill("SIGTERM");
   }
 }
 
@@ -313,6 +326,11 @@ function finish(passed, screenshotPath, startedServer, failure) {
 }
 
 async function ensureTargetAvailable(url) {
+  const port = new URL(url).port || "5175";
+  return ensureServiceAvailable(url, "@target/mindmap-editor", "target-dev", ["--", "--port", port]);
+}
+
+async function ensureServiceAvailable(url, filter, label, extraArgs = []) {
   if (await isReachable(url)) {
     return { started: false };
   }
@@ -320,15 +338,17 @@ async function ensureTargetAvailable(url) {
   const host = new URL(url).hostname;
   const canStartLocalServer = ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(host);
   if (!canStartLocalServer || args["no-start"] === "1") {
-    throw new Error(`Target app is not reachable at ${url}`);
+    throw new Error(`${label} is not reachable at ${url}`);
   }
 
-  const logPath = join(artifactDir, `${runId}-target-dev.log`);
+  const logPath = join(artifactDir, `${runId}-${label}.log`);
   const stream = createWriteStream(logPath, { flags: "a" });
-  const port = new URL(url).port || "5175";
-  const proc = spawn("pnpm", ["--filter", "@target/mindmap-editor", "dev", "--", "--port", port], {
+  const proc = spawn("pnpm", ["--filter", filter, "dev", ...extraArgs], {
     cwd: root,
-    env: process.env,
+    env: {
+      ...process.env,
+      VITE_MINDMAP_RPC_URL: process.env.VITE_MINDMAP_RPC_URL ?? mindmapRpcUrl
+    },
     stdio: ["ignore", "pipe", "pipe"]
   });
   proc.stdout.pipe(stream);
@@ -343,7 +363,7 @@ async function ensureTargetAvailable(url) {
   }
 
   proc.kill("SIGTERM");
-  throw new Error(`Target app did not become reachable at ${url}; see ${logPath}`);
+  throw new Error(`${label} did not become reachable at ${url}; see ${logPath}`);
 }
 
 async function isReachable(url) {
@@ -352,7 +372,11 @@ async function isReachable(url) {
     const timeout = setTimeout(() => controller.abort(), 1500);
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
-    return response.ok;
+    if (response.ok) {
+      return true;
+    }
+    const healthResponse = await fetch(`${url.replace(/\/$/, "")}/health`);
+    return healthResponse.ok;
   } catch {
     return false;
   }

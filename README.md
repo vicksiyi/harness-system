@@ -26,6 +26,7 @@ pnpm workflow:polish "优化前端任务状态展示"
 pnpm install
 pnpm dev:services
 pnpm target:dev
+pnpm target:rpc
 ```
 
 Target product: http://localhost:5175
@@ -37,11 +38,13 @@ RPC services:
 - Coding: http://localhost:4102
 - Testing: http://localhost:4103
 - Deploy: http://localhost:4104
+- Mind Map product RPC: http://localhost:4105
 
 Target app commands:
 
 ```bash
 pnpm target:dev
+pnpm target:rpc
 pnpm target:test
 pnpm target:build
 pnpm target:browser

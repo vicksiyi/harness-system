@@ -1,4 +1,4 @@
-# Release Notes: Implement: 给脑图编辑器增加 Undo Redo 编辑历史，并用浏览器验证回退和重做
+# Release Notes: Implement: 支持打开不同脑图文件，使用 mindmap-rpc 和 SQLite 数据库存储，并通过浏览器验证 RPC 创建文件
 
 - Workflow type: requirement
 - Target project: apps/mindmap-editor
@@ -7,8 +7,8 @@
 - Deployment: healthy
 
 ## Operator Notes
-- Mind Map Studio now has Undo/Redo controls in both the topbar and Inspector.
-- Browser quality validates a real title edit, Undo restoration, and Redo restoration before continuing Canvas checks.
-- Full verification passed with 49 tests.
-- Inspect `.harness/runs/run_mphfbr0x_3akzdi1k.json` for the full JSON execution record.
-- Next planned product work: database-backed multi-file maps, DIFF collaboration, richer import/export, and infinite canvas.
+- Mind Map Studio now uses `mindmap-rpc` and local SQLite for multi-file map storage.
+- The front end can create, open, and save database-backed map files from the `Map Files` panel.
+- Browser quality starts/checks `mindmap-rpc` and verifies UI-driven SQLite file creation.
+- Full verification passed with 52 tests; `docker compose config` recognizes `mindmap-rpc` on port 4105.
+- Inspect `.harness/runs/run_mphfsvb0_a9md6fxw.json` for the full JSON execution record.

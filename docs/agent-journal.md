@@ -247,3 +247,24 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphfb9ay-desktop-connectors-mindmap-editor.png` 和 `.harness/browser/browser_mphfb9ay-mobile-mindmap-editor.png`，确认按钮区、历史区、移动端布局和 Canvas 连线正常。
 - 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphfbr0x_3akzdi1k` 通过。
 - 新增路线：接下来按用户要求依次做多脑图文件 + 数据库 + RPC 后端、DIFF 协同、完善导入导出、无限画布，然后继续自主闭环。
+
+## Run run_mphfsvb0_a9md6fxw
+
+- At: 2026-05-22T21:33:57.512Z
+- Type: requirement
+- Prompt: 支持打开不同脑图文件，使用 mindmap-rpc 和 SQLite 数据库存储，并通过浏览器验证 RPC 创建文件
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Multi File SQLite RPC Loop
+
+- At: 2026-05-23
+- 目标：让 Mind Map Studio 支持打开不同脑图文件，并把文件存入产品后端 `mindmap-rpc` 的 SQLite 数据库。
+- 已完成：新增 `mindmap-rpc` 服务、SQLite schema 和事务存储、乐观版本号、前端 RPC 客户端、Map Files 面板、创建/打开/保存文件能力、Docker Compose 服务和健康检查。
+- 失败与修复：浏览器门禁最初误判 `mindmap-rpc` 不可达；读取日志发现服务已启动，根因是门禁只探测 `/`，已修成失败后探测 `/health`。
+- 视觉复核：已读取 `.harness/browser/browser_mphfscfp-desktop-connectors-mindmap-editor.png` 和 `.harness/browser/browser_mphfscfp-mobile-mindmap-editor.png`，确认 Map Files 面板、移动端布局和 Canvas 连线正常。
+- 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`、`docker compose config` 和 workflow `run_mphfsvb0_a9md6fxw` 通过。
+- 下一步：按用户路线进入需求 2，在当前文件内实现 DIFF 模式协同和多端统一。

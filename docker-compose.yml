@@ -40,11 +40,14 @@ services:
       PORT: "4103"
       HARNESS_ROOT: /app
       HARNESS_BROWSER_TARGET_URL: http://mindmap-editor:5175
+      MINDMAP_RPC_URL: http://mindmap-rpc:4105
       PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/chromium
     ports:
       - "${TESTING_PORT:-4103}:4103"
     depends_on:
       mindmap-editor:
+        condition: service_healthy
+      mindmap-rpc:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4103/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -64,6 +67,23 @@ services:
       - "${DEPLOY_PORT:-4104}:4104"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4104/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mindmap-rpc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["pnpm", "--filter", "@target/mindmap-rpc", "start"]
+    environment:
+      PORT: "4105"
+      HARNESS_ROOT: /app
+      MINDMAP_DB_PATH: /app/.harness/mindmap/mindmaps.sqlite
+    ports:
+      - "${MINDMAP_RPC_PORT:-4105}:4105"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4105/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -91,6 +111,8 @@ services:
         condition: service_healthy
       deploy-rpc:
         condition: service_healthy
+      mindmap-rpc:
+        condition: service_healthy
       mindmap-editor:
         condition: service_healthy
     healthcheck:
@@ -104,8 +126,13 @@ services:
       context: .
       dockerfile: Dockerfile
     command: ["pnpm", "--filter", "@target/mindmap-editor", "dev"]
+    environment:
+      VITE_MINDMAP_RPC_URL: http://mindmap-rpc:4105
     ports:
       - "${MINDMAP_EDITOR_PORT:-5175}:5175"
+    depends_on:
+      mindmap-rpc:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:5175').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s

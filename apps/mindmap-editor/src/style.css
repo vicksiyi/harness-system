@@ -65,6 +65,7 @@ label,
 .focus-list span,
 .activity-list span,
 .snapshot-row span,
+.file-row span,
 .command-row small {
   color: #607086;
   font-size: 12px;
@@ -228,6 +229,8 @@ label,
 .outline-list,
 .activity-list,
 .snapshot-list,
+.file-list,
+.file-actions,
 .transfer-actions {
   display: grid;
   gap: 8px;
@@ -261,6 +264,7 @@ label {
 
 .summary-grid div,
 .activity-panel,
+.file-panel,
 .context-panel,
 .outline-panel {
   border: 1px solid #dce4ef;
@@ -276,6 +280,7 @@ label {
 }
 
 .node-row,
+.file-row,
 .snapshot-row,
 .wide-button {
   display: grid;
@@ -301,13 +306,55 @@ label {
 }
 
 .node-row span,
+.file-row strong,
 .snapshot-row strong {
   font-weight: 850;
 }
 
-.node-row.selected {
+.node-row.selected,
+.file-row.selected {
   border-color: #0f766e;
   background: #ecfdf5;
+}
+
+.file-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.file-actions button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: #0f766e;
+  color: #fff;
+  font-weight: 850;
+}
+
+.file-actions button:disabled {
+  cursor: not-allowed;
+  background: #94a3b8;
+}
+
+.remote-status {
+  margin-bottom: 0;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 9px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.remote-status.saved,
+.remote-status.online {
+  background: #ecfdf5;
+  color: #0f766e;
+}
+
+.remote-status.error,
+.remote-status.offline {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .canvas-panel {

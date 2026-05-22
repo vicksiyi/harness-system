@@ -34,6 +34,8 @@ import {
   type MindMapSnapshot,
   type MindNode
 } from "./domain.js";
+import { createRemoteMap, getRemoteMap, listRemoteMaps, saveRemoteMap } from "./rpc.js";
+import type { MindMapFileDocument, MindMapFileSummary, StoredMindNode } from "@harness/shared";
 
 interface EditorState {
   nodes: MindNode[];
@@ -47,6 +49,12 @@ interface EditorState {
   importJson: string;
   importResult: MindMapImportResult | null;
   history: MindMapHistory;
+  mapId: string | null;
+  mapTitle: string;
+  mapVersion: number;
+  mapFiles: MindMapFileSummary[];
+  rpcStatus: "checking" | "online" | "saving" | "saved" | "offline" | "error";
+  rpcMessage: string;
 }
 
 const storageKeys = {
@@ -55,6 +63,8 @@ const storageKeys = {
 };
 
 const state: EditorState = initialState();
+let remoteSaveTimer: number | null = null;
+let applyingRemoteMap = false;
 let dragState:
   | {
       nodeId: string;
@@ -118,7 +128,13 @@ function initialState(): EditorState {
     commandQuery: "",
     importJson: "",
     importResult: null,
-    history: createEmptyHistory()
+    history: createEmptyHistory(),
+    mapId: saved?.mapId ?? null,
+    mapTitle: saved?.mapTitle ?? "Launch workspace",
+    mapVersion: saved?.mapVersion ?? 0,
+    mapFiles: [],
+    rpcStatus: "checking",
+    rpcMessage: "Connecting to SQLite RPC"
   };
 }
 
@@ -131,6 +147,7 @@ function commit(nodes: MindNode[], selectedId = state.selectedId, label = "Edit 
   state.nodes = nodes;
   state.selectedId = nodes.some((node) => node.id === selectedId) ? selectedId : nodes[0]?.id ?? "";
   persistMap();
+  scheduleRemoteSave();
   render();
 }
 
@@ -200,6 +217,146 @@ function redoMapEdit(): void {
   applyHistoryFrame(result.frame);
 }
 
+function scheduleRemoteSave(): void {
+  if (applyingRemoteMap || !state.mapId) {
+    return;
+  }
+  if (remoteSaveTimer !== null) {
+    window.clearTimeout(remoteSaveTimer);
+  }
+  remoteSaveTimer = window.setTimeout(() => {
+    void saveCurrentRemoteMap();
+  }, 350);
+}
+
+async function initializeRemoteLibrary(): Promise<void> {
+  try {
+    state.rpcStatus = "checking";
+    state.rpcMessage = "Connecting to SQLite RPC";
+    render();
+    const files = await listRemoteMaps();
+    state.mapFiles = files;
+    if (state.mapId && files.some((file) => file.id === state.mapId)) {
+      await openRemoteMap(state.mapId);
+      return;
+    }
+    if (files.length > 0) {
+      await openRemoteMap(files[0].id);
+      return;
+    }
+    const created = await createRemoteMap(remoteInput());
+    applyRemoteMap(created, "Created first SQLite map file");
+  } catch (error) {
+    state.rpcStatus = "offline";
+    state.rpcMessage = error instanceof Error ? error.message : "Mind map RPC is offline";
+    render();
+  }
+}
+
+async function createMapFile(): Promise<void> {
+  try {
+    state.rpcStatus = "saving";
+    state.rpcMessage = "Creating SQLite map file";
+    render();
+    const created = await createRemoteMap({
+      ...remoteInput(),
+      title: nextMapTitle()
+    });
+    applyRemoteMap(created, "Created new SQLite map file");
+  } catch (error) {
+    state.rpcStatus = "error";
+    state.rpcMessage = error instanceof Error ? error.message : "Could not create map file";
+    render();
+  }
+}
+
+async function openRemoteMap(id: string): Promise<void> {
+  try {
+    state.rpcStatus = "checking";
+    state.rpcMessage = "Opening SQLite map file";
+    render();
+    const document = await getRemoteMap(id);
+    if (!document) {
+      throw new Error("Mind map file was not found.");
+    }
+    applyRemoteMap(document, `Opened ${document.title}`);
+  } catch (error) {
+    state.rpcStatus = "error";
+    state.rpcMessage = error instanceof Error ? error.message : "Could not open map file";
+    render();
+  }
+}
+
+async function saveCurrentRemoteMap(): Promise<void> {
+  if (!state.mapId) {
+    return;
+  }
+  try {
+    state.rpcStatus = "saving";
+    state.rpcMessage = "Saving to SQLite";
+    render();
+    const saved = await saveRemoteMap({
+      ...remoteInput(),
+      id: state.mapId,
+      baseVersion: state.mapVersion || undefined
+    });
+    applyRemoteMetadata(saved, "Saved to SQLite");
+  } catch (error) {
+    state.rpcStatus = "error";
+    state.rpcMessage = error instanceof Error ? error.message : "Could not save map file";
+    render();
+  }
+}
+
+function applyRemoteMap(document: MindMapFileDocument, message: string): void {
+  applyingRemoteMap = true;
+  state.mapId = document.id;
+  state.mapTitle = document.title;
+  state.mapVersion = document.version;
+  state.nodes = normalizeStoredNodes(document.nodes);
+  state.selectedId = state.nodes.some((node) => node.id === document.selectedId) ? document.selectedId : state.nodes[0]?.id ?? "";
+  state.history = createEmptyHistory();
+  state.rpcStatus = "saved";
+  state.rpcMessage = message;
+  state.mapFiles = [summaryFromDocument(document), ...state.mapFiles.filter((file) => file.id !== document.id)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  persistMap();
+  render();
+  applyingRemoteMap = false;
+}
+
+function applyRemoteMetadata(document: MindMapFileDocument, message: string): void {
+  state.mapId = document.id;
+  state.mapTitle = document.title;
+  state.mapVersion = document.version;
+  state.rpcStatus = "saved";
+  state.rpcMessage = message;
+  state.mapFiles = [summaryFromDocument(document), ...state.mapFiles.filter((file) => file.id !== document.id)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  persistMap();
+  render();
+}
+
+function remoteInput(): { title: string; selectedId: string; nodes: StoredMindNode[] } {
+  return {
+    title: state.mapTitle,
+    selectedId: state.selectedId,
+    nodes: state.nodes.map((node) => ({ ...node, tags: [...node.tags] }))
+  };
+}
+
+function summaryFromDocument(document: MindMapFileDocument): MindMapFileSummary {
+  const { nodes: _nodes, ...summary } = document;
+  return summary;
+}
+
+function nextMapTitle(): string {
+  return `Mind map ${state.mapFiles.length + 1}`;
+}
+
+function normalizeMapTitle(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  return normalized || "Untitled map";
+}
+
 function addRootIdea(): void {
   const id = `idea-${Date.now().toString(36)}`;
   const node = createNode({
@@ -226,6 +383,7 @@ function patchSelected(patch: Partial<Omit<MindNode, "id">>): void {
 function setSelected(id: string): void {
   state.selectedId = id;
   persistMap();
+  scheduleRemoteSave();
   render();
 }
 
@@ -368,21 +526,24 @@ function commandCatalog(): CommandDefinition[] {
   });
 }
 
-function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId"> | null {
+function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "mapTitle" | "mapVersion"> | null {
   const raw = readStorage(storageKeys.map);
   if (!raw) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(raw) as { nodes?: MindNode[]; selectedId?: string };
+    const parsed = JSON.parse(raw) as { nodes?: MindNode[]; selectedId?: string; mapId?: string | null; mapTitle?: string; mapVersion?: number };
     const nodes = normalizeStoredNodes(parsed.nodes);
     if (nodes.length === 0) {
       return null;
     }
     return {
       nodes,
-      selectedId: typeof parsed.selectedId === "string" && nodes.some((node) => node.id === parsed.selectedId) ? parsed.selectedId : nodes[0].id
+      selectedId: typeof parsed.selectedId === "string" && nodes.some((node) => node.id === parsed.selectedId) ? parsed.selectedId : nodes[0].id,
+      mapId: typeof parsed.mapId === "string" ? parsed.mapId : null,
+      mapTitle: typeof parsed.mapTitle === "string" ? parsed.mapTitle : "Launch workspace",
+      mapVersion: typeof parsed.mapVersion === "number" ? parsed.mapVersion : 0
     };
   } catch {
     return null;
@@ -442,7 +603,10 @@ function persistMap(): void {
     storageKeys.map,
     JSON.stringify({
       nodes: state.nodes,
-      selectedId: state.selectedId
+      selectedId: state.selectedId,
+      mapId: state.mapId,
+      mapTitle: state.mapTitle,
+      mapVersion: state.mapVersion
     })
   );
 }
@@ -601,6 +765,7 @@ function endNodeDrag(event: PointerEvent): void {
   }
   dragState = null;
   persistMap();
+  scheduleRemoteSave();
   render();
 }
 
@@ -625,6 +790,7 @@ function render(): void {
   const commands = filterCommands(commandCatalog(), state.commandQuery);
   const canvasWidth = Math.max(1040, ...state.nodes.map((item) => item.x + 230));
   const canvasHeight = Math.max(520, ...state.nodes.map((item) => item.y + 120));
+  const rpcLabel = state.rpcStatus === "saved" || state.rpcStatus === "online" ? "RPC online" : state.rpcStatus === "offline" ? "RPC offline" : state.rpcStatus;
 
   app.innerHTML = `
     <section class="studio">
@@ -691,6 +857,38 @@ function render(): void {
                 .join("")}
             </select>
           </div>
+
+          <section class="file-panel" aria-label="Map files">
+            <div class="section-head">
+              <h2>Map Files</h2>
+              <span>${escapeHtml(rpcLabel)}</span>
+            </div>
+            <label>
+              File title
+              <input id="map-title-input" aria-label="Map file title" value="${escapeHtml(state.mapTitle)}" />
+            </label>
+            <div class="file-actions">
+              <button id="create-map-file" aria-label="Create map file">New file</button>
+              <button id="save-map-file" aria-label="Save map file" ${state.mapId ? "" : "disabled"}>Save file</button>
+            </div>
+            <p class="remote-status ${state.rpcStatus}">${escapeHtml(state.rpcMessage)}</p>
+            <div class="file-list">
+              ${
+                state.mapFiles.length
+                  ? state.mapFiles
+                      .map(
+                        (file) => `
+                          <button class="file-row ${file.id === state.mapId ? "selected" : ""}" data-map-file-id="${file.id}">
+                            <strong>${escapeHtml(file.title)}</strong>
+                            <span>${file.nodeCount} ideas · v${file.version}</span>
+                          </button>
+                        `
+                      )
+                      .join("")
+                  : `<p class="empty">No database files loaded.</p>`
+              }
+            </div>
+          </section>
 
           <div class="summary-grid" aria-label="Map summary">
             <div><span>Ideas</span><strong>${summary.total}</strong></div>
@@ -904,6 +1102,18 @@ function render(): void {
   byId<HTMLButtonElement>("reset-map").addEventListener("click", resetMap);
   byId<HTMLButtonElement>("history-undo").addEventListener("click", undoMapEdit);
   byId<HTMLButtonElement>("history-redo").addEventListener("click", redoMapEdit);
+  byId<HTMLButtonElement>("create-map-file").addEventListener("click", () => {
+    void createMapFile();
+  });
+  byId<HTMLButtonElement>("save-map-file").addEventListener("click", () => {
+    void saveCurrentRemoteMap();
+  });
+  byId<HTMLInputElement>("map-title-input").addEventListener("change", (event) => {
+    state.mapTitle = normalizeMapTitle((event.target as HTMLInputElement).value);
+    persistMap();
+    scheduleRemoteSave();
+    render();
+  });
   byId<HTMLButtonElement>("preview-import").addEventListener("click", () => previewImport());
   byId<HTMLButtonElement>("apply-import").addEventListener("click", applyImport);
   byId<HTMLTextAreaElement>("json-import").addEventListener("input", (event) => {
@@ -926,6 +1136,13 @@ function render(): void {
     if (state.snapshots[0]) {
       restoreSnapshotById(state.snapshots[0].id);
     }
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-map-file-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.mapFileId) {
+        void openRemoteMap(button.dataset.mapFileId);
+      }
+    });
   });
   byId<HTMLInputElement>("query").addEventListener("input", (event) => {
     state.query = (event.target as HTMLInputElement).value;
@@ -1070,3 +1287,4 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 render();
+void initializeRemoteLibrary();

@@ -116,6 +116,40 @@ export interface DeploymentResult {
   rollbackSuggestion?: string;
 }
 
+export interface StoredMindNode {
+  id: string;
+  title: string;
+  notes: string;
+  tags: string[];
+  status: "seed" | "exploring" | "committed";
+  x: number;
+  y: number;
+  parentId?: string;
+  updatedAt: string;
+}
+
+export interface MindMapFileSummary {
+  id: string;
+  title: string;
+  selectedId: string;
+  nodeCount: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MindMapFileDocument extends MindMapFileSummary {
+  nodes: StoredMindNode[];
+}
+
+export interface MindMapSaveInput {
+  id: string;
+  title: string;
+  selectedId: string;
+  nodes: StoredMindNode[];
+  baseVersion?: number;
+}
+
 export interface WorkflowRun {
   id: string;
   type: WorkflowType;
@@ -182,6 +216,7 @@ export const servicePorts = {
   coding: 4102,
   testing: 4103,
   deploy: 4104,
+  mindmap: 4105,
   mindmapEditor: 5175
 } as const;
 
