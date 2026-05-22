@@ -1,13 +1,13 @@
-# Release Notes: Fix: 移动端脑图节点截图显示被截断，浏览器门禁需要输出并检查桌面和移动截图
+# Release Notes: Implement: 给脑图编辑器增加 JSON 导入导出和导入预览
 
-- Workflow type: bugfix
+- Workflow type: requirement
 - Target project: apps/mindmap-editor
 - Result: passed
 - Score: 100
 - Deployment: healthy
 
 ## Operator Notes
-- `pnpm target:browser` now emits both desktop and mobile screenshots.
-- Codex should inspect those screenshots as part of visual QA.
-- Mobile map nodes now stack inside the visible canvas instead of being clipped horizontally.
-- Inspect `.harness/runs/run_mphe8410_4fygji8e.json` for the full JSON execution record.
+- Mind Map Studio now includes a `JSON Transfer` panel.
+- JSON import is previewed before Apply and creates a safety snapshot before replacing the map.
+- Browser quality validates JSON import preview/apply and emits desktop/mobile screenshots.
+- Inspect `.harness/runs/run_mphee81h_xyq47wgr.json` for the full JSON execution record.

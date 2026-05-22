@@ -9,17 +9,20 @@ import {
   createNode,
   createSnapshot,
   exportMapAsMarkdown,
+  exportMapAsJson,
   filterCommands,
   filterNodes,
   getAncestors,
   getChildren,
   recentActivity,
+  parseMindMapJson,
   restoreSnapshot,
   suggestFocusQueue,
   summarizeMap,
   updateNode,
   type IdeaStatus,
   type CommandDefinition,
+  type MindMapImportResult,
   type MindMapSnapshot,
   type MindNode
 } from "./domain.js";
@@ -33,6 +36,8 @@ interface EditorState {
   snapshots: MindMapSnapshot[];
   commandPaletteOpen: boolean;
   commandQuery: string;
+  importJson: string;
+  importResult: MindMapImportResult | null;
 }
 
 const storageKeys = {
@@ -89,7 +94,9 @@ function initialState(): EditorState {
     status: "all",
     snapshots: loadSnapshots(),
     commandPaletteOpen: false,
-    commandQuery: ""
+    commandQuery: "",
+    importJson: "",
+    importResult: null
   };
 }
 
@@ -157,6 +164,31 @@ function resetMap(): void {
   commit(seedNodes(), "idea-launch");
 }
 
+function previewImport(value = state.importJson): void {
+  state.importJson = value;
+  state.importResult = parseMindMapJson(value);
+  render();
+}
+
+function applyImport(): void {
+  const result = state.importResult;
+  if (!result?.ok) {
+    return;
+  }
+  state.importJson = "";
+  state.importResult = null;
+  state.snapshots = [
+    createSnapshot({
+      nodes: state.nodes,
+      selectedId: state.selectedId,
+      label: "Before import"
+    }),
+    ...state.snapshots
+  ].slice(0, 6);
+  persistSnapshots();
+  commit(result.nodes, result.selectedId);
+}
+
 function openCommandPalette(query = ""): void {
   state.commandPaletteOpen = true;
   state.commandQuery = query;
@@ -205,6 +237,21 @@ function runCommand(commandId: string): void {
       exportPreview.select();
       break;
     }
+    case "export-json": {
+      state.commandPaletteOpen = false;
+      state.commandQuery = "";
+      render();
+      const jsonExport = byId<HTMLTextAreaElement>("json-export");
+      jsonExport.focus();
+      jsonExport.select();
+      break;
+    }
+    case "focus-import":
+      state.commandPaletteOpen = false;
+      state.commandQuery = "";
+      render();
+      byId<HTMLTextAreaElement>("json-import").focus();
+      break;
     default:
       break;
   }
@@ -329,6 +376,26 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+function importPreviewMarkup(): string {
+  const result = state.importResult;
+  if (!state.importJson.trim()) {
+    return `<p class="import-muted">Paste exported JSON to preview it before replacing the current map.</p>`;
+  }
+  if (!result) {
+    return `<p class="import-muted">Import preview is waiting for JSON.</p>`;
+  }
+  if (!result.ok) {
+    return `<p class="import-error">${escapeHtml(result.error)}</p>`;
+  }
+  return `
+    <div class="import-preview">
+      <strong>${result.preview.total} ideas · ${result.preview.roots} roots</strong>
+      <span>Selected: ${escapeHtml(result.preview.selectedTitle)}</span>
+      <span>Tags: ${result.preview.tags.join(", ") || "none"}</span>
+    </div>
+  `;
+}
+
 function render(): void {
   const app = byId<HTMLElement>("app");
   const node = selectedNode();
@@ -345,6 +412,7 @@ function render(): void {
   const ancestors = getAncestors(state.nodes, node.id);
   const children = getChildren(state.nodes, node.id);
   const markdown = exportMapAsMarkdown(state.nodes);
+  const jsonExport = exportMapAsJson(state.nodes, state.selectedId);
   const latestSnapshot = state.snapshots[0];
   const commands = filterCommands(commandCatalog(), state.commandQuery);
 
@@ -578,6 +646,26 @@ function render(): void {
             </div>
             <textarea id="markdown-export" aria-label="Markdown export preview" readonly rows="9">${escapeHtml(markdown)}</textarea>
           </section>
+
+          <section class="context-panel">
+            <div class="section-head">
+              <h2>JSON Transfer</h2>
+              <span>${state.importResult?.ok ? "ready" : "local"}</span>
+            </div>
+            <label>
+              Export JSON
+              <textarea id="json-export" aria-label="JSON export preview" readonly rows="7">${escapeHtml(jsonExport)}</textarea>
+            </label>
+            <label>
+              Import JSON
+              <textarea id="json-import" aria-label="JSON import input" rows="6" placeholder="Paste a Mind Map Studio JSON export">${escapeHtml(state.importJson)}</textarea>
+            </label>
+            ${importPreviewMarkup()}
+            <div class="transfer-actions">
+              <button id="preview-import" aria-label="Preview JSON import">Preview</button>
+              <button id="apply-import" aria-label="Apply JSON import" ${state.importResult?.ok ? "" : "disabled"}>Apply</button>
+            </div>
+          </section>
         </aside>
       </section>
     </section>
@@ -588,6 +676,13 @@ function render(): void {
   byId<HTMLButtonElement>("save-snapshot").addEventListener("click", saveSnapshot);
   byId<HTMLButtonElement>("open-commands").addEventListener("click", () => openCommandPalette());
   byId<HTMLButtonElement>("reset-map").addEventListener("click", resetMap);
+  byId<HTMLButtonElement>("preview-import").addEventListener("click", () => previewImport());
+  byId<HTMLButtonElement>("apply-import").addEventListener("click", applyImport);
+  byId<HTMLTextAreaElement>("json-import").addEventListener("input", (event) => {
+    state.importJson = (event.target as HTMLTextAreaElement).value;
+    state.importResult = parseMindMapJson(state.importJson);
+    render();
+  });
   document.querySelectorAll<HTMLButtonElement>("[data-command-id]").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.dataset.commandId) {

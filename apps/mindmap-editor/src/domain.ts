@@ -57,6 +57,25 @@ export interface ActivityItem {
   summary: string;
 }
 
+export interface MindMapImportPreview {
+  total: number;
+  roots: number;
+  tags: string[];
+  selectedTitle: string;
+}
+
+export type MindMapImportResult =
+  | {
+      ok: true;
+      nodes: MindNode[];
+      selectedId: string;
+      preview: MindMapImportPreview;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
 export type CommandCategory = "create" | "navigate" | "preserve" | "view";
 
 export interface CommandDefinition {
@@ -246,6 +265,77 @@ export function exportMapAsMarkdown(nodes: MindNode[]): string {
   return [...header, ...outline, ""].join("\n");
 }
 
+export function exportMapAsJson(nodes: MindNode[], selectedId: string, exportedAt = new Date().toISOString()): string {
+  return JSON.stringify(
+    {
+      version: 1,
+      exportedAt,
+      selectedId: nodes.some((node) => node.id === selectedId) ? selectedId : nodes[0]?.id ?? "",
+      nodes: nodes.map((node) => ({ ...node, tags: [...node.tags] }))
+    },
+    null,
+    2
+  );
+}
+
+export function parseMindMapJson(value: string): MindMapImportResult {
+  const raw = value.trim();
+  if (!raw) {
+    return { ok: false, error: "Import JSON is empty." };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const candidateNodes = Array.isArray(parsed) ? readRecordArray(parsed) : readObjectArray(parsed, "nodes");
+    if (candidateNodes.length === 0) {
+      return { ok: false, error: "Import JSON must include at least one node." };
+    }
+
+    const ids = new Set<string>();
+    for (const item of candidateNodes) {
+      const id = readString(item, "id");
+      if (!id) {
+        return { ok: false, error: "Every imported node needs an id." };
+      }
+      if (ids.has(id)) {
+        return { ok: false, error: `Duplicate node id: ${id}.` };
+      }
+      ids.add(id);
+    }
+
+    const nodes = candidateNodes.map((item) =>
+      createNode({
+        id: readString(item, "id"),
+        title: readString(item, "title") || "Untitled idea",
+        notes: readString(item, "notes"),
+        tags: readStringArray(item, "tags"),
+        status: readStatus(item),
+        x: readNumber(item, "x"),
+        y: readNumber(item, "y"),
+        parentId: ids.has(readString(item, "parentId")) ? readString(item, "parentId") : undefined,
+        updatedAt: readString(item, "updatedAt") || undefined
+      })
+    );
+    const selectedId = readString(parsed, "selectedId");
+    const safeSelectedId = nodes.some((node) => node.id === selectedId) ? selectedId : nodes[0].id;
+    const selectedNode = nodes.find((node) => node.id === safeSelectedId) ?? nodes[0];
+
+    return {
+      ok: true,
+      nodes,
+      selectedId: safeSelectedId,
+      preview: {
+        total: nodes.length,
+        roots: nodes.filter((node) => !node.parentId).length,
+        tags: collectTags(nodes),
+        selectedTitle: selectedNode.title
+      }
+    };
+  } catch {
+    return { ok: false, error: "Import JSON could not be parsed." };
+  }
+}
+
 export function createSnapshot(input: {
   nodes: MindNode[];
   selectedId: string;
@@ -304,7 +394,9 @@ export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection
       !input.hasSnapshots
     ),
     command("focus-search", "Focus search", "Move cursor to idea search", "/", "navigate", ["find", "filter", "query"]),
-    command("export-markdown", "Copy markdown export", "Select the generated Markdown outline", "M", "view", ["markdown", "copy", "outline"])
+    command("export-markdown", "Copy markdown export", "Select the generated Markdown outline", "M", "view", ["markdown", "copy", "outline"]),
+    command("export-json", "Refresh JSON export", "Regenerate the portable map JSON", "J", "view", ["json", "backup", "portable"]),
+    command("focus-import", "Focus JSON import", "Move cursor to the import JSON field", "I", "navigate", ["json", "import", "restore"])
   ];
 }
 
@@ -351,6 +443,47 @@ function clampCoordinate(value: number): number {
     return 0;
   }
   return Math.max(0, Math.min(1400, Math.round(value)));
+}
+
+function readRecordArray(value: unknown[]): Record<string, unknown>[] {
+  return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+}
+
+function readObjectArray(value: unknown, key: string): Record<string, unknown>[] {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+  const item = (value as Record<string, unknown>)[key];
+  return Array.isArray(item) ? readRecordArray(item) : [];
+}
+
+function readString(value: unknown, key: string): string {
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+  const item = (value as Record<string, unknown>)[key];
+  return typeof item === "string" ? item : "";
+}
+
+function readNumber(value: unknown, key: string): number | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const item = (value as Record<string, unknown>)[key];
+  return typeof item === "number" ? item : undefined;
+}
+
+function readStringArray(value: unknown, key: string): string[] {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+  const item = (value as Record<string, unknown>)[key];
+  return Array.isArray(item) ? item.map(String) : [];
+}
+
+function readStatus(value: unknown): IdeaStatus {
+  const status = readString(value, "status");
+  return status === "exploring" || status === "committed" || status === "seed" ? status : "seed";
 }
 
 function command(

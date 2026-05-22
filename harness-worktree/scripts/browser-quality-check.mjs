@@ -76,6 +76,26 @@ try {
   const searchFocused = await page.getByLabel("Search ideas").evaluate((element) => document.activeElement === element);
   record("command focuses search", searchFocused, searchFocused ? "slash command moved focus to search" : "search input was not focused");
 
+  const importPayload = JSON.stringify({
+    selectedId: "import-browser-root",
+    nodes: [
+      {
+        id: "import-browser-root",
+        title: "Imported from browser",
+        notes: "Visual import smoke test",
+        tags: ["import", "browser"],
+        status: "exploring",
+        x: 90,
+        y: 130,
+        updatedAt: "2026-05-23T09:30:00.000Z"
+      }
+    ]
+  });
+  await page.getByLabel("JSON import input").fill(importPayload);
+  await visible(page.getByText("1 ideas · 1 roots"), "json import preview appears");
+  await page.getByRole("button", { name: "Apply JSON import" }).click();
+  await visible(page.getByRole("button", { name: /Imported from browser/ }).first(), "json import applies to map");
+
   const unlabeledControls = await page.locator("button,input,select,textarea").evaluateAll((controls) =>
     controls
       .map((control) => {

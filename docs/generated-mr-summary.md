@@ -1,12 +1,12 @@
-# MR Summary: Fix: 移动端脑图节点截图显示被截断，浏览器门禁需要输出并检查桌面和移动截图
+# MR Summary: Implement: 给脑图编辑器增加 JSON 导入导出和导入预览
 
-Type: bugfix
+Type: requirement
 Target Project: apps/mindmap-editor
 Status: passed
 Stage: completed
 
 ## Background
-移动端脑图节点截图显示被截断，浏览器门禁需要输出并检查桌面和移动截图
+给脑图编辑器增加 JSON 导入导出和导入预览
 
 ## Scope
 - Modify the isolated target project at apps/mindmap-editor.
@@ -15,29 +15,31 @@ Stage: completed
 - Refresh generated MR summary, release notes, and execution records.
 
 ## Changes
-- Fixed mobile map rendering so nodes stack inside the visible canvas instead of being clipped off to the right.
-- Updated browser quality validation to produce separate desktop and mobile screenshots.
-- Added a mobile map-node visibility assertion so visual clipping is caught automatically.
-- Updated the Harness Skill instructions to require Codex screenshot review, not only DOM assertions.
-- Recorded screenshot-guided visual QA in the journal, decision log, and test log.
+- Added portable JSON export for the current mind map.
+- Added import JSON parsing with normalization, duplicate-id rejection, and preview metadata.
+- Added a `JSON Transfer` UI panel with export preview, import input, live preview, and guarded apply action.
+- Added an automatic safety snapshot before replacing the current map with imported JSON.
+- Added command palette entries for JSON export selection and JSON import focus.
+- Extended browser quality validation to paste JSON, verify preview, apply import, and inspect resulting desktop/mobile screenshots.
 
 ## Validation
 - Tests: passed via `pnpm typecheck && pnpm test && pnpm target:build && pnpm target:browser` with score 98.
 - Browser quality: passed on http://localhost:5175.
-- Visual review: desktop and mobile screenshots were generated and the mobile screenshot was inspected by Codex.
-- Workflow: `run_mphe8410_4fygji8e` passed at `completed`.
+- Visual review: mobile screenshot `.harness/browser/browser_mphedor1-mobile-mindmap-editor.png` was inspected after JSON import.
+- Workflow: `run_mphee81h_xyq47wgr` passed at `completed`.
 - Deployment: healthy on docker-compose-local.
 
 ## Risks
 - Local Docker or port conflicts can block deployment validation.
-- Mobile now uses a stacked map layout; future drag/position features should define separate desktop and mobile interaction behavior.
-- Screenshot review is still human-in-the-loop through Codex; future work can add image heuristics for more automated visual checks.
+- JSON import replaces the current map after Apply; the feature creates a safety snapshot, but users still need to restore manually if they apply the wrong payload.
+- Very large JSON payloads are not yet paginated or streamed.
 - In-memory service state is reset when orchestrator-rpc restarts; persisted JSON run files are the audit source.
 
 ## Rollback
-- Revert the mobile canvas CSS and browser quality script changes.
-- Restore the previous browser screenshot behavior if screenshot artifact volume becomes an issue.
+- Revert the JSON Transfer UI and domain import/export helpers.
+- Existing localStorage maps remain compatible because this change only adds a transfer surface.
 
 ## Follow-ups
-- Add JSON import/export and validate the import preview visually.
-- Add desktop/mobile screenshots to future MR summaries automatically.
+- Add file upload/download buttons once browser download handling is part of the visual QA loop.
+- Add schema version migration tests when the JSON format evolves.
+- Add desktop node drag and auto-layout next.

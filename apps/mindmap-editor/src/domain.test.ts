@@ -8,11 +8,13 @@ import {
   createChildNode,
   createNode,
   exportMapAsMarkdown,
+  exportMapAsJson,
   filterCommands,
   filterNodes,
   getAncestors,
   getChildren,
   recentActivity,
+  parseMindMapJson,
   restoreSnapshot,
   summarizeMap,
   suggestFocusQueue,
@@ -135,6 +137,49 @@ describe("mind map domain", () => {
     expect(markdown).toContain("Notes: Coordinate the product launch");
   });
 
+  it("exports a portable JSON document", () => {
+    const json = exportMapAsJson(nodes, "story", "2026-05-23T06:00:00.000Z");
+    const parsed = JSON.parse(json) as { version: number; selectedId: string; nodes: unknown[] };
+
+    expect(parsed.version).toBe(1);
+    expect(parsed.selectedId).toBe("story");
+    expect(parsed.nodes).toHaveLength(3);
+    expect(json).toContain('"exportedAt": "2026-05-23T06:00:00.000Z"');
+  });
+
+  it("parses imported JSON with a preview and normalized nodes", () => {
+    const json = JSON.stringify({
+      selectedId: "import-child",
+      nodes: [
+        { id: "import-root", title: " Imported root ", tags: ["Ops"], status: "exploring", x: 10, y: 20 },
+        { id: "import-child", title: "Child", tags: ["ops", "Plan"], parentId: "import-root", status: "committed" }
+      ]
+    });
+    const result = parseMindMapJson(json);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.selectedId).toBe("import-child");
+    expect(result.preview).toEqual({
+      total: 2,
+      roots: 1,
+      tags: ["ops", "plan"],
+      selectedTitle: "Child"
+    });
+    expect(result.nodes[0].title).toBe("Imported root");
+  });
+
+  it("rejects invalid imports without producing nodes", () => {
+    expect(parseMindMapJson("").ok).toBe(false);
+    expect(parseMindMapJson("{nope").ok).toBe(false);
+    expect(parseMindMapJson(JSON.stringify({ nodes: [{ id: "dup" }, { id: "dup" }] }))).toEqual({
+      ok: false,
+      error: "Duplicate node id: dup."
+    });
+  });
+
   it("creates restorable snapshots without sharing mutable node arrays", () => {
     const snapshot = createSnapshot({
       nodes,
@@ -186,7 +231,9 @@ describe("mind map domain", () => {
       "save-snapshot",
       "restore-latest",
       "focus-search",
-      "export-markdown"
+      "export-markdown",
+      "export-json",
+      "focus-import"
     ]);
     expect(commands.find((command) => command.id === "add-child")?.disabled).toBe(false);
     expect(commands.find((command) => command.id === "restore-latest")?.disabled).toBe(true);
@@ -198,5 +245,6 @@ describe("mind map domain", () => {
     expect(filterCommands(commands, "child").map((command) => command.id)).toEqual(["add-child"]);
     expect(filterCommands(commands, "checkpoint").map((command) => command.id)).toEqual(["save-snapshot", "restore-latest"]);
     expect(filterCommands(commands, "/").map((command) => command.id)).toEqual(["focus-search"]);
+    expect(filterCommands(commands, "json").map((command) => command.id)).toEqual(["export-json", "focus-import"]);
   });
 });

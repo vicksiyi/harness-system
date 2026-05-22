@@ -209,7 +209,8 @@ label,
 .focus-list,
 .outline-list,
 .activity-list,
-.snapshot-list {
+.snapshot-list,
+.transfer-actions {
   display: grid;
   gap: 8px;
 }
@@ -411,6 +412,57 @@ label {
   font-size: 12px;
   color: #dceeff;
   background: #132032;
+}
+
+.import-preview,
+.import-muted,
+.import-error {
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.import-preview {
+  display: grid;
+  gap: 4px;
+  background: #ecfdf5;
+  color: #0f766e;
+}
+
+.import-preview span {
+  color: #14534d;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.import-muted {
+  margin-bottom: 0;
+  background: #f1f5f9;
+  color: #607086;
+}
+
+.import-error {
+  margin-bottom: 0;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.transfer-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.transfer-actions button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: #0f766e;
+  color: #fff;
+  font-weight: 850;
+}
+
+.transfer-actions button:disabled {
+  cursor: not-allowed;
+  background: #94a3b8;
 }
 
 .empty {

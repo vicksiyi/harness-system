@@ -154,3 +154,23 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphe7uop-mobile-mindmap-editor.png`，确认移动端脑图节点现在纵向完整展示。
 - 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:bugfix "移动端脑图节点截图显示被截断，浏览器门禁需要输出并检查桌面和移动截图"` 通过。
 - 下一步：继续产品复杂度建设，优先补 JSON 导入/导出和导入预览。
+
+## Run run_mphee81h_xyq47wgr
+
+- At: 2026-05-22T20:54:42.010Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加 JSON 导入导出和导入预览
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## JSON Transfer Loop
+
+- At: 2026-05-23
+- 目标：让 Mind Map Studio 支持可迁移数据，导入前可预览且不会因坏 JSON 破坏当前脑图。
+- 已完成：新增 JSON 导出、JSON 导入输入、导入预览、应用导入、安全快照，以及命令面板中的 JSON 相关命令。
+- 视觉复核：已读取 `.harness/browser/browser_mphedor1-mobile-mindmap-editor.png`，确认导入后的移动端画面正常显示 `Imported from browser` 节点和 JSON Transfer 面板。
+- 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图编辑器增加 JSON 导入导出和导入预览"` 均通过。
+- 下一步：继续增加节点拖拽或自动布局，让桌面画布更像真实脑图编辑器。
