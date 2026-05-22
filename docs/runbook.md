@@ -54,6 +54,12 @@ pnpm health
 docker compose up --build
 ```
 
+如果本机端口已被其它项目占用，可以覆盖宿主机端口，例如：
+
+```bash
+WEB_PORT=5174 docker compose up --build
+```
+
 如果失败：
 
 1. 运行 `docker compose config`。
@@ -66,4 +72,3 @@ docker compose up --build
 ```bash
 pnpm mr:summary
 ```
-

@@ -20,3 +20,18 @@
 - Unit tests: 20 passed across 4 files
 - Frontend build: passed with Vite production build
 - Fix actions: none
+
+## Docker Port Preflight
+
+- At: 2026-05-23
+- Command: `lsof -ti tcp:4100,4101,4102,4103,4104,5173`
+- Result: found existing process on host port 5173 from another local Vite project.
+- Action: parameterized Docker Compose host ports with environment-variable overrides; default remains `5173`, validation can use `WEB_PORT=5174`.
+
+## Workflow Validation run_mphbeszb_ibsczodq
+
+- Command: pnpm workflow:bugfix "测试服务日志解析失败"
+- Result: passed
+- Attempts: 2/2
+- Log summary: testing-rpc: running simulated regression suite | typecheck passed | vitest passed | web build passed
+- Fix actions: Applying automated fix suggestion
