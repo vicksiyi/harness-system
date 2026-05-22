@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildOutline,
   buildCommandPalette,
+  autoLayoutNodes,
   collectTags,
   createSnapshot,
   completionScore,
@@ -120,6 +121,17 @@ describe("mind map domain", () => {
     ]);
   });
 
+  it("auto lays out nodes by hierarchy depth and outline order", () => {
+    const laidOut = autoLayoutNodes(nodes, { startX: 10, startY: 20, columnGap: 100, rowGap: 50 });
+    const byId = new Map(laidOut.map((node) => [node.id, node]));
+
+    expect(byId.get("root")).toMatchObject({ x: 10, y: 20 });
+    expect(byId.get("research")).toMatchObject({ x: 110, y: 70 });
+    expect(byId.get("story")).toMatchObject({ x: 110, y: 120 });
+    expect(byId.get("root")?.updatedAt).toBe(nodes[0].updatedAt);
+  });
+
+
   it("suggests focus from status, child count, and short notes", () => {
     const focus = suggestFocusQueue(nodes);
 
@@ -231,6 +243,7 @@ describe("mind map domain", () => {
       "save-snapshot",
       "restore-latest",
       "focus-search",
+      "auto-layout",
       "export-markdown",
       "export-json",
       "focus-import"
@@ -245,6 +258,7 @@ describe("mind map domain", () => {
     expect(filterCommands(commands, "child").map((command) => command.id)).toEqual(["add-child"]);
     expect(filterCommands(commands, "checkpoint").map((command) => command.id)).toEqual(["save-snapshot", "restore-latest"]);
     expect(filterCommands(commands, "/").map((command) => command.id)).toEqual(["focus-search"]);
+    expect(filterCommands(commands, "layout").map((command) => command.id)).toEqual(["auto-layout"]);
     expect(filterCommands(commands, "json").map((command) => command.id)).toEqual(["export-json", "focus-import"]);
   });
 });

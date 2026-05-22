@@ -1,13 +1,13 @@
-# Release Notes: Implement: 给脑图编辑器增加 JSON 导入导出和导入预览
+# Release Notes: Fix: 节点连接线漂移，将脑图连接线从 SVG 改为 Canvas 渲染并增加像素级验证
 
-- Workflow type: requirement
+- Workflow type: bugfix
 - Target project: apps/mindmap-editor
 - Result: passed
 - Score: 100
 - Deployment: healthy
 
 ## Operator Notes
-- Mind Map Studio now includes a `JSON Transfer` panel.
-- JSON import is previewed before Apply and creates a safety snapshot before replacing the map.
-- Browser quality validates JSON import preview/apply and emits desktop/mobile screenshots.
-- Inspect `.harness/runs/run_mphee81h_xyq47wgr.json` for the full JSON execution record.
+- Connector rendering now uses Canvas instead of SVG.
+- Browser quality validates connector pixels and saves a dedicated desktop connector screenshot.
+- Auto Layout is available from the top toolbar and command palette.
+- Inspect `.harness/runs/run_mphercp6_ycgddaxm.json` for the full JSON execution record.

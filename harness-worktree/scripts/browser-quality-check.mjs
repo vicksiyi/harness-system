@@ -76,6 +76,90 @@ try {
   const searchFocused = await page.getByLabel("Search ideas").evaluate((element) => document.activeElement === element);
   record("command focuses search", searchFocused, searchFocused ? "slash command moved focus to search" : "search input was not focused");
 
+  await page.getByRole("button", { name: "Auto layout map" }).click();
+  const layoutApplied = await page.evaluate(() => {
+    const root = document.querySelector('.map-node[data-node-id="idea-launch"]');
+    const research = document.querySelector('.map-node[data-node-id="idea-research"]');
+    return (
+      root instanceof HTMLElement &&
+      research instanceof HTMLElement &&
+      Number.parseFloat(root.style.left) === 80 &&
+      Number.parseFloat(research.style.left) === 300
+    );
+  });
+  record("auto layout action", layoutApplied, "layout action positions hierarchy lanes");
+
+  const desktopMapNodesVisible = await page.evaluate(() => {
+    const canvas = document.querySelector(".canvas-grid");
+    const nodes = Array.from(document.querySelectorAll(".map-node"));
+    if (!canvas || nodes.length === 0) {
+      return false;
+    }
+    const canvasRect = canvas.getBoundingClientRect();
+    return nodes.every((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.left >= canvasRect.left - 1 && rect.right <= canvasRect.right + 1;
+    });
+  });
+  record("desktop map nodes visible", desktopMapNodesVisible, "all desktop map nodes fit inside the visible canvas after layout");
+
+  const connectorsPainted = await page.evaluate(() => {
+    const canvas = document.querySelector("#connector-canvas");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return false;
+    }
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return false;
+    }
+    const connectorCount = Number(canvas.dataset.connectorCount ?? 0);
+    if (connectorCount === 0) {
+      return false;
+    }
+    const children = Array.from(document.querySelectorAll(".map-node")).filter((node) => node instanceof HTMLElement && node.dataset.parentId);
+    if (children.length !== connectorCount) {
+      return false;
+    }
+
+    function hasPaintNear(x, y) {
+      const radius = 2;
+      const left = Math.max(0, Math.round(x) - radius);
+      const top = Math.max(0, Math.round(y) - radius);
+      const size = radius * 2 + 1;
+      const data = context.getImageData(left, top, size, size).data;
+      for (let index = 3; index < data.length; index += 4) {
+        if (data[index] > 0) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    return children.every((child) => {
+      if (!(child instanceof HTMLElement)) {
+        return false;
+      }
+      const parentId = child.dataset.parentId;
+      const parent = parentId ? document.querySelector(`.map-node[data-node-id="${parentId}"]`) : null;
+      if (!(parent instanceof HTMLElement)) {
+        return false;
+      }
+      const parentX = Number.parseFloat(parent.style.left);
+      const parentY = Number.parseFloat(parent.style.top);
+      const childX = Number.parseFloat(child.style.left);
+      const childY = Number.parseFloat(child.style.top);
+      const parentIsLeft = parentX <= childX;
+      const start = { x: parentIsLeft ? parentX + 170 : parentX, y: parentY + 37 };
+      const end = { x: parentIsLeft ? childX : childX + 170, y: childY + 37 };
+      const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+      return hasPaintNear(start.x, start.y) && hasPaintNear(mid.x, mid.y) && hasPaintNear(end.x, end.y);
+    });
+  });
+  record("desktop canvas connectors", connectorsPainted, "canvas connector pixels attach to parent and child node edges");
+  const connectorScreenshotPath = join(artifactDir, `${runId}-desktop-connectors-mindmap-editor.png`);
+  await page.screenshot({ path: connectorScreenshotPath, fullPage: true });
+  record("desktop connector screenshot", true, connectorScreenshotPath);
+
   const importPayload = JSON.stringify({
     selectedId: "import-browser-root",
     nodes: [

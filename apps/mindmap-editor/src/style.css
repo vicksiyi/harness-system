@@ -91,10 +91,14 @@ label,
 }
 
 .actions button:nth-child(4) {
-  background: #7c3aed;
+  background: #0891b2;
 }
 
 .actions button:nth-child(5) {
+  background: #7c3aed;
+}
+
+.actions button:nth-child(6) {
   background: #475569;
 }
 
@@ -320,6 +324,19 @@ label {
   background-size: 28px 28px;
 }
 
+.canvas-grid::before {
+  content: "";
+  display: block;
+  width: var(--canvas-width);
+  height: var(--canvas-height);
+}
+
+.connector-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .map-node {
   position: absolute;
   display: grid;
@@ -348,14 +365,6 @@ label {
 
 .map-node.committed {
   border-left-color: #16a34a;
-}
-
-.connector {
-  position: absolute;
-  height: 2px;
-  background: #9fb1c7;
-  transform: rotate(-8deg);
-  transform-origin: left center;
 }
 
 .outline-list,
@@ -512,13 +521,17 @@ label {
     padding: 12px;
   }
 
+  .canvas-grid::before {
+    display: none;
+  }
+
   .map-node {
     position: static;
     width: 100%;
     min-height: 64px;
   }
 
-  .connector {
+  .connector-layer {
     display: none;
   }
 }

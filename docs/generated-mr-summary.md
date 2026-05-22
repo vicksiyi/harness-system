@@ -1,12 +1,12 @@
-# MR Summary: Implement: 给脑图编辑器增加 JSON 导入导出和导入预览
+# MR Summary: Fix: 节点连接线漂移，将脑图连接线从 SVG 改为 Canvas 渲染并增加像素级验证
 
-Type: requirement
+Type: bugfix
 Target Project: apps/mindmap-editor
 Status: passed
 Stage: completed
 
 ## Background
-给脑图编辑器增加 JSON 导入导出和导入预览
+节点连接线漂移，将脑图连接线从 SVG 改为 Canvas 渲染并增加像素级验证
 
 ## Scope
 - Modify the isolated target project at apps/mindmap-editor.
@@ -15,31 +15,30 @@ Stage: completed
 - Refresh generated MR summary, release notes, and execution records.
 
 ## Changes
-- Added portable JSON export for the current mind map.
-- Added import JSON parsing with normalization, duplicate-id rejection, and preview metadata.
-- Added a `JSON Transfer` UI panel with export preview, import input, live preview, and guarded apply action.
-- Added an automatic safety snapshot before replacing the current map with imported JSON.
-- Added command palette entries for JSON export selection and JSON import focus.
-- Extended browser quality validation to paste JSON, verify preview, apply import, and inspect resulting desktop/mobile screenshots.
+- Replaced the SVG connector layer with a Canvas connector renderer.
+- Canvas connectors are drawn from parent node edge to child node edge, removing the previous rotated-line drift.
+- Added parent metadata on rendered map nodes so connector drawing and browser validation share the same source of truth.
+- Added Auto Layout action and command entry to arrange hierarchy lanes.
+- Tightened default auto-layout spacing so desktop screenshots do not clip deeper nodes.
+- Extended browser quality validation with Canvas pixel sampling, connector-state screenshots, desktop node visibility checks, and Layout action verification.
 
 ## Validation
 - Tests: passed via `pnpm typecheck && pnpm test && pnpm target:build && pnpm target:browser` with score 98.
 - Browser quality: passed on http://localhost:5175.
-- Visual review: mobile screenshot `.harness/browser/browser_mphedor1-mobile-mindmap-editor.png` was inspected after JSON import.
-- Workflow: `run_mphee81h_xyq47wgr` passed at `completed`.
+- Visual review: `.harness/browser/browser_mpheqpsd-desktop-connectors-mindmap-editor.png` was inspected for connector placement.
+- Workflow: `run_mphercp6_ycgddaxm` passed at `completed`.
 - Deployment: healthy on docker-compose-local.
 
 ## Risks
 - Local Docker or port conflicts can block deployment validation.
-- JSON import replaces the current map after Apply; the feature creates a safety snapshot, but users still need to restore manually if they apply the wrong payload.
-- Very large JSON payloads are not yet paginated or streamed.
+- Canvas rendering is not directly represented in the accessibility tree, so the browser gate now samples pixels and stores screenshots.
+- Future drag interactions must redraw the connector canvas after node movement.
 - In-memory service state is reset when orchestrator-rpc restarts; persisted JSON run files are the audit source.
 
 ## Rollback
-- Revert the JSON Transfer UI and domain import/export helpers.
-- Existing localStorage maps remain compatible because this change only adds a transfer surface.
+- Revert the Canvas connector renderer and browser pixel checks.
+- The node data model is unchanged, so rollback does not require localStorage migration.
 
 ## Follow-ups
-- Add file upload/download buttons once browser download handling is part of the visual QA loop.
-- Add schema version migration tests when the JSON format evolves.
-- Add desktop node drag and auto-layout next.
+- Add drag-to-move nodes and redraw Canvas connectors during pointer movement.
+- Add a richer visual diff gate for connector screenshots.

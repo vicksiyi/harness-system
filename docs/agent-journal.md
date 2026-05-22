@@ -174,3 +174,35 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphedor1-mobile-mindmap-editor.png`，确认导入后的移动端画面正常显示 `Imported from browser` 节点和 JSON Transfer 面板。
 - 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图编辑器增加 JSON 导入导出和导入预览"` 均通过。
 - 下一步：继续增加节点拖拽或自动布局，让桌面画布更像真实脑图编辑器。
+
+## Run run_mpheogn3_jpijxx1t
+
+- At: 2026-05-22T21:02:40.507Z
+- Type: bugfix
+- Prompt: 节点连接线漂移，将脑图连接线从 SVG 改为 Canvas 渲染并增加像素级验证
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Run run_mphercp6_ycgddaxm
+
+- At: 2026-05-22T21:05:05.130Z
+- Type: bugfix
+- Prompt: 节点连接线漂移，将脑图连接线从 SVG 改为 Canvas 渲染并增加像素级验证
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Canvas Connector Fix
+
+- At: 2026-05-23
+- 目标：修复脑图节点连接线漂移，并按用户要求从 SVG 连线切换为 Canvas 绘制。
+- 已完成：移除 SVG connector layer；新增 Canvas connector layer；Canvas 按父子节点边缘绘制连线；新增 Layout 动作让层级排布更稳定。
+- 视觉复核：已读取 `.harness/browser/browser_mpheqpsd-desktop-connectors-mindmap-editor.png`，确认连接线不再漂移，且自动布局后的节点在桌面可视画布内。
+- Harness 反哺：浏览器门禁新增 Canvas 像素采样、connector 专用截图、桌面节点可见性检查和 Layout 行为检查。
+- 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和最终 workflow `run_mphercp6_ycgddaxm` 通过。
+- 下一步：继续不间断增强产品样例，优先考虑拖拽节点或后端同步。

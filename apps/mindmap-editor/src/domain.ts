@@ -214,6 +214,22 @@ export function buildOutline(nodes: MindNode[]): OutlineItem[] {
   return roots.flatMap((node) => outlineBranch(nodes, node, 0));
 }
 
+export function autoLayoutNodes(nodes: MindNode[], options: { startX?: number; startY?: number; columnGap?: number; rowGap?: number } = {}): MindNode[] {
+  const startX = options.startX ?? 80;
+  const startY = options.startY ?? 120;
+  const columnGap = options.columnGap ?? 220;
+  const rowGap = options.rowGap ?? 112;
+  const depthById = new Map(buildOutline(nodes).map((item) => [item.id, item.depth]));
+  const orderedIds = buildOutline(nodes).map((item) => item.id);
+  const orderById = new Map(orderedIds.map((id, index) => [id, index]));
+
+  return nodes.map((node) => ({
+    ...node,
+    x: startX + (depthById.get(node.id) ?? 0) * columnGap,
+    y: startY + (orderById.get(node.id) ?? 0) * rowGap
+  }));
+}
+
 export function suggestFocusQueue(nodes: MindNode[], limit = 5): FocusSuggestion[] {
   const statusPriority: Record<IdeaStatus, number> = {
     seed: 50,
@@ -394,6 +410,7 @@ export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection
       !input.hasSnapshots
     ),
     command("focus-search", "Focus search", "Move cursor to idea search", "/", "navigate", ["find", "filter", "query"]),
+    command("auto-layout", "Auto layout map", "Arrange ideas into readable hierarchy lanes", "L", "view", ["layout", "arrange", "map"]),
     command("export-markdown", "Copy markdown export", "Select the generated Markdown outline", "M", "view", ["markdown", "copy", "outline"]),
     command("export-json", "Refresh JSON export", "Regenerate the portable map JSON", "J", "view", ["json", "backup", "portable"]),
     command("focus-import", "Focus JSON import", "Move cursor to the import JSON field", "I", "navigate", ["json", "import", "restore"])

@@ -3,6 +3,7 @@
 import "./style.css";
 import {
   buildOutline,
+  autoLayoutNodes,
   buildCommandPalette,
   collectTags,
   createChildNode,
@@ -164,6 +165,10 @@ function resetMap(): void {
   commit(seedNodes(), "idea-launch");
 }
 
+function autoLayoutMap(): void {
+  commit(autoLayoutNodes(state.nodes), state.selectedId);
+}
+
 function previewImport(value = state.importJson): void {
   state.importJson = value;
   state.importResult = parseMindMapJson(value);
@@ -227,6 +232,9 @@ function runCommand(commandId: string): void {
       state.commandQuery = "";
       render();
       byId<HTMLInputElement>("query").focus();
+      break;
+    case "auto-layout":
+      autoLayoutMap();
       break;
     case "export-markdown": {
       state.commandPaletteOpen = false;
@@ -396,6 +404,34 @@ function importPreviewMarkup(): string {
   `;
 }
 
+function drawConnectors(): void {
+  const canvas = document.getElementById("connector-canvas");
+  if (!(canvas instanceof HTMLCanvasElement)) {
+    return;
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = "#94a9c2";
+  context.lineWidth = 2;
+  context.lineCap = "round";
+
+  state.nodes.forEach((child) => {
+    const parent = child.parentId ? state.nodes.find((item) => item.id === child.parentId) : undefined;
+    if (!parent) {
+      return;
+    }
+    const parentIsLeft = parent.x <= child.x;
+    context.beginPath();
+    context.moveTo(parentIsLeft ? parent.x + 170 : parent.x, parent.y + 37);
+    context.lineTo(parentIsLeft ? child.x : child.x + 170, child.y + 37);
+    context.stroke();
+  });
+}
+
 function render(): void {
   const app = byId<HTMLElement>("app");
   const node = selectedNode();
@@ -415,6 +451,8 @@ function render(): void {
   const jsonExport = exportMapAsJson(state.nodes, state.selectedId);
   const latestSnapshot = state.snapshots[0];
   const commands = filterCommands(commandCatalog(), state.commandQuery);
+  const canvasWidth = Math.max(1040, ...state.nodes.map((item) => item.x + 230));
+  const canvasHeight = Math.max(520, ...state.nodes.map((item) => item.y + 120));
 
   app.innerHTML = `
     <section class="studio">
@@ -427,6 +465,7 @@ function render(): void {
           <button id="add-root" aria-label="Add root idea">Root</button>
           <button id="add-child" aria-label="Add child idea">Child</button>
           <button id="save-snapshot" aria-label="Save snapshot">Save</button>
+          <button id="auto-layout" aria-label="Auto layout map">Layout</button>
           <button id="open-commands" aria-label="Open command palette">Commands</button>
           <button id="reset-map" aria-label="Reset map">Reset</button>
         </div>
@@ -528,21 +567,17 @@ function render(): void {
             <h2>Map Canvas</h2>
             <span>${outline.length} visible branches</span>
           </div>
-          <div class="canvas-grid" aria-label="Idea map canvas">
+          <div class="canvas-grid" aria-label="Idea map canvas" style="--canvas-width:${canvasWidth}px;--canvas-height:${canvasHeight}px">
+            <canvas id="connector-canvas" class="connector-layer" aria-hidden="true" width="${canvasWidth}" height="${canvasHeight}" data-connector-count="${state.nodes.filter((item) => item.parentId && state.nodes.some((parent) => parent.id === item.parentId)).length}"></canvas>
             ${state.nodes
-              .map((item) => {
-                const parent = item.parentId ? state.nodes.find((candidate) => candidate.id === item.parentId) : undefined;
-                const connector = parent
-                  ? `<span class="connector" style="left:${Math.min(parent.x, item.x) + 142}px;top:${Math.min(parent.y, item.y) + 38}px;width:${Math.abs(item.x - parent.x) + 28}px"></span>`
-                  : "";
-                return `
-                  ${connector}
-                  <button class="map-node ${item.status} ${item.id === state.selectedId ? "selected" : ""}" style="left:${item.x}px;top:${item.y}px" data-node-id="${item.id}">
+              .map(
+                (item) => `
+                  <button class="map-node ${item.status} ${item.id === state.selectedId ? "selected" : ""}" style="left:${item.x}px;top:${item.y}px" data-node-id="${item.id}" data-parent-id="${item.parentId ?? ""}">
                     <strong>${escapeHtml(item.title)}</strong>
                     <span>${item.status}</span>
                   </button>
-                `;
-              })
+                `
+              )
               .join("")}
           </div>
 
@@ -671,9 +706,11 @@ function render(): void {
     </section>
   `;
 
+  drawConnectors();
   byId<HTMLButtonElement>("add-root").addEventListener("click", addRootIdea);
   byId<HTMLButtonElement>("add-child").addEventListener("click", addChildIdea);
   byId<HTMLButtonElement>("save-snapshot").addEventListener("click", saveSnapshot);
+  byId<HTMLButtonElement>("auto-layout").addEventListener("click", autoLayoutMap);
   byId<HTMLButtonElement>("open-commands").addEventListener("click", () => openCommandPalette());
   byId<HTMLButtonElement>("reset-map").addEventListener("click", resetMap);
   byId<HTMLButtonElement>("preview-import").addEventListener("click", () => previewImport());
@@ -799,6 +836,12 @@ document.addEventListener("keydown", (event) => {
   if (key === "c") {
     event.preventDefault();
     addChildIdea();
+    return;
+  }
+
+  if (key === "l") {
+    event.preventDefault();
+    autoLayoutMap();
   }
 });
 
