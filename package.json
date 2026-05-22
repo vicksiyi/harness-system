@@ -1,0 +1,33 @@
+{
+  "name": "harness-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.6.5",
+  "scripts": {
+    "dev": "pnpm dev:services",
+    "dev:web": "pnpm --filter @harness/web dev",
+    "dev:services": "concurrently -n orchestrator,requirements,coding,testing,deploy -c blue,green,magenta,yellow,cyan \"pnpm --filter @harness/orchestrator-rpc dev\" \"pnpm --filter @harness/requirements-rpc dev\" \"pnpm --filter @harness/coding-rpc dev\" \"pnpm --filter @harness/testing-rpc dev\" \"pnpm --filter @harness/deploy-rpc dev\"",
+    "workflow:requirement": "node harness-worktree/scripts/run-workflow.mjs requirement",
+    "workflow:bugfix": "node harness-worktree/scripts/run-workflow.mjs bugfix",
+    "workflow:polish": "node harness-worktree/scripts/run-workflow.mjs polish",
+    "mr:summary": "node harness-worktree/scripts/create-mr-summary.mjs",
+    "deploy:local": "node harness-worktree/scripts/deploy.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "pnpm --filter @harness/web build && pnpm typecheck",
+    "verify": "pnpm typecheck && pnpm test && pnpm build",
+    "health": "node harness-worktree/scripts/health-check.mjs",
+    "skills:install": "node harness-worktree/scripts/install-skills.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.1.4"
+  }
+}
+
