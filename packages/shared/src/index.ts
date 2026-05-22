@@ -150,6 +150,48 @@ export interface MindMapSaveInput {
   baseVersion?: number;
 }
 
+export type MindMapOperationType = "upsert-node" | "delete-node" | "select-node" | "rename-map";
+
+export type MindMapOperationInput =
+  | {
+      type: "upsert-node";
+      node: StoredMindNode;
+    }
+  | {
+      type: "delete-node";
+      nodeId: string;
+    }
+  | {
+      type: "select-node";
+      selectedId: string;
+    }
+  | {
+      type: "rename-map";
+      title: string;
+    };
+
+export interface MindMapOperationRecord {
+  id: string;
+  mapId: string;
+  version: number;
+  clientId: string;
+  type: MindMapOperationType;
+  payload: MindMapOperationInput;
+  createdAt: string;
+}
+
+export interface MindMapSyncInput {
+  id: string;
+  clientId: string;
+  sinceVersion: number;
+  operations: MindMapOperationInput[];
+}
+
+export interface MindMapSyncResult {
+  document: MindMapFileDocument;
+  operations: MindMapOperationRecord[];
+}
+
 export interface WorkflowRun {
   id: string;
   type: WorkflowType;

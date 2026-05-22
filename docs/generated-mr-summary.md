@@ -1,47 +1,39 @@
-# MR Summary: Implement: 支持打开不同脑图文件，使用 mindmap-rpc 和 SQLite 数据库存储，并通过浏览器验证 RPC 创建文件
-
-Type: requirement
-Target Project: apps/mindmap-editor
-Status: passed
-Stage: completed
+# MR Summary: Stabilize Mind Map File Save And Sync Naming
 
 ## Background
-支持打开不同脑图文件，使用 mindmap-rpc 和 SQLite 数据库存储，并通过浏览器验证 RPC 创建文件
+The Mind Map Studio sample exposed a broken save path and product-facing `RPC` wording. Browser quality also needed to catch real click failures and screenshot-visible rendering problems instead of only checking happy-path selectors.
 
-## Scope
-- Modify the isolated target project at apps/mindmap-editor.
-- Keep Harness orchestration code unchanged unless the task explicitly asks for Harness behavior.
-- Expose product changes through the target project UI and tests.
-- Refresh generated MR summary, release notes, and execution records.
+## Change Scope
+- Added diff-style mind map sync types, operation storage, and `syncMap` support in the mind map service.
+- Fixed Save file so it flushes pending diff operations, avoids stale version coupling, and does not lose clicks after title blur.
+- Renamed product-visible transport wording to sync service/database file terminology.
+- Made New file create a clean starter map instead of cloning the currently opened document.
+- Upgraded browser quality to verify manual save, diff push, import diff drain, drag behavior, Canvas connector pixels, and desktop/mobile screenshots.
 
-## Changes
-- Added `services/mindmap-rpc` with SQLite-backed map file storage.
-- Added shared map file and node payload types.
-- Added optimistic `baseVersion` checks for saved map files.
-- Added a front-end `Map Files` panel for creating, opening, and saving database-backed maps.
-- Added a product RPC client in `apps/mindmap-editor/src/rpc.ts`.
-- Updated browser quality to start/check `mindmap-rpc`, create a map through the UI, and validate the database-backed path before visual checks.
-- Updated Docker Compose, health checks, ports, and AGENTS context for the new product service.
+## Architecture Notes
+The product still uses HTTP JSON-RPC internally, but that is now an implementation detail. The UI speaks in product concepts: files, database, sync, pending changes, and collaboration.
 
 ## Validation
-- Tests: passed via `pnpm typecheck && pnpm test && pnpm target:build && pnpm target:browser` with score 98.
-- Browser quality: passed on http://localhost:5175.
-- Unit tests: 52 tests passed in full `pnpm verify`, including `services/mindmap-rpc/src/store.test.ts`.
-- Compose: `docker compose config` passed and includes `mindmap-rpc` on port 4105.
-- Visual review: `.harness/browser/browser_mphfscfp-desktop-connectors-mindmap-editor.png` and `.harness/browser/browser_mphfscfp-mobile-mindmap-editor.png` were inspected.
-- Workflow: `run_mphfsvb0_a9md6fxw` passed at `completed`.
-- Deployment: healthy on docker-compose-local.
+- `pnpm typecheck`
+- `pnpm test services/mindmap-rpc/src/store.test.ts`
+- `pnpm target:test`
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser` twice consecutively
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`
+- `docker compose config`
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:bugfix "修复保存文件失败，隐藏产品界面 RPC 命名，并稳定浏览器截图验证"`
 
-## Risks
-- `node:sqlite` is currently experimental in Node 22 and emits an experimental warning in tests.
-- Front-end saves use optimistic versions; concurrent edits currently surface as save errors until DIFF collaboration lands.
-- The local SQLite file under `.harness/mindmap` is intentionally ignored by Git.
+Final result: 54 tests passed, build passed, browser quality passed, workflow `run_mphk8wv8_70p1cf8q` passed.
+
+## Risk
+- The collaboration model is still an operation log, not a full CRDT.
+- Existing local SQLite data may contain old browser-test files; New file now starts cleanly, so old data should not affect new runs.
 
 ## Rollback
-- Revert `services/mindmap-rpc`, the shared map file types, the front-end RPC client, and the Map Files UI.
-- Local-only maps can still fall back to localStorage if the RPC service is offline.
+Revert this commit to restore the previous snapshot-save behavior and earlier browser quality checks. If needed, clear `.harness/mindmap/` local data after rollback.
+
+## Deployment
+Run `docker compose up --build` and verify the product at `http://localhost:5175`; service config is valid via `docker compose config`.
 
 ## Follow-ups
-- Implement DIFF-mode collaboration for the active file.
-- Expand import/export to include database file round-trips.
-- Add infinite canvas pan/zoom with Canvas coordinate validation.
+- Add a second-browser/session simulation for multi-client diff sync.
+- Continue toward import/export hardening and infinite canvas.

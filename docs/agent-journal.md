@@ -268,3 +268,37 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphfscfp-desktop-connectors-mindmap-editor.png` 和 `.harness/browser/browser_mphfscfp-mobile-mindmap-editor.png`，确认 Map Files 面板、移动端布局和 Canvas 连线正常。
 - 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`、`docker compose config` 和 workflow `run_mphfsvb0_a9md6fxw` 通过。
 - 下一步：按用户路线进入需求 2，在当前文件内实现 DIFF 模式协同和多端统一。
+
+## Run run_mphk4e4y_n2awpza1
+
+- At: 2026-05-22T23:34:54.115Z
+- Type: bugfix
+- Prompt: 修复保存文件失败，隐藏产品界面 RPC 命名，并稳定浏览器截图验证
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Save Sync Naming Bugfix Loop
+
+- At: 2026-05-23
+- 目标：修复 Mind Map Studio 保存文件失败的问题，并把产品界面的实现命名从 RPC 收敛为同步服务/数据库文件。
+- 失败复现：第一次浏览器门禁点击 `Save file` 后 7 秒内没有看到保存成功；第二次修复后又发现 `Push diff` 会因标题变更未即时入队而保持 disabled；完整 `verify` 还暴露了拖拽验证在数据库累积文件下的重叠/边界问题。
+- 根因：标题输入框 `change` 事件在 Save click 之前触发整页重渲染，导致按钮点击目标被替换；标题变更只在 blur/change 入队，协同按钮不能即时感知；质量脚本反复 New file 时复制当前旧文件，导致导入节点和默认根节点重叠。
+- 已完成：保存按钮会先读取标题输入框并冲刷待同步 diff；标题输入即时更新状态并合并连续 rename 操作；产品 UI 文案改为 `Sync online`、`database file` 和 `sync service`；New file 固定创建干净模板；浏览器门禁补充手动保存、diff 保存、队列清空、稳定拖拽方向和截图复核。
+- Harness 反哺：浏览器质量脚本现在会发现真实点击丢失、按钮 disabled、节点重叠拦截和坐标边界 clamp 造成的假阴性；并在最终截图前确认 diff 队列已清空。
+- 验证：`pnpm typecheck`、`pnpm test services/mindmap-rpc/src/store.test.ts`、`pnpm target:test`、连续两次 `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、最终 `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`、`docker compose config` 和 workflow `run_mphk8wv8_70p1cf8q` 全部通过。
+- 视觉复核：已读取 `.harness/browser/browser_mphk85dx-desktop-connectors-mindmap-editor.png`、`.harness/browser/browser_mphk85dx-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphk85dx-mobile-mindmap-editor.png`，确认无产品侧 RPC 文案、保存状态正常、Canvas 连线未漂移。
+- 下一步：继续按用户路线推进 DIFF 协同的多端模拟、导入导出完善和无限画布。
+
+## Run run_mphk8wv8_70p1cf8q
+
+- At: 2026-05-22T23:38:24.962Z
+- Type: bugfix
+- Prompt: 修复保存文件失败，隐藏产品界面 RPC 命名，并稳定浏览器截图验证
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md

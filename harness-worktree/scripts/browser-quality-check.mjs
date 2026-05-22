@@ -12,7 +12,7 @@ const args = parseArgs(process.argv.slice(2));
 const runId = args["run-id"] ?? `browser_${Date.now().toString(36)}`;
 const targetProject = args.target ?? process.env.HARNESS_TARGET_PROJECT ?? "apps/mindmap-editor";
 const targetUrl = args.url ?? process.env.HARNESS_BROWSER_TARGET_URL ?? "http://localhost:5175";
-const mindmapRpcUrl = args["mindmap-rpc-url"] ?? process.env.MINDMAP_RPC_URL ?? "http://localhost:4105";
+const mindmapServiceUrl = args["mindmap-rpc-url"] ?? process.env.MINDMAP_RPC_URL ?? "http://localhost:4105";
 const artifactDir = resolve(root, ".harness", "browser");
 const checks = [];
 const rawLog = [];
@@ -23,9 +23,9 @@ let browser;
 
 try {
   await mkdir(artifactDir, { recursive: true });
-  const rpcAvailability = await ensureServiceAvailable(mindmapRpcUrl, "@target/mindmap-rpc", "mindmap-rpc");
+  const rpcAvailability = await ensureServiceAvailable(mindmapServiceUrl, "@target/mindmap-rpc", "mindmap-rpc");
   mindmapRpcServer = rpcAvailability.devServer;
-  record("mindmap rpc reachable", true, `mindmap-rpc served at ${mindmapRpcUrl}`);
+  record("mind map sync service reachable", true, `sync service served at ${mindmapServiceUrl}`);
   const availability = await ensureTargetAvailable(targetUrl);
   devServer = availability.devServer;
   record("target reachable", true, `${targetProject} served at ${targetUrl}`);
@@ -46,10 +46,18 @@ try {
   await visible(page.getByRole("heading", { name: "Mind Map Studio" }), "main product heading");
   await visible(page.getByRole("heading", { name: "Map Canvas" }), "map canvas section");
   await visible(page.getByRole("heading", { name: "Map Files" }), "map files section");
-  await visible(page.getByText(/SQLite|RPC/).first(), "mindmap rpc status");
+  await visible(page.getByText(/Sync online|database|sync service/i).first(), "mind map sync status");
   await page.getByRole("button", { name: "Create map file" }).click();
   await page.waitForFunction(() => document.querySelectorAll("[data-map-file-id]").length > 0);
-  record("database map file creation", true, "front-end created a SQLite-backed map through mindmap-rpc");
+  record("database map file creation", true, "front-end created a database-backed map through the sync service");
+  await visible(page.getByRole("heading", { name: "Collaboration" }), "collaboration sync section");
+  await page.getByLabel("Map file title").fill(`Browser save ${runId}`);
+  await page.getByRole("button", { name: "Save map file" }).click();
+  await visible(page.getByText(/Saved file to database/).first(), "manual save file succeeds");
+  await page.getByLabel("Map file title").fill(`Browser diff ${runId}`);
+  await page.keyboard.press("Tab");
+  await page.getByRole("button", { name: "Push diff operations" }).click();
+  await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "diff sync saves through service");
   await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
   await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");
   await visible(page.getByRole("heading", { name: "Markdown Export" }), "markdown export section");
@@ -91,32 +99,71 @@ try {
   const searchFocused = await page.getByLabel("Search ideas").evaluate((element) => document.activeElement === element);
   record("command focuses search", searchFocused, searchFocused ? "slash command moved focus to search" : "search input was not focused");
 
-  const launchNode = page.locator('.map-node[data-node-id="idea-launch"]').first();
-  const beforeDrag = await launchNode.evaluate((node) => {
+  const dragCandidate = await page.evaluate(() => {
+    const nodes = Array.from(document.querySelectorAll(".canvas-grid .map-node"))
+      .filter((node) => node instanceof HTMLElement)
+      .map((node) => ({
+        id: node.dataset.nodeId ?? "",
+        x: Number.parseFloat(node.style.left),
+        y: Number.parseFloat(node.style.top)
+      }));
+    return (
+      nodes.find((node) => node.id === "idea-launch") ??
+      nodes.find((node) => node.x > 40 && node.x < 1180 && node.y > 20 && node.y < 430) ??
+      nodes[0] ??
+      { id: "", x: 0, y: 0 }
+    );
+  });
+  const dragNode = page.locator(`.canvas-grid .map-node[data-node-id="${dragCandidate.id}"]`).first();
+  if (dragCandidate.id) {
+    await dragNode.click();
+  }
+  await dragNode.scrollIntoViewIfNeeded();
+  const beforeDrag = await dragNode.evaluate((node) => {
     if (!(node instanceof HTMLElement)) {
-      return { x: 0, y: 0 };
+      return { id: "", x: 0, y: 0 };
     }
     return {
+      id: node.dataset.nodeId ?? "",
       x: Number.parseFloat(node.style.left),
       y: Number.parseFloat(node.style.top)
     };
   });
-  const launchBox = await launchNode.boundingBox();
-  if (!launchBox) {
-    record("node drag updates position", false, "launch node had no bounding box");
+  const dragBox = await dragNode.boundingBox();
+  if (!dragBox || !beforeDrag.id) {
+    record("node drag updates position", false, "first canvas node had no draggable bounding box");
   } else {
-    await page.mouse.move(launchBox.x + launchBox.width / 2, launchBox.y + launchBox.height / 2);
+    const dragDelta = {
+      x: beforeDrag.x > 1200 ? -72 : 72,
+      y: beforeDrag.y > 430 ? -40 : 40
+    };
+    await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(launchBox.x + launchBox.width / 2 + 64, launchBox.y + launchBox.height / 2 + 32, { steps: 8 });
+    await page.mouse.move(dragBox.x + dragBox.width / 2 + dragDelta.x, dragBox.y + dragBox.height / 2 + dragDelta.y, { steps: 12 });
+    await page.waitForTimeout(50);
     await page.mouse.up();
-    const dragApplied = await launchNode.evaluate(
-      (node, before) =>
-        node instanceof HTMLElement &&
-        Number.parseFloat(node.style.left) > before.x + 40 &&
-        Number.parseFloat(node.style.top) > before.y + 20,
-      beforeDrag
-    );
-    record("node drag updates position", dragApplied, "dragging a map node updates persisted node coordinates");
+    const dragApplied = await page
+      .waitForFunction(
+        ({ before, delta }) => {
+          const node = Array.from(document.querySelectorAll(".canvas-grid .map-node")).find(
+            (element) => element instanceof HTMLElement && element.dataset.nodeId === before.id
+          );
+          const currentX = node instanceof HTMLElement ? Number.parseFloat(node.style.left) : before.x;
+          const currentY = node instanceof HTMLElement ? Number.parseFloat(node.style.top) : before.y;
+          return (
+            node instanceof HTMLElement &&
+            Math.sign(currentX - before.x) === Math.sign(delta.x) &&
+            Math.abs(currentX - before.x) > 30 &&
+            Math.sign(currentY - before.y) === Math.sign(delta.y) &&
+            Math.abs(currentY - before.y) > 16
+          );
+        },
+        { before: beforeDrag, delta: dragDelta },
+        { timeout: 3000 }
+      )
+      .then(() => true)
+      .catch(() => false);
+    record("node drag updates position", dragApplied, `dragging canvas node ${beforeDrag.id} updates persisted node coordinates`);
   }
 
   await page.getByRole("button", { name: "Auto layout map" }).click();
@@ -222,6 +269,16 @@ try {
   await visible(page.getByText("1 ideas · 1 roots"), "json import preview appears");
   await page.getByRole("button", { name: "Apply JSON import" }).click();
   await visible(page.getByRole("button", { name: /Imported from browser/ }).first(), "json import applies to map");
+  await page.getByRole("button", { name: "Push diff operations" }).click();
+  await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "import diff sync saves through service");
+  const diffQueueDrained = await page
+    .waitForFunction(() => {
+      const status = document.querySelector(".collaboration-panel .remote-status")?.textContent ?? "";
+      return /\b0 pending ops\b/.test(status);
+    }, null, { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  record("diff queue drains after import", diffQueueDrained, diffQueueDrained ? "pending diff operations synced before screenshots" : "pending diff operations remained before screenshots");
 
   const unlabeledControls = await page.locator("button,input,select,textarea").evaluateAll((controls) =>
     controls
@@ -347,7 +404,7 @@ async function ensureServiceAvailable(url, filter, label, extraArgs = []) {
     cwd: root,
     env: {
       ...process.env,
-      VITE_MINDMAP_RPC_URL: process.env.VITE_MINDMAP_RPC_URL ?? mindmapRpcUrl
+      VITE_MINDMAP_RPC_URL: process.env.VITE_MINDMAP_RPC_URL ?? mindmapServiceUrl
     },
     stdio: ["ignore", "pipe", "pipe"]
   });

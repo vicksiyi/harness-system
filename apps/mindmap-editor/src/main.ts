@@ -34,8 +34,8 @@ import {
   type MindMapSnapshot,
   type MindNode
 } from "./domain.js";
-import { createRemoteMap, getRemoteMap, listRemoteMaps, saveRemoteMap } from "./rpc.js";
-import type { MindMapFileDocument, MindMapFileSummary, StoredMindNode } from "@harness/shared";
+import { createRemoteMap, getRemoteMap, listRemoteMaps, saveRemoteMap, syncRemoteMap } from "./rpc.js";
+import type { MindMapFileDocument, MindMapFileSummary, MindMapOperationInput, StoredMindNode } from "@harness/shared";
 
 interface EditorState {
   nodes: MindNode[];
@@ -53,13 +53,16 @@ interface EditorState {
   mapTitle: string;
   mapVersion: number;
   mapFiles: MindMapFileSummary[];
+  clientId: string;
+  pendingOperations: MindMapOperationInput[];
   rpcStatus: "checking" | "online" | "saving" | "saved" | "offline" | "error";
   rpcMessage: string;
 }
 
 const storageKeys = {
   map: "mindmap-studio-state-v1",
-  snapshots: "mindmap-studio-snapshots-v1"
+  snapshots: "mindmap-studio-snapshots-v1",
+  clientId: "mindmap-studio-client-id-v1"
 };
 
 const state: EditorState = initialState();
@@ -133,8 +136,10 @@ function initialState(): EditorState {
     mapTitle: saved?.mapTitle ?? "Launch workspace",
     mapVersion: saved?.mapVersion ?? 0,
     mapFiles: [],
+    clientId: loadClientId(),
+    pendingOperations: [],
     rpcStatus: "checking",
-    rpcMessage: "Connecting to SQLite RPC"
+    rpcMessage: "Connecting to sync service"
   };
 }
 
@@ -142,10 +147,16 @@ function selectedNode(): MindNode {
   return state.nodes.find((node) => node.id === state.selectedId) ?? state.nodes[0];
 }
 
-function commit(nodes: MindNode[], selectedId = state.selectedId, label = "Edit map"): void {
+function commit(
+  nodes: MindNode[],
+  selectedId = state.selectedId,
+  label = "Edit map",
+  operations: MindMapOperationInput[] = [{ type: "select-node", selectedId }, ...upsertOperations(nodes)]
+): void {
   rememberHistory(label);
   state.nodes = nodes;
   state.selectedId = nodes.some((node) => node.id === selectedId) ? selectedId : nodes[0]?.id ?? "";
+  queueOperations(operations);
   persistMap();
   scheduleRemoteSave();
   render();
@@ -218,21 +229,37 @@ function redoMapEdit(): void {
 }
 
 function scheduleRemoteSave(): void {
-  if (applyingRemoteMap || !state.mapId) {
+  if (applyingRemoteMap || !state.mapId || state.pendingOperations.length === 0) {
     return;
   }
   if (remoteSaveTimer !== null) {
     window.clearTimeout(remoteSaveTimer);
   }
   remoteSaveTimer = window.setTimeout(() => {
-    void saveCurrentRemoteMap();
+    void syncCurrentRemoteDiff();
   }, 350);
+}
+
+function queueOperations(operations: MindMapOperationInput[]): void {
+  if (operations.length === 0) {
+    return;
+  }
+  const nextOperations = [...state.pendingOperations];
+  for (const operation of operations) {
+    const previous = nextOperations.at(-1);
+    if (operation.type === "rename-map" && previous?.type === "rename-map") {
+      nextOperations[nextOperations.length - 1] = operation;
+    } else {
+      nextOperations.push(operation);
+    }
+  }
+  state.pendingOperations = nextOperations.slice(-80);
 }
 
 async function initializeRemoteLibrary(): Promise<void> {
   try {
     state.rpcStatus = "checking";
-    state.rpcMessage = "Connecting to SQLite RPC";
+    state.rpcMessage = "Connecting to sync service";
     render();
     const files = await listRemoteMaps();
     state.mapFiles = files;
@@ -245,24 +272,26 @@ async function initializeRemoteLibrary(): Promise<void> {
       return;
     }
     const created = await createRemoteMap(remoteInput());
-    applyRemoteMap(created, "Created first SQLite map file");
+    applyRemoteMap(created, "Created first database file");
   } catch (error) {
     state.rpcStatus = "offline";
-    state.rpcMessage = error instanceof Error ? error.message : "Mind map RPC is offline";
+    state.rpcMessage = error instanceof Error ? error.message : "Sync service is offline";
     render();
   }
 }
 
 async function createMapFile(): Promise<void> {
   try {
+    const nodes = seedNodes();
     state.rpcStatus = "saving";
-    state.rpcMessage = "Creating SQLite map file";
+    state.rpcMessage = "Creating database file";
     render();
     const created = await createRemoteMap({
-      ...remoteInput(),
+      selectedId: nodes[0]?.id ?? "",
+      nodes: storedNodesFrom(nodes),
       title: nextMapTitle()
     });
-    applyRemoteMap(created, "Created new SQLite map file");
+    applyRemoteMap(created, "Created new database file");
   } catch (error) {
     state.rpcStatus = "error";
     state.rpcMessage = error instanceof Error ? error.message : "Could not create map file";
@@ -270,10 +299,61 @@ async function createMapFile(): Promise<void> {
   }
 }
 
+async function syncCurrentRemoteDiff(successMessage?: string): Promise<void> {
+  if (!state.mapId || state.pendingOperations.length === 0) {
+    return;
+  }
+  const operations = state.pendingOperations;
+  state.pendingOperations = [];
+  try {
+    state.rpcStatus = "saving";
+    state.rpcMessage = `Syncing ${operations.length} changes`;
+    render();
+    const result = await syncRemoteMap({
+      id: state.mapId,
+      clientId: state.clientId,
+      sinceVersion: state.mapVersion,
+      operations
+    });
+    if (result.operations.some((operation) => operation.clientId !== state.clientId)) {
+      applyRemoteMap(result.document, `Merged ${result.operations.length} remote operations`, true);
+    } else {
+      applyRemoteMetadata(result.document, successMessage ?? `Saved ${operations.length} changes`, true);
+    }
+  } catch (error) {
+    state.pendingOperations = [...operations, ...state.pendingOperations].slice(-80);
+    state.rpcStatus = "error";
+    state.rpcMessage = error instanceof Error ? error.message : "Could not sync map diff";
+    render();
+  }
+}
+
+async function pullRemoteChanges(): Promise<void> {
+  if (!state.mapId) {
+    return;
+  }
+  try {
+    state.rpcStatus = "checking";
+    state.rpcMessage = "Pulling remote diff operations";
+    render();
+    const result = await syncRemoteMap({
+      id: state.mapId,
+      clientId: state.clientId,
+      sinceVersion: state.mapVersion,
+      operations: []
+    });
+    applyRemoteMap(result.document, result.operations.length ? `Pulled ${result.operations.length} remote operations` : "No remote changes");
+  } catch (error) {
+    state.rpcStatus = "error";
+    state.rpcMessage = error instanceof Error ? error.message : "Could not pull remote changes";
+    render();
+  }
+}
+
 async function openRemoteMap(id: string): Promise<void> {
   try {
     state.rpcStatus = "checking";
-    state.rpcMessage = "Opening SQLite map file";
+    state.rpcMessage = "Opening database file";
     render();
     const document = await getRemoteMap(id);
     if (!document) {
@@ -291,16 +371,27 @@ async function saveCurrentRemoteMap(): Promise<void> {
   if (!state.mapId) {
     return;
   }
+  const titleInput = document.getElementById("map-title-input");
+  if (titleInput instanceof HTMLInputElement) {
+    updateMapTitle(titleInput.value);
+  }
+  if (remoteSaveTimer !== null) {
+    window.clearTimeout(remoteSaveTimer);
+    remoteSaveTimer = null;
+  }
+  if (state.pendingOperations.length > 0) {
+    await syncCurrentRemoteDiff("Saved file to database");
+    return;
+  }
   try {
     state.rpcStatus = "saving";
-    state.rpcMessage = "Saving to SQLite";
+    state.rpcMessage = "Saving file";
     render();
     const saved = await saveRemoteMap({
       ...remoteInput(),
-      id: state.mapId,
-      baseVersion: state.mapVersion || undefined
+      id: state.mapId
     });
-    applyRemoteMetadata(saved, "Saved to SQLite");
+    applyRemoteMetadata(saved, "Saved file to database");
   } catch (error) {
     state.rpcStatus = "error";
     state.rpcMessage = error instanceof Error ? error.message : "Could not save map file";
@@ -308,7 +399,8 @@ async function saveCurrentRemoteMap(): Promise<void> {
   }
 }
 
-function applyRemoteMap(document: MindMapFileDocument, message: string): void {
+function applyRemoteMap(document: MindMapFileDocument, message: string, preservePending = false): void {
+  const pendingOperations = preservePending ? state.pendingOperations : [];
   applyingRemoteMap = true;
   state.mapId = document.id;
   state.mapTitle = document.title;
@@ -316,6 +408,7 @@ function applyRemoteMap(document: MindMapFileDocument, message: string): void {
   state.nodes = normalizeStoredNodes(document.nodes);
   state.selectedId = state.nodes.some((node) => node.id === document.selectedId) ? document.selectedId : state.nodes[0]?.id ?? "";
   state.history = createEmptyHistory();
+  state.pendingOperations = pendingOperations;
   state.rpcStatus = "saved";
   state.rpcMessage = message;
   state.mapFiles = [summaryFromDocument(document), ...state.mapFiles.filter((file) => file.id !== document.id)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -324,10 +417,12 @@ function applyRemoteMap(document: MindMapFileDocument, message: string): void {
   applyingRemoteMap = false;
 }
 
-function applyRemoteMetadata(document: MindMapFileDocument, message: string): void {
+function applyRemoteMetadata(document: MindMapFileDocument, message: string, preservePending = false): void {
+  const pendingOperations = preservePending ? state.pendingOperations : [];
   state.mapId = document.id;
   state.mapTitle = document.title;
   state.mapVersion = document.version;
+  state.pendingOperations = pendingOperations;
   state.rpcStatus = "saved";
   state.rpcMessage = message;
   state.mapFiles = [summaryFromDocument(document), ...state.mapFiles.filter((file) => file.id !== document.id)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -339,8 +434,47 @@ function remoteInput(): { title: string; selectedId: string; nodes: StoredMindNo
   return {
     title: state.mapTitle,
     selectedId: state.selectedId,
-    nodes: state.nodes.map((node) => ({ ...node, tags: [...node.tags] }))
+    nodes: storedNodesFrom(state.nodes)
   };
+}
+
+function storedNodesFrom(nodes: MindNode[]): StoredMindNode[] {
+  return nodes.map((node) => ({ ...node, tags: [...node.tags] }));
+}
+
+function updateMapTitle(value: string): void {
+  const nextTitle = normalizeMapTitle(value);
+  if (nextTitle === state.mapTitle) {
+    return;
+  }
+  state.mapTitle = nextTitle;
+  queueOperations([{ type: "rename-map", title: state.mapTitle }]);
+  persistMap();
+  scheduleRemoteSave();
+  refreshCollaborationControls();
+}
+
+function refreshCollaborationControls(): void {
+  const status = document.querySelector(".collaboration-panel .remote-status");
+  if (status) {
+    status.textContent = `Client ${state.clientId.slice(-7)} · ${state.pendingOperations.length} pending ops`;
+  }
+  const pushButton = document.getElementById("push-diff");
+  if (pushButton instanceof HTMLButtonElement) {
+    pushButton.disabled = !(state.mapId && state.pendingOperations.length);
+  }
+}
+
+function upsertOperations(nodes: MindNode[]): MindMapOperationInput[] {
+  return nodes.map((node) => ({ type: "upsert-node", node: toStoredNode(node) }));
+}
+
+function upsertNodeOperation(node: MindNode): MindMapOperationInput {
+  return { type: "upsert-node", node: toStoredNode(node) };
+}
+
+function toStoredNode(node: MindNode): StoredMindNode {
+  return { ...node, tags: [...node.tags] };
 }
 
 function summaryFromDocument(document: MindMapFileDocument): MindMapFileSummary {
@@ -366,22 +500,25 @@ function addRootIdea(): void {
     y: 420,
     tags: ["new"]
   });
-  commit([node, ...state.nodes], id, "Add root idea");
+  commit([node, ...state.nodes], id, "Add root idea", [{ type: "select-node", selectedId: id }, upsertNodeOperation(node)]);
 }
 
 function addChildIdea(): void {
   const parent = selectedNode();
   const id = `idea-${Date.now().toString(36)}`;
   const child = createChildNode(parent, getChildren(state.nodes, parent.id).length + 1, id);
-  commit([child, ...state.nodes], id, "Add child idea");
+  commit([child, ...state.nodes], id, "Add child idea", [{ type: "select-node", selectedId: id }, upsertNodeOperation(child)]);
 }
 
 function patchSelected(patch: Partial<Omit<MindNode, "id">>): void {
-  commit(state.nodes.map((node) => (node.id === state.selectedId ? updateNode(node, patch) : node)), state.selectedId, editLabel(patch));
+  const nodes = state.nodes.map((node) => (node.id === state.selectedId ? updateNode(node, patch) : node));
+  const updated = nodes.find((node) => node.id === state.selectedId);
+  commit(nodes, state.selectedId, editLabel(patch), updated ? [upsertNodeOperation(updated)] : []);
 }
 
 function setSelected(id: string): void {
   state.selectedId = id;
+  queueOperations([{ type: "select-node", selectedId: id }]);
   persistMap();
   scheduleRemoteSave();
   render();
@@ -548,6 +685,16 @@ function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "m
   } catch {
     return null;
   }
+}
+
+function loadClientId(): string {
+  const saved = readStorage(storageKeys.clientId);
+  if (saved) {
+    return saved;
+  }
+  const id = `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  writeStorage(storageKeys.clientId, id);
+  return id;
 }
 
 function loadSnapshots(): MindMapSnapshot[] {
@@ -762,6 +909,10 @@ function endNodeDrag(event: PointerEvent): void {
   element?.classList.remove("dragging");
   if (dragState.hasMoved) {
     rememberHistory("Drag node", dragState.originNodes, dragState.nodeId);
+    const movedNode = state.nodes.find((node) => node.id === dragState?.nodeId);
+    if (movedNode) {
+      queueOperations([upsertNodeOperation(movedNode)]);
+    }
   }
   dragState = null;
   persistMap();
@@ -790,7 +941,7 @@ function render(): void {
   const commands = filterCommands(commandCatalog(), state.commandQuery);
   const canvasWidth = Math.max(1040, ...state.nodes.map((item) => item.x + 230));
   const canvasHeight = Math.max(520, ...state.nodes.map((item) => item.y + 120));
-  const rpcLabel = state.rpcStatus === "saved" || state.rpcStatus === "online" ? "RPC online" : state.rpcStatus === "offline" ? "RPC offline" : state.rpcStatus;
+  const rpcLabel = state.rpcStatus === "saved" || state.rpcStatus === "online" ? "Sync online" : state.rpcStatus === "offline" ? "Sync offline" : state.rpcStatus;
 
   app.innerHTML = `
     <section class="studio">
@@ -887,6 +1038,18 @@ function render(): void {
                       .join("")
                   : `<p class="empty">No database files loaded.</p>`
               }
+            </div>
+          </section>
+
+          <section class="file-panel collaboration-panel" aria-label="Collaboration sync">
+            <div class="section-head">
+              <h2>Collaboration</h2>
+              <span>v${state.mapVersion}</span>
+            </div>
+            <p class="remote-status saved">Client ${escapeHtml(state.clientId.slice(-7))} · ${state.pendingOperations.length} pending ops</p>
+            <div class="file-actions">
+              <button id="push-diff" aria-label="Push diff operations" ${state.mapId && state.pendingOperations.length ? "" : "disabled"}>Push diff</button>
+              <button id="pull-diff" aria-label="Pull diff operations" ${state.mapId ? "" : "disabled"}>Pull diff</button>
             </div>
           </section>
 
@@ -1108,11 +1271,17 @@ function render(): void {
   byId<HTMLButtonElement>("save-map-file").addEventListener("click", () => {
     void saveCurrentRemoteMap();
   });
+  byId<HTMLButtonElement>("push-diff").addEventListener("click", () => {
+    void syncCurrentRemoteDiff();
+  });
+  byId<HTMLButtonElement>("pull-diff").addEventListener("click", () => {
+    void pullRemoteChanges();
+  });
   byId<HTMLInputElement>("map-title-input").addEventListener("change", (event) => {
-    state.mapTitle = normalizeMapTitle((event.target as HTMLInputElement).value);
-    persistMap();
-    scheduleRemoteSave();
-    render();
+    updateMapTitle((event.target as HTMLInputElement).value);
+  });
+  byId<HTMLInputElement>("map-title-input").addEventListener("input", (event) => {
+    updateMapTitle((event.target as HTMLInputElement).value);
   });
   byId<HTMLButtonElement>("preview-import").addEventListener("click", () => previewImport());
   byId<HTMLButtonElement>("apply-import").addEventListener("click", applyImport);

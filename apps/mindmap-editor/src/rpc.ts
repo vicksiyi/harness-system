@@ -1,4 +1,4 @@
-import type { MindMapFileDocument, MindMapFileSummary, MindMapSaveInput, RpcResponse } from "@harness/shared";
+import type { MindMapFileDocument, MindMapFileSummary, MindMapSaveInput, MindMapSyncInput, MindMapSyncResult, RpcResponse } from "@harness/shared";
 
 const rpcBaseUrl = import.meta.env.VITE_MINDMAP_RPC_URL ?? "http://localhost:4105";
 
@@ -19,7 +19,7 @@ export async function mindMapRpc<TResult>(method: string, params?: unknown, time
     });
     const body = (await response.json()) as RpcResponse<TResult>;
     if (!response.ok || body.error) {
-      throw new Error(body.error?.message ?? `Mind map RPC ${method} failed.`);
+      throw new Error(body.error?.message ?? `Mind map sync request ${method} failed.`);
     }
     return body.result as TResult;
   } finally {
@@ -41,4 +41,8 @@ export function createRemoteMap(input: Omit<MindMapSaveInput, "id" | "baseVersio
 
 export function saveRemoteMap(input: MindMapSaveInput): Promise<MindMapFileDocument> {
   return mindMapRpc<MindMapFileDocument>("saveMap", input);
+}
+
+export function syncRemoteMap(input: MindMapSyncInput): Promise<MindMapSyncResult> {
+  return mindMapRpc<MindMapSyncResult>("syncMap", input);
 }

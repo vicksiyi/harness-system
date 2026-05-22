@@ -100,6 +100,82 @@ describe("MindMapStore", () => {
     ).toThrow(/version conflict/i);
   });
 
+  it("applies diff operations and returns changes since a client version", () => {
+    const created = store.createMap({ title: "Collaborative", selectedId: "root", nodes });
+    const result = store.syncMap({
+      id: created.id,
+      clientId: "client-a",
+      sinceVersion: created.version,
+      operations: [
+        {
+          type: "upsert-node",
+          node: {
+            id: "new-node",
+            title: "Synced branch",
+            notes: "Created through a diff operation",
+            tags: ["sync"],
+            status: "exploring",
+            parentId: "root",
+            x: 520,
+            y: 220,
+            updatedAt: "2026-05-23T10:20:00.000Z"
+          }
+        },
+        {
+          type: "select-node",
+          selectedId: "new-node"
+        }
+      ]
+    });
+
+    expect(result.document.version).toBe(created.version + 2);
+    expect(result.document.selectedId).toBe("new-node");
+    expect(result.document.nodes.find((node) => node.id === "new-node")).toMatchObject({
+      title: "Synced branch",
+      parentId: "root"
+    });
+    expect(result.operations.map((operation) => operation.type)).toEqual(["upsert-node", "select-node"]);
+
+    const pulled = store.syncMap({
+      id: created.id,
+      clientId: "client-b",
+      sinceVersion: created.version,
+      operations: []
+    });
+
+    expect(pulled.operations).toHaveLength(2);
+    expect(pulled.operations[0]).toMatchObject({ clientId: "client-a", version: created.version + 1 });
+    expect(pulled.document.nodes.find((node) => node.id === "new-node")?.title).toBe("Synced branch");
+  });
+
+  it("allows a manual file save after diff sync without stale version coupling", () => {
+    const created = store.createMap({ title: "Manual save", selectedId: "root", nodes });
+    const synced = store.syncMap({
+      id: created.id,
+      clientId: "client-a",
+      sinceVersion: created.version,
+      operations: [
+        {
+          type: "rename-map",
+          title: "Manual save via diff"
+        }
+      ]
+    });
+
+    const saved = store.saveMap({
+      id: created.id,
+      title: "Manual save via button",
+      selectedId: synced.document.selectedId,
+      nodes: synced.document.nodes
+    });
+
+    expect(saved).toMatchObject({
+      id: created.id,
+      title: "Manual save via button",
+      version: synced.document.version + 1
+    });
+  });
+
   it("deletes files and keeps missing reads explicit", () => {
     const created = store.createMap({ title: "Temporary", selectedId: "root", nodes });
 

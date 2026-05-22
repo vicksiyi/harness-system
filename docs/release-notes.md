@@ -1,14 +1,9 @@
-# Release Notes: Implement: 支持打开不同脑图文件，使用 mindmap-rpc 和 SQLite 数据库存储，并通过浏览器验证 RPC 创建文件
+# Release Notes: Mind Map Save Sync Stabilization
 
-- Workflow type: requirement
-- Target project: apps/mindmap-editor
-- Result: passed
-- Score: 100
-- Deployment: healthy
+- Fixed Save file so title edits and pending collaboration changes are persisted reliably.
+- Product UI no longer exposes `RPC` as a user-facing concept; sync/database wording is used instead.
+- New file now starts from a clean default mind map, avoiding repeated-test document overlap.
+- Browser quality now verifies manual save, diff sync, queue drain, drag movement, Canvas connector pixels, and desktop/mobile screenshots.
+- Validation passed with 54 tests, production build, full browser quality, Docker Compose config, and workflow `run_mphk8wv8_70p1cf8q`.
 
-## Operator Notes
-- Mind Map Studio now uses `mindmap-rpc` and local SQLite for multi-file map storage.
-- The front end can create, open, and save database-backed map files from the `Map Files` panel.
-- Browser quality starts/checks `mindmap-rpc` and verifies UI-driven SQLite file creation.
-- Full verification passed with 52 tests; `docker compose config` recognizes `mindmap-rpc` on port 4105.
-- Inspect `.harness/runs/run_mphfsvb0_a9md6fxw.json` for the full JSON execution record.
+Known limit: diff collaboration is operation-log based and still needs a dedicated multi-client conflict simulation.

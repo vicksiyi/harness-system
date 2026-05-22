@@ -1,4 +1,4 @@
-import { asRecord, createRpcServer, servicePort, type MindMapSaveInput, type ServiceHealth, type StoredMindNode } from "@harness/shared";
+import { asRecord, createRpcServer, servicePort, type MindMapOperationInput, type MindMapSaveInput, type ServiceHealth, type StoredMindNode } from "@harness/shared";
 import { defaultMindMapDatabasePath, MindMapStore } from "./store.js";
 
 const databasePath = defaultMindMapDatabasePath();
@@ -41,6 +41,16 @@ function deleteMap(params: unknown) {
   return { deleted: id ? store.deleteMap(id) : false };
 }
 
+function syncMap(params: unknown) {
+  const record = asRecord(params);
+  return store.syncMap({
+    id: typeof record.id === "string" ? record.id : "",
+    clientId: typeof record.clientId === "string" ? record.clientId : "anonymous-client",
+    sinceVersion: typeof record.sinceVersion === "number" ? record.sinceVersion : 0,
+    operations: Array.isArray(record.operations) ? (record.operations as MindMapOperationInput[]) : []
+  });
+}
+
 createRpcServer({
   serviceName: "mindmap-rpc",
   port: servicePort("mindmap"),
@@ -49,7 +59,8 @@ createRpcServer({
     getMap,
     createMap,
     saveMap,
-    deleteMap
+    deleteMap,
+    syncMap
   },
   health: (): ServiceHealth => ({
     service: "mindmap-rpc",
@@ -58,7 +69,7 @@ createRpcServer({
     details: {
       databasePath,
       mapCount: store.listMaps().length,
-      methods: ["listMaps", "getMap", "createMap", "saveMap", "deleteMap"]
+      methods: ["listMaps", "getMap", "createMap", "saveMap", "deleteMap", "syncMap"]
     }
   })
 });
