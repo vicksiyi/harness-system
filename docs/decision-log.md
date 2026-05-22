@@ -41,3 +41,9 @@
 - 决策：RPC 服务和 workflow runner 支持 `HARNESS_PORT_OFFSET`，真实浏览器检查支持 `HARNESS_BROWSER_TARGET_URL` 推导 Vite 端口。
 - 原因：本地旧容器或其他项目占用默认端口时，Harness 仍需要完成 Skill -> RPC -> 测试 -> 浏览器验证闭环。
 - 取舍：默认端口保持不变；备用 profile 需要显式设置环境变量，例如 `HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176`。
+
+## 0008 Browser Gate Failure Aggregation
+
+- 决策：浏览器质量脚本必须把任意单项 failed check 聚合为整体失败退出码。
+- 原因：真实浏览器验证的价值在于阻断回归；只记录 failed check 但进程仍成功会让 workflow 误判。
+- 取舍：脚本仍输出完整 JSON 和截图，便于失败后读取日志并定位 UI 或可访问性问题。

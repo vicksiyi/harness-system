@@ -3,11 +3,13 @@
 import "./style.css";
 import {
   buildOutline,
+  buildCommandPalette,
   collectTags,
   createChildNode,
   createNode,
   createSnapshot,
   exportMapAsMarkdown,
+  filterCommands,
   filterNodes,
   getAncestors,
   getChildren,
@@ -17,6 +19,7 @@ import {
   summarizeMap,
   updateNode,
   type IdeaStatus,
+  type CommandDefinition,
   type MindMapSnapshot,
   type MindNode
 } from "./domain.js";
@@ -28,6 +31,8 @@ interface EditorState {
   tag: string;
   status: IdeaStatus | "all";
   snapshots: MindMapSnapshot[];
+  commandPaletteOpen: boolean;
+  commandQuery: string;
 }
 
 const storageKeys = {
@@ -82,7 +87,9 @@ function initialState(): EditorState {
     query: "",
     tag: "all",
     status: "all",
-    snapshots: loadSnapshots()
+    snapshots: loadSnapshots(),
+    commandPaletteOpen: false,
+    commandQuery: ""
   };
 }
 
@@ -148,6 +155,66 @@ function restoreSnapshotById(id: string): void {
 
 function resetMap(): void {
   commit(seedNodes(), "idea-launch");
+}
+
+function openCommandPalette(query = ""): void {
+  state.commandPaletteOpen = true;
+  state.commandQuery = query;
+  render();
+}
+
+function closeCommandPalette(): void {
+  state.commandPaletteOpen = false;
+  state.commandQuery = "";
+  render();
+}
+
+function runCommand(commandId: string): void {
+  const command = commandCatalog().find((item) => item.id === commandId);
+  if (command?.disabled) {
+    return;
+  }
+
+  switch (commandId) {
+    case "add-root":
+      addRootIdea();
+      break;
+    case "add-child":
+      addChildIdea();
+      break;
+    case "save-snapshot":
+      saveSnapshot();
+      break;
+    case "restore-latest":
+      if (state.snapshots[0]) {
+        restoreSnapshotById(state.snapshots[0].id);
+      }
+      break;
+    case "focus-search":
+      state.commandPaletteOpen = false;
+      state.commandQuery = "";
+      render();
+      byId<HTMLInputElement>("query").focus();
+      break;
+    case "export-markdown": {
+      state.commandPaletteOpen = false;
+      state.commandQuery = "";
+      render();
+      const exportPreview = byId<HTMLTextAreaElement>("markdown-export");
+      exportPreview.focus();
+      exportPreview.select();
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+function commandCatalog(): CommandDefinition[] {
+  return buildCommandPalette({
+    hasSnapshots: state.snapshots.length > 0,
+    hasSelection: state.nodes.some((node) => node.id === state.selectedId)
+  });
 }
 
 function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId"> | null {
@@ -279,6 +346,7 @@ function render(): void {
   const children = getChildren(state.nodes, node.id);
   const markdown = exportMapAsMarkdown(state.nodes);
   const latestSnapshot = state.snapshots[0];
+  const commands = filterCommands(commandCatalog(), state.commandQuery);
 
   app.innerHTML = `
     <section class="studio">
@@ -291,9 +359,42 @@ function render(): void {
           <button id="add-root" aria-label="Add root idea">Root</button>
           <button id="add-child" aria-label="Add child idea">Child</button>
           <button id="save-snapshot" aria-label="Save snapshot">Save</button>
+          <button id="open-commands" aria-label="Open command palette">Commands</button>
           <button id="reset-map" aria-label="Reset map">Reset</button>
         </div>
       </header>
+
+      ${
+        state.commandPaletteOpen
+          ? `<div class="command-backdrop">
+              <section class="command-panel" role="dialog" aria-modal="true" aria-label="Command palette">
+                <div class="command-search">
+                  <span>Command Palette</span>
+                  <input id="command-query" aria-label="Search commands" value="${escapeHtml(state.commandQuery)}" placeholder="Type a command or shortcut" />
+                </div>
+                <div class="command-list">
+                  ${
+                    commands.length
+                      ? commands
+                          .map(
+                            (command) => `
+                              <button class="command-row" data-command-id="${command.id}" ${command.disabled ? "disabled" : ""}>
+                                <span>
+                                  <strong>${escapeHtml(command.title)}</strong>
+                                  <small>${escapeHtml(command.description)}</small>
+                                </span>
+                                <kbd>${escapeHtml(command.shortcut)}</kbd>
+                              </button>
+                            `
+                          )
+                          .join("")
+                      : `<p class="empty">No commands found.</p>`
+                  }
+                </div>
+              </section>
+            </div>`
+          : ""
+      }
 
       <section class="workspace">
         <aside class="navigator">
@@ -475,7 +576,7 @@ function render(): void {
               <h2>Markdown Export</h2>
               <span>${state.nodes.length} ideas</span>
             </div>
-            <textarea aria-label="Markdown export preview" readonly rows="9">${escapeHtml(markdown)}</textarea>
+            <textarea id="markdown-export" aria-label="Markdown export preview" readonly rows="9">${escapeHtml(markdown)}</textarea>
           </section>
         </aside>
       </section>
@@ -485,7 +586,19 @@ function render(): void {
   byId<HTMLButtonElement>("add-root").addEventListener("click", addRootIdea);
   byId<HTMLButtonElement>("add-child").addEventListener("click", addChildIdea);
   byId<HTMLButtonElement>("save-snapshot").addEventListener("click", saveSnapshot);
+  byId<HTMLButtonElement>("open-commands").addEventListener("click", () => openCommandPalette());
   byId<HTMLButtonElement>("reset-map").addEventListener("click", resetMap);
+  document.querySelectorAll<HTMLButtonElement>("[data-command-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.commandId) {
+        runCommand(button.dataset.commandId);
+      }
+    });
+  });
+  document.getElementById("command-query")?.addEventListener("input", (event) => {
+    state.commandQuery = (event.target as HTMLInputElement).value;
+    render();
+  });
   document.getElementById("restore-latest")?.addEventListener("click", () => {
     if (state.snapshots[0]) {
       restoreSnapshotById(state.snapshots[0].id);
@@ -529,6 +642,77 @@ function render(): void {
       }
     });
   });
+  if (state.commandPaletteOpen) {
+    byId<HTMLInputElement>("command-query").focus();
+  }
+}
+
+document.addEventListener("keydown", (event) => {
+  const key = event.key.toLowerCase();
+  const commandModifier = event.metaKey || event.ctrlKey;
+
+  if (commandModifier && key === "k") {
+    event.preventDefault();
+    openCommandPalette();
+    return;
+  }
+
+  if (state.commandPaletteOpen) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeCommandPalette();
+      return;
+    }
+    if (event.key === "Enter") {
+      const firstEnabled = filterCommands(commandCatalog(), state.commandQuery).find((command) => !command.disabled);
+      if (firstEnabled) {
+        event.preventDefault();
+        runCommand(firstEnabled.id);
+      }
+      return;
+    }
+  }
+
+  if (commandModifier && key === "s") {
+    event.preventDefault();
+    saveSnapshot();
+    return;
+  }
+
+  if (isTypingTarget(event.target)) {
+    return;
+  }
+
+  if (key === "/") {
+    event.preventDefault();
+    runCommand("focus-search");
+    return;
+  }
+
+  if (event.shiftKey && key === "r") {
+    event.preventDefault();
+    runCommand("restore-latest");
+    return;
+  }
+
+  if (key === "r") {
+    event.preventDefault();
+    addRootIdea();
+    return;
+  }
+
+  if (key === "c") {
+    event.preventDefault();
+    addChildIdea();
+  }
+});
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const element = target instanceof HTMLElement ? target : null;
+  if (!element) {
+    return false;
+  }
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName) || element.isContentEditable;
 }
 
 render();

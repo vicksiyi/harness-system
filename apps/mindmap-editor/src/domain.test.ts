@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildOutline,
+  buildCommandPalette,
   collectTags,
   createSnapshot,
   completionScore,
   createChildNode,
   createNode,
   exportMapAsMarkdown,
+  filterCommands,
   filterNodes,
   getAncestors,
   getChildren,
@@ -173,5 +175,28 @@ describe("mind map domain", () => {
       status: "exploring"
     });
     expect(activity[1]?.summary).toBe("Interview notes and market scans");
+  });
+
+  it("builds command palette items with contextual disabled states", () => {
+    const commands = buildCommandPalette({ hasSnapshots: false, hasSelection: true });
+
+    expect(commands.map((command) => command.id)).toEqual([
+      "add-root",
+      "add-child",
+      "save-snapshot",
+      "restore-latest",
+      "focus-search",
+      "export-markdown"
+    ]);
+    expect(commands.find((command) => command.id === "add-child")?.disabled).toBe(false);
+    expect(commands.find((command) => command.id === "restore-latest")?.disabled).toBe(true);
+  });
+
+  it("filters command palette by title description shortcut and keyword", () => {
+    const commands = buildCommandPalette({ hasSnapshots: true, hasSelection: true });
+
+    expect(filterCommands(commands, "child").map((command) => command.id)).toEqual(["add-child"]);
+    expect(filterCommands(commands, "checkpoint").map((command) => command.id)).toEqual(["save-snapshot", "restore-latest"]);
+    expect(filterCommands(commands, "/").map((command) => command.id)).toEqual(["focus-search"]);
   });
 });

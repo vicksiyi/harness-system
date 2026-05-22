@@ -114,3 +114,23 @@
 - 已完成：产品新增本地持久化、快照保存/恢复、最近活动轨迹；浏览器质量门禁覆盖快照恢复；RPC 服务支持 `HARNESS_PORT_OFFSET`；orchestrator 的测试 RPC 超时提升到可配置的 90s 默认。
 - 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm verify` 通过，`HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm workflow:requirement "给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹"` 通过。
 - 下一步：继续增加更复杂产品能力，例如节点拖拽布局、快捷键、导入导出 JSON、版本历史对比或后端同步。
+
+## Run run_mphe0xvh_8iju59li
+
+- At: 2026-05-22T20:44:14.387Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加命令面板和键盘快捷操作
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Command Palette Loop
+
+- At: 2026-05-23
+- 目标：继续通过 `$harness requirement` 增强 Mind Map Studio，使样例产品更接近可长期使用的编辑器。
+- 已完成：新增命令面板、命令搜索、快捷键入口、Markdown 选择命令、搜索聚焦命令，并扩展浏览器门禁覆盖键盘路径。
+- 发现并修复：移动端操作区因新增 Commands 按钮产生横向溢出；浏览器门禁没有把单个 failed check 转成失败退出码。
+- 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图编辑器增加命令面板和键盘快捷操作"` 均通过。
+- 下一步：继续增加更复杂产品能力，例如 JSON 导入导出、节点拖拽布局、版本差异对比、后端同步或协作状态。

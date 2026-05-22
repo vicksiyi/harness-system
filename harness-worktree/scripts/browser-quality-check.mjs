@@ -64,6 +64,18 @@ try {
   await visible(page.getByRole("button", { name: /Browser verified branch/ }).first(), "snapshot restores prior title");
   await visible(page.getByRole("heading", { name: "Recent Activity" }), "recent activity section");
 
+  await page.keyboard.press("Control+K");
+  await visible(page.getByRole("dialog", { name: "Command palette" }), "command palette opens from keyboard");
+  await page.getByLabel("Search commands").fill("child");
+  await visible(page.getByRole("button", { name: /Add child idea/ }).first(), "command palette filters commands");
+  await page.keyboard.press("Enter");
+  await visible(page.getByRole("button", { name: /New branch/ }).first(), "command palette executes command");
+  await page.keyboard.press("Control+K");
+  await page.getByLabel("Search commands").fill("/");
+  await page.keyboard.press("Enter");
+  const searchFocused = await page.getByLabel("Search ideas").evaluate((element) => document.activeElement === element);
+  record("command focuses search", searchFocused, searchFocused ? "slash command moved focus to search" : "search input was not focused");
+
   const unlabeledControls = await page.locator("button,input,select,textarea").evaluateAll((controls) =>
     controls
       .map((control) => {
@@ -95,9 +107,13 @@ try {
   await page.screenshot({ path: screenshotPath, fullPage: true });
   record("browser screenshot", true, screenshotPath);
 
-  const result = finish(true, screenshotPath, availability.started);
+  const passed = checks.every((check) => check.ok);
+  const result = finish(passed, screenshotPath, availability.started);
   await writeFile(join(artifactDir, `${runId}-quality.json`), `${JSON.stringify(result, null, 2)}\n`, "utf8");
   console.log(JSON.stringify(result, null, 2));
+  if (!passed) {
+    process.exitCode = 1;
+  }
 } catch (error) {
   const message = error instanceof Error ? error.message : "Unknown browser quality failure";
   record("browser quality failed", false, message);

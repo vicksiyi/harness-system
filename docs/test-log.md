@@ -188,3 +188,25 @@
 - Retest result: verify passed with 41 tests; workflow `run_mphdmxiw_eclrxm1r` passed at `completed`.
 - Final pre-commit checks: `pnpm test`, `pnpm typecheck`, `pnpm target:build`, and `HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm target:browser` all passed.
 - Final browser artifact: `.harness/browser/browser_mphdqe66-mindmap-editor.png`.
+
+## Workflow Validation run_mphe0xvh_8iju59li
+
+- Command: pnpm workflow:requirement "给脑图编辑器增加命令面板和键盘快捷操作"
+- Target project: apps/mindmap-editor
+- Result: passed
+- Attempts: 1/2
+- Log summary: testing-rpc: running simulated regression suite for apps/mindmap-editor | typecheck passed | vitest passed | target app tests passed | target build passed | browser-quality: passed: target reachable - apps/mindmap-editor served at http://localhost:5175 | browser-quality: passed: main product heading - visible through role or accessible locator | browser-quality: passed: map canvas section - visible through role or accessible locator | browser-quality: passed: outline section - visible through role or accessible locator | browser-quality: passed: focus queue section - visible through role or accessible locator | browser-quality: passed: markdown export section - visible through role or accessible locator | browser-quality: passed: search filters idea rows - visible through role or accessible locator | browser-quality: passed: new child idea appears - visible through role or accessible locator | browser-quality: passed: title edit updates live UI - visible through role or accessible locator | browser-quality: passed: snapshots section - visible through role or accessible locator | browser-quality: passed: snapshot restore action appears - visible through role or accessible locator | browser-quality: passed: temporary title appears before restore - visible through role or accessible locator | browser-quality: passed: snapshot restores prior title - visible through role or accessible locator | browser-quality: passed: recent activity section - visible through role or accessible locator | browser-quality: passed: command palette opens from keyboard - visible through role or accessible locator | browser-quality: passed: command palette filters commands - visible through role or accessible locator | browser-quality: passed: command palette executes command - visible through role or accessible locator | browser-quality: passed: command focuses search - slash command moved focus to search | browser-quality: passed: accessible control names - all interactive controls expose a name | browser-quality: passed: desktop layout overflow - 1440px viewport has no horizontal overflow | browser-quality: passed: mobile layout overflow - 390px viewport has no horizontal overflow | browser-quality: passed: browser screenshot - /Users/icezero/code/harness/harness-system/.harness/browser/run_mphe0xvh_8iju59li-mindmap-editor.png
+- Fix actions: none
+
+## Mind Map Command Palette Loop
+
+- At: 2026-05-23
+- Requirement: 给脑图编辑器增加命令面板和键盘快捷操作
+- TDD scope: added `buildCommandPalette` and `filterCommands` tests before wiring UI behavior.
+- Product changes: added a keyboard-opened command palette, contextual commands, shortcut handlers, command search, and command execution for child creation, snapshots, search focus, and Markdown export selection.
+- Harness improvement: browser quality now validates keyboard interaction paths and treats any failed check as a failed process exit.
+- Failure observed: first browser check found `mobile layout overflow` after adding the Commands action, but the script still returned a successful process because it did not aggregate check failures.
+- Fix action: allowed the mobile topbar actions to wrap and changed `browser-quality-check.mjs` to exit non-zero when any check has `ok: false`.
+- Retest commands: `pnpm target:test`, `pnpm typecheck`, `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`, `pnpm test`, `pnpm target:build`, `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`, and `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图编辑器增加命令面板和键盘快捷操作"`.
+- Retest result: 43 tests passed, browser quality passed on `5175`, and workflow `run_mphe0xvh_8iju59li` passed at `completed`.
+- Browser artifacts: `.harness/browser/browser_mphe0ej6-mindmap-editor.png`, `.harness/browser/browser_mphe0pro-mindmap-editor.png`, `.harness/browser/run_mphe0xvh_8iju59li-mindmap-editor.png`.

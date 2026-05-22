@@ -64,7 +64,8 @@ label,
 .outline-list span,
 .focus-list span,
 .activity-list span,
-.snapshot-row span {
+.snapshot-row span,
+.command-row small {
   color: #607086;
   font-size: 12px;
   font-weight: 750;
@@ -90,7 +91,94 @@ label,
 }
 
 .actions button:nth-child(4) {
+  background: #7c3aed;
+}
+
+.actions button:nth-child(5) {
   background: #475569;
+}
+
+.command-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  padding: 86px 18px 18px;
+  background: rgb(15 23 42 / 42%);
+}
+
+.command-panel {
+  width: min(620px, 100%);
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  box-shadow: 0 28px 80px rgb(15 23 42 / 28%);
+}
+
+.command-search {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-bottom: 1px solid #d8e0eb;
+}
+
+.command-search span {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.command-list {
+  display: grid;
+  gap: 6px;
+  max-height: 430px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.command-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 62px;
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.command-row:hover:not(:disabled),
+.command-row:focus-visible {
+  border-color: #0f766e;
+  outline: 0;
+}
+
+.command-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.command-row span {
+  display: grid;
+  gap: 3px;
+}
+
+.command-row kbd {
+  min-width: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 5px 7px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 850;
 }
 
 .workspace {
@@ -347,6 +435,16 @@ label {
   .section-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .actions button {
+    flex: 1 1 110px;
+    min-width: 0;
   }
 
   .workspace,

@@ -57,6 +57,18 @@ export interface ActivityItem {
   summary: string;
 }
 
+export type CommandCategory = "create" | "navigate" | "preserve" | "view";
+
+export interface CommandDefinition {
+  id: string;
+  title: string;
+  description: string;
+  shortcut: string;
+  category: CommandCategory;
+  keywords: string[];
+  disabled?: boolean;
+}
+
 export function createNode(input: {
   id: string;
   title: string;
@@ -277,6 +289,39 @@ export function recentActivity(nodes: MindNode[], limit = 6): ActivityItem[] {
     }));
 }
 
+export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection: boolean }): CommandDefinition[] {
+  return [
+    command("add-root", "Add root idea", "Create a new top-level idea", "R", "create", ["new", "root", "idea"]),
+    command("add-child", "Add child idea", "Create a child branch under the selected idea", "C", "create", ["new", "child", "branch"], !input.hasSelection),
+    command("save-snapshot", "Save snapshot", "Capture the current map state", "S", "preserve", ["checkpoint", "backup", "save"]),
+    command(
+      "restore-latest",
+      "Restore latest snapshot",
+      "Roll the map back to the newest saved snapshot",
+      "Shift+R",
+      "preserve",
+      ["checkpoint", "snapshot", "restore"],
+      !input.hasSnapshots
+    ),
+    command("focus-search", "Focus search", "Move cursor to idea search", "/", "navigate", ["find", "filter", "query"]),
+    command("export-markdown", "Copy markdown export", "Select the generated Markdown outline", "M", "view", ["markdown", "copy", "outline"])
+  ];
+}
+
+export function filterCommands(commands: CommandDefinition[], query: string): CommandDefinition[] {
+  const needle = query.trim().toLowerCase();
+  const scored = commands
+    .map((item, index) => ({
+      item,
+      index,
+      score: commandScore(item, needle)
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || Number(a.item.disabled) - Number(b.item.disabled) || a.index - b.index);
+
+  return scored.map((entry) => entry.item);
+}
+
 function outlineBranch(nodes: MindNode[], node: MindNode, depth: number): OutlineItem[] {
   return [
     { id: node.id, title: node.title, depth, status: node.status },
@@ -306,4 +351,52 @@ function clampCoordinate(value: number): number {
     return 0;
   }
   return Math.max(0, Math.min(1400, Math.round(value)));
+}
+
+function command(
+  id: string,
+  title: string,
+  description: string,
+  shortcut: string,
+  category: CommandCategory,
+  keywords: string[],
+  disabled = false
+): CommandDefinition {
+  return {
+    id,
+    title,
+    description,
+    shortcut,
+    category,
+    keywords,
+    disabled
+  };
+}
+
+function commandScore(commandDefinition: CommandDefinition, query: string): number {
+  if (!query) {
+    return commandDefinition.disabled ? 70 : 100;
+  }
+
+  const title = commandDefinition.title.toLowerCase();
+  if (title === query) {
+    return 300;
+  }
+  if (title.startsWith(query)) {
+    return 240;
+  }
+  if (title.includes(query)) {
+    return 200;
+  }
+
+  const haystack = [
+    commandDefinition.description,
+    commandDefinition.shortcut,
+    commandDefinition.category,
+    ...commandDefinition.keywords
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(query) ? 120 : 0;
 }

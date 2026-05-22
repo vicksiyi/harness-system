@@ -1,4 +1,4 @@
-# Release Notes: Implement: 给脑图编辑器增加本地持久化、快照恢复和最近活动轨迹
+# Release Notes: Implement: 给脑图编辑器增加命令面板和键盘快捷操作
 
 - Workflow type: requirement
 - Target project: apps/mindmap-editor
@@ -7,6 +7,8 @@
 - Deployment: healthy
 
 ## Operator Notes
-- Run `pnpm health` after deployment.
-- Inspect `.harness/runs` for the full JSON execution record.
-- Use `HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176` when default local ports are occupied.
+- Mind Map Studio now has a command palette opened with `Ctrl+K` / `Cmd+K`.
+- Keyboard validation is part of `pnpm target:browser` and `pnpm verify`.
+- Browser quality now fails the command if any individual check fails.
+- Current local product URL: `http://localhost:5175`.
+- Inspect `.harness/runs/run_mphe0xvh_8iju59li.json` for the full JSON execution record.
