@@ -2,8 +2,8 @@ node_modules/
 dist/
 .vite/
 .harness/logs/*.log
+.harness/runs/*.json
 .harness/tmp/
 coverage/
 *.tsbuildinfo
 .DS_Store
-
