@@ -7,6 +7,8 @@ import {
   createSnapshot,
   completionScore,
   createChildNode,
+  createEmptyHistory,
+  createHistoryFrame,
   createNode,
   exportMapAsMarkdown,
   exportMapAsJson,
@@ -15,11 +17,14 @@ import {
   getAncestors,
   getChildren,
   moveNode,
+  pushHistory,
   recentActivity,
   parseMindMapJson,
+  redoHistory,
   restoreSnapshot,
   summarizeMap,
   suggestFocusQueue,
+  undoHistory,
   updateNode
 } from "./domain.js";
 
@@ -244,12 +249,44 @@ describe("mind map domain", () => {
     expect(activity[1]?.summary).toBe("Interview notes and market scans");
   });
 
+  it("tracks undo and redo history with immutable frames", () => {
+    const originalNodes = nodes.map((node) => ({ ...node, tags: [...node.tags] }));
+    const frame = createHistoryFrame({
+      nodes: originalNodes,
+      selectedId: "root",
+      label: "  Before drag  ",
+      createdAt: "2026-05-23T08:00:00.000Z"
+    });
+    const pushed = pushHistory(createEmptyHistory(), frame, 3);
+    const movedNodes = moveNode(originalNodes, "root", { x: 100, y: 40 }, "2026-05-23T08:01:00.000Z");
+    const current = createHistoryFrame({
+      nodes: movedNodes,
+      selectedId: "root",
+      label: "After drag",
+      createdAt: "2026-05-23T08:01:00.000Z"
+    });
+
+    originalNodes[0].tags.push("mutated");
+    const undone = undoHistory(pushed, current);
+
+    expect(pushed.past[0].label).toBe("Before drag");
+    expect(pushed.past[0].nodes[0].tags).not.toContain("mutated");
+    expect(undone?.frame.nodes.find((node) => node.id === "root")).toMatchObject({ x: 100, y: 100 });
+    expect(undone?.history.future[0].nodes.find((node) => node.id === "root")).toMatchObject({ x: 200, y: 140 });
+
+    const redone = undone ? redoHistory(undone.history, undone.frame) : null;
+    expect(redone?.frame.nodes.find((node) => node.id === "root")).toMatchObject({ x: 200, y: 140 });
+    expect(redone?.history.past[0].nodes.find((node) => node.id === "root")).toMatchObject({ x: 100, y: 100 });
+  });
+
   it("builds command palette items with contextual disabled states", () => {
-    const commands = buildCommandPalette({ hasSnapshots: false, hasSelection: true });
+    const commands = buildCommandPalette({ hasSnapshots: false, hasSelection: true, canUndo: true, canRedo: false });
 
     expect(commands.map((command) => command.id)).toEqual([
       "add-root",
       "add-child",
+      "undo-edit",
+      "redo-edit",
       "save-snapshot",
       "restore-latest",
       "focus-search",
@@ -259,6 +296,8 @@ describe("mind map domain", () => {
       "focus-import"
     ]);
     expect(commands.find((command) => command.id === "add-child")?.disabled).toBe(false);
+    expect(commands.find((command) => command.id === "undo-edit")?.disabled).toBe(false);
+    expect(commands.find((command) => command.id === "redo-edit")?.disabled).toBe(true);
     expect(commands.find((command) => command.id === "restore-latest")?.disabled).toBe(true);
   });
 
@@ -270,5 +309,6 @@ describe("mind map domain", () => {
     expect(filterCommands(commands, "/").map((command) => command.id)).toEqual(["focus-search"]);
     expect(filterCommands(commands, "layout").map((command) => command.id)).toEqual(["auto-layout"]);
     expect(filterCommands(commands, "json").map((command) => command.id)).toEqual(["export-json", "focus-import"]);
+    expect(filterCommands(commands, "undo").map((command) => command.id)).toEqual(["undo-edit"]);
   });
 });

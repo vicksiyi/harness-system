@@ -7,6 +7,8 @@ import {
   buildCommandPalette,
   collectTags,
   createChildNode,
+  createEmptyHistory,
+  createHistoryFrame,
   createNode,
   createSnapshot,
   exportMapAsMarkdown,
@@ -16,14 +18,18 @@ import {
   getAncestors,
   getChildren,
   moveNode,
+  pushHistory,
   recentActivity,
   parseMindMapJson,
+  redoHistory,
   restoreSnapshot,
   suggestFocusQueue,
   summarizeMap,
+  undoHistory,
   updateNode,
   type IdeaStatus,
   type CommandDefinition,
+  type MindMapHistory,
   type MindMapImportResult,
   type MindMapSnapshot,
   type MindNode
@@ -40,6 +46,7 @@ interface EditorState {
   commandQuery: string;
   importJson: string;
   importResult: MindMapImportResult | null;
+  history: MindMapHistory;
 }
 
 const storageKeys = {
@@ -56,6 +63,8 @@ let dragState:
       originPointerY: number;
       originNodeX: number;
       originNodeY: number;
+      originNodes: MindNode[];
+      hasMoved: boolean;
     }
   | null = null;
 
@@ -108,7 +117,8 @@ function initialState(): EditorState {
     commandPaletteOpen: false,
     commandQuery: "",
     importJson: "",
-    importResult: null
+    importResult: null,
+    history: createEmptyHistory()
   };
 }
 
@@ -116,11 +126,78 @@ function selectedNode(): MindNode {
   return state.nodes.find((node) => node.id === state.selectedId) ?? state.nodes[0];
 }
 
-function commit(nodes: MindNode[], selectedId = state.selectedId): void {
+function commit(nodes: MindNode[], selectedId = state.selectedId, label = "Edit map"): void {
+  rememberHistory(label);
   state.nodes = nodes;
   state.selectedId = nodes.some((node) => node.id === selectedId) ? selectedId : nodes[0]?.id ?? "";
   persistMap();
   render();
+}
+
+function rememberHistory(label: string, nodes = state.nodes, selectedId = state.selectedId): void {
+  state.history = pushHistory(
+    state.history,
+    createHistoryFrame({
+      nodes,
+      selectedId,
+      label
+    })
+  );
+}
+
+function editLabel(patch: Partial<Omit<MindNode, "id">>): string {
+  if (patch.title !== undefined) {
+    return "Edit title";
+  }
+  if (patch.notes !== undefined) {
+    return "Edit notes";
+  }
+  if (patch.tags !== undefined) {
+    return "Edit tags";
+  }
+  if (patch.status !== undefined) {
+    return "Edit status";
+  }
+  return "Edit idea";
+}
+
+function applyHistoryFrame(frame: { nodes: MindNode[]; selectedId: string }): void {
+  state.nodes = frame.nodes;
+  state.selectedId = state.nodes.some((node) => node.id === frame.selectedId) ? frame.selectedId : state.nodes[0]?.id ?? "";
+  persistMap();
+  render();
+}
+
+function undoMapEdit(): void {
+  const result = undoHistory(
+    state.history,
+    createHistoryFrame({
+      nodes: state.nodes,
+      selectedId: state.selectedId,
+      label: "Before undo"
+    })
+  );
+  if (!result) {
+    return;
+  }
+  state.history = result.history;
+  applyHistoryFrame(result.frame);
+}
+
+function redoMapEdit(): void {
+  const result = redoHistory(
+    state.history,
+    createHistoryFrame({
+      nodes: state.nodes,
+      selectedId: state.selectedId,
+      label: "Before redo"
+    })
+  );
+  if (!result) {
+    return;
+  }
+  state.history = result.history;
+  applyHistoryFrame(result.frame);
 }
 
 function addRootIdea(): void {
@@ -132,18 +209,18 @@ function addRootIdea(): void {
     y: 420,
     tags: ["new"]
   });
-  commit([node, ...state.nodes], id);
+  commit([node, ...state.nodes], id, "Add root idea");
 }
 
 function addChildIdea(): void {
   const parent = selectedNode();
   const id = `idea-${Date.now().toString(36)}`;
   const child = createChildNode(parent, getChildren(state.nodes, parent.id).length + 1, id);
-  commit([child, ...state.nodes], id);
+  commit([child, ...state.nodes], id, "Add child idea");
 }
 
 function patchSelected(patch: Partial<Omit<MindNode, "id">>): void {
-  commit(state.nodes.map((node) => (node.id === state.selectedId ? updateNode(node, patch) : node)));
+  commit(state.nodes.map((node) => (node.id === state.selectedId ? updateNode(node, patch) : node)), state.selectedId, editLabel(patch));
 }
 
 function setSelected(id: string): void {
@@ -169,15 +246,15 @@ function restoreSnapshotById(id: string): void {
     return;
   }
   const restored = restoreSnapshot(snapshot);
-  commit(restored.nodes, restored.selectedId);
+  commit(restored.nodes, restored.selectedId, `Restore ${snapshot.label}`);
 }
 
 function resetMap(): void {
-  commit(seedNodes(), "idea-launch");
+  commit(seedNodes(), "idea-launch", "Reset map");
 }
 
 function autoLayoutMap(): void {
-  commit(autoLayoutNodes(state.nodes), state.selectedId);
+  commit(autoLayoutNodes(state.nodes), state.selectedId, "Auto layout map");
 }
 
 function previewImport(value = state.importJson): void {
@@ -202,7 +279,7 @@ function applyImport(): void {
     ...state.snapshots
   ].slice(0, 6);
   persistSnapshots();
-  commit(result.nodes, result.selectedId);
+  commit(result.nodes, result.selectedId, "Apply JSON import");
 }
 
 function openCommandPalette(query = ""): void {
@@ -229,6 +306,12 @@ function runCommand(commandId: string): void {
       break;
     case "add-child":
       addChildIdea();
+      break;
+    case "undo-edit":
+      undoMapEdit();
+      break;
+    case "redo-edit":
+      redoMapEdit();
       break;
     case "save-snapshot":
       saveSnapshot();
@@ -279,7 +362,9 @@ function runCommand(commandId: string): void {
 function commandCatalog(): CommandDefinition[] {
   return buildCommandPalette({
     hasSnapshots: state.snapshots.length > 0,
-    hasSelection: state.nodes.some((node) => node.id === state.selectedId)
+    hasSelection: state.nodes.some((node) => node.id === state.selectedId),
+    canUndo: state.history.past.length > 0,
+    canRedo: state.history.future.length > 0
   });
 }
 
@@ -463,7 +548,9 @@ function beginNodeDrag(event: PointerEvent, nodeId: string): void {
     originPointerX: event.clientX,
     originPointerY: event.clientY,
     originNodeX: node.x,
-    originNodeY: node.y
+    originNodeY: node.y,
+    originNodes: state.nodes.map((item) => ({ ...item, tags: [...item.tags] })),
+    hasMoved: false
   };
 }
 
@@ -476,6 +563,9 @@ function moveDraggedNode(event: PointerEvent): void {
     x: event.clientX - dragState.originPointerX,
     y: event.clientY - dragState.originPointerY
   };
+  if (Math.abs(delta.x) > 1 || Math.abs(delta.y) > 1) {
+    dragState.hasMoved = true;
+  }
   const moved = moveNode(
     state.nodes.map((node) =>
       node.id === dragState?.nodeId
@@ -506,6 +596,9 @@ function endNodeDrag(event: PointerEvent): void {
 
   const element = document.querySelector<HTMLElement>(`.map-node[data-node-id="${dragState.nodeId}"]`);
   element?.classList.remove("dragging");
+  if (dragState.hasMoved) {
+    rememberHistory("Drag node", dragState.originNodes, dragState.nodeId);
+  }
   dragState = null;
   persistMap();
   render();
@@ -543,6 +636,8 @@ function render(): void {
         <div class="actions">
           <button id="add-root" aria-label="Add root idea">Root</button>
           <button id="add-child" aria-label="Add child idea">Child</button>
+          <button id="undo-edit" aria-label="Undo map edit" ${state.history.past.length ? "" : "disabled"}>Undo</button>
+          <button id="redo-edit" aria-label="Redo map edit" ${state.history.future.length ? "" : "disabled"}>Redo</button>
           <button id="save-snapshot" aria-label="Save snapshot">Save</button>
           <button id="auto-layout" aria-label="Auto layout map">Layout</button>
           <button id="open-commands" aria-label="Open command palette">Commands</button>
@@ -741,6 +836,19 @@ function render(): void {
             </div>
           </section>
 
+          <section class="context-panel history-panel" aria-label="Edit history">
+            <div class="section-head">
+              <h2>Edit History</h2>
+              <span>${state.history.past.length}/${state.history.future.length}</span>
+            </div>
+            <p>${state.history.past[0] ? `Undo: ${escapeHtml(state.history.past[0].label)}` : "No undo steps yet."}</p>
+            <p>${state.history.future[0] ? `Redo: ${escapeHtml(state.history.future[0].label)}` : "No redo steps queued."}</p>
+            <div class="history-actions">
+              <button id="history-undo" aria-label="Undo latest map edit" ${state.history.past.length ? "" : "disabled"}>Undo</button>
+              <button id="history-redo" aria-label="Redo latest map edit" ${state.history.future.length ? "" : "disabled"}>Redo</button>
+            </div>
+          </section>
+
           <section class="context-panel">
             <div class="section-head">
               <h2>Focus Queue</h2>
@@ -788,10 +896,14 @@ function render(): void {
   drawConnectors();
   byId<HTMLButtonElement>("add-root").addEventListener("click", addRootIdea);
   byId<HTMLButtonElement>("add-child").addEventListener("click", addChildIdea);
+  byId<HTMLButtonElement>("undo-edit").addEventListener("click", undoMapEdit);
+  byId<HTMLButtonElement>("redo-edit").addEventListener("click", redoMapEdit);
   byId<HTMLButtonElement>("save-snapshot").addEventListener("click", saveSnapshot);
   byId<HTMLButtonElement>("auto-layout").addEventListener("click", autoLayoutMap);
   byId<HTMLButtonElement>("open-commands").addEventListener("click", () => openCommandPalette());
   byId<HTMLButtonElement>("reset-map").addEventListener("click", resetMap);
+  byId<HTMLButtonElement>("history-undo").addEventListener("click", undoMapEdit);
+  byId<HTMLButtonElement>("history-redo").addEventListener("click", redoMapEdit);
   byId<HTMLButtonElement>("preview-import").addEventListener("click", () => previewImport());
   byId<HTMLButtonElement>("apply-import").addEventListener("click", applyImport);
   byId<HTMLTextAreaElement>("json-import").addEventListener("input", (event) => {
@@ -900,6 +1012,22 @@ document.addEventListener("keydown", (event) => {
   }
 
   if (isTypingTarget(event.target)) {
+    return;
+  }
+
+  if (commandModifier && key === "z") {
+    event.preventDefault();
+    if (event.shiftKey) {
+      redoMapEdit();
+    } else {
+      undoMapEdit();
+    }
+    return;
+  }
+
+  if (commandModifier && key === "y") {
+    event.preventDefault();
+    redoMapEdit();
     return;
   }
 

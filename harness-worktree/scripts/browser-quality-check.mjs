@@ -54,6 +54,11 @@ try {
 
   await page.getByLabel("Idea title").fill("Browser verified branch");
   await visible(page.getByRole("button", { name: /Browser verified branch/ }).first(), "title edit updates live UI");
+  await visible(page.getByRole("heading", { name: "Edit History" }), "edit history section");
+  await page.getByRole("button", { name: "Undo latest map edit" }).click();
+  await visible(page.getByRole("button", { name: /^New branch/ }).first(), "undo restores previous node title");
+  await page.getByRole("button", { name: "Redo latest map edit" }).click();
+  await visible(page.getByRole("button", { name: /Browser verified branch/ }).first(), "redo restores edited node title");
 
   await page.getByRole("button", { name: "Save snapshot" }).click();
   await visible(page.getByRole("heading", { name: "Snapshots" }), "snapshots section");

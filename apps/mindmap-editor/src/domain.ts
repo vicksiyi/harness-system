@@ -49,6 +49,18 @@ export interface MindMapSnapshot {
   nodes: MindNode[];
 }
 
+export interface MindMapHistoryFrame {
+  label: string;
+  createdAt: string;
+  selectedId: string;
+  nodes: MindNode[];
+}
+
+export interface MindMapHistory {
+  past: MindMapHistoryFrame[];
+  future: MindMapHistoryFrame[];
+}
+
 export interface ActivityItem {
   nodeId: string;
   title: string;
@@ -407,10 +419,74 @@ export function recentActivity(nodes: MindNode[], limit = 6): ActivityItem[] {
     }));
 }
 
-export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection: boolean }): CommandDefinition[] {
+export function createEmptyHistory(): MindMapHistory {
+  return { past: [], future: [] };
+}
+
+export function createHistoryFrame(input: {
+  nodes: MindNode[];
+  selectedId: string;
+  label: string;
+  createdAt?: string;
+}): MindMapHistoryFrame {
+  return cloneHistoryFrame({
+    label: normalizeTitle(input.label),
+    createdAt: input.createdAt ?? new Date().toISOString(),
+    selectedId: input.nodes.some((node) => node.id === input.selectedId) ? input.selectedId : input.nodes[0]?.id ?? "",
+    nodes: input.nodes
+  });
+}
+
+export function pushHistory(history: MindMapHistory, frame: MindMapHistoryFrame, limit = 24): MindMapHistory {
+  if (history.past[0] && historyFramesEqual(history.past[0], frame)) {
+    return {
+      past: history.past.map(cloneHistoryFrame),
+      future: []
+    };
+  }
+
+  return {
+    past: [cloneHistoryFrame(frame), ...history.past.map(cloneHistoryFrame)].slice(0, limit),
+    future: []
+  };
+}
+
+export function undoHistory(history: MindMapHistory, current: MindMapHistoryFrame, limit = 24): { history: MindMapHistory; frame: MindMapHistoryFrame } | null {
+  const [previous, ...past] = history.past;
+  if (!previous) {
+    return null;
+  }
+
+  return {
+    frame: cloneHistoryFrame(previous),
+    history: {
+      past: past.map(cloneHistoryFrame),
+      future: [cloneHistoryFrame(current), ...history.future.map(cloneHistoryFrame)].slice(0, limit)
+    }
+  };
+}
+
+export function redoHistory(history: MindMapHistory, current: MindMapHistoryFrame, limit = 24): { history: MindMapHistory; frame: MindMapHistoryFrame } | null {
+  const [next, ...future] = history.future;
+  if (!next) {
+    return null;
+  }
+
+  return {
+    frame: cloneHistoryFrame(next),
+    history: {
+      past: [cloneHistoryFrame(current), ...history.past.map(cloneHistoryFrame)].slice(0, limit),
+      future: future.map(cloneHistoryFrame)
+    }
+  };
+}
+
+export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection: boolean; canUndo?: boolean; canRedo?: boolean }): CommandDefinition[] {
   return [
     command("add-root", "Add root idea", "Create a new top-level idea", "R", "create", ["new", "root", "idea"]),
     command("add-child", "Add child idea", "Create a child branch under the selected idea", "C", "create", ["new", "child", "branch"], !input.hasSelection),
+    command("undo-edit", "Undo map edit", "Roll back the latest map change", "Cmd+Z", "preserve", ["history", "undo", "rollback"], !input.canUndo),
+    command("redo-edit", "Redo map edit", "Replay the latest reverted map change", "Shift+Cmd+Z", "preserve", ["history", "redo", "forward"], !input.canRedo),
     command("save-snapshot", "Save snapshot", "Capture the current map state", "S", "preserve", ["checkpoint", "backup", "save"]),
     command(
       "restore-latest",
@@ -456,6 +532,37 @@ function nodeNotes(nodes: MindNode[], nodeId: string, depth: number): string[] {
     return [];
   }
   return [`${"  ".repeat(depth)}Notes: ${node.notes}`];
+}
+
+function cloneHistoryFrame(frame: MindMapHistoryFrame): MindMapHistoryFrame {
+  return {
+    label: frame.label,
+    createdAt: frame.createdAt,
+    selectedId: frame.selectedId,
+    nodes: frame.nodes.map((node) => ({ ...node, tags: [...node.tags] }))
+  };
+}
+
+function historyFramesEqual(a: MindMapHistoryFrame, b: MindMapHistoryFrame): boolean {
+  return (
+    a.selectedId === b.selectedId &&
+    a.nodes.length === b.nodes.length &&
+    a.nodes.every((node, index) => {
+      const other = b.nodes[index];
+      return (
+        Boolean(other) &&
+        node.id === other.id &&
+        node.title === other.title &&
+        node.notes === other.notes &&
+        node.status === other.status &&
+        node.x === other.x &&
+        node.y === other.y &&
+        node.parentId === other.parentId &&
+        node.updatedAt === other.updatedAt &&
+        node.tags.join("\u0000") === other.tags.join("\u0000")
+      );
+    })
+  );
 }
 
 function normalizeTitle(title: string): string {

@@ -1,4 +1,4 @@
-# MR Summary: Implement: 给脑图编辑器增加桌面节点拖拽并实时重绘 Canvas 连线
+# MR Summary: Implement: 给脑图编辑器增加 Undo Redo 编辑历史，并用浏览器验证回退和重做
 
 Type: requirement
 Target Project: apps/mindmap-editor
@@ -6,7 +6,7 @@ Status: passed
 Stage: completed
 
 ## Background
-给脑图编辑器增加桌面节点拖拽并实时重绘 Canvas 连线
+给脑图编辑器增加 Undo Redo 编辑历史，并用浏览器验证回退和重做
 
 ## Scope
 - Modify the isolated target project at apps/mindmap-editor.
@@ -15,28 +15,31 @@ Stage: completed
 - Refresh generated MR summary, release notes, and execution records.
 
 ## Changes
-- Added `moveNode` domain logic with coordinate clamping coverage.
-- Added desktop pointer drag for map nodes.
-- Redraws Canvas connectors while a node is dragged and persists coordinates on pointer up.
-- Added drag styling for grabbed nodes.
-- Extended browser quality validation to drag a node with Playwright mouse events before Layout and Canvas pixel checks.
+- Added immutable `MindMapHistoryFrame` and `MindMapHistory` domain helpers.
+- Added topbar Undo/Redo controls and an Inspector `Edit History` panel.
+- Added command palette actions and keyboard shortcuts for history navigation.
+- Captures history before edits, drag moves, layout, reset, imports, and snapshot restores.
+- Extended browser quality checks to verify title edit -> Undo -> Redo with real UI clicks.
+- Fixed the TDD-discovered command search issue where `undo` also matched Redo copy.
 
 ## Validation
 - Tests: passed via `pnpm typecheck && pnpm test && pnpm target:build && pnpm target:browser` with score 98.
 - Browser quality: passed on http://localhost:5175.
-- Visual review: `.harness/browser/browser_mpheycmc-desktop-connectors-mindmap-editor.png` was inspected after drag/layout validation.
-- Workflow: `run_mpheyvim_drrxh78f` passed at `completed`.
+- Unit tests: 49 tests passed in full `pnpm verify`.
+- Visual review: `.harness/browser/browser_mphfb9ay-desktop-connectors-mindmap-editor.png` and `.harness/browser/browser_mphfb9ay-mobile-mindmap-editor.png` were inspected.
+- Workflow: `run_mphfbr0x_3akzdi1k` passed at `completed`.
 - Deployment: healthy on docker-compose-local.
 
 ## Risks
-- Dragging is desktop-only; mobile continues to use stacked static nodes.
-- Future canvas zoom/pan features will need coordinate transform handling.
-- In-memory service state is reset when orchestrator-rpc restarts; persisted JSON run files are the audit source.
+- History is currently in-memory and resets on page reload.
+- Text input records per edit event; future batching can improve history granularity.
+- Upcoming database-backed multi-file work will need persisted history or server-side operation logs.
 
 ## Rollback
-- Revert the pointer drag handlers and `moveNode` helper.
-- Existing saved maps remain compatible because coordinates use the same `x`/`y` fields.
+- Revert the history helpers, UI controls, and browser quality Undo/Redo assertions.
+- Saved maps remain compatible because persisted node JSON shape is unchanged.
 
 ## Follow-ups
-- Add undo/redo for drag moves.
-- Add backend-backed sync/version history.
+- Add database-backed multi-file map storage through RPC services.
+- Add DIFF-mode collaboration for the active file.
+- Expand import/export formats and then introduce infinite canvas controls.

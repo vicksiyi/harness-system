@@ -1,4 +1,4 @@
-# Release Notes: Implement: 给脑图编辑器增加桌面节点拖拽并实时重绘 Canvas 连线
+# Release Notes: Implement: 给脑图编辑器增加 Undo Redo 编辑历史，并用浏览器验证回退和重做
 
 - Workflow type: requirement
 - Target project: apps/mindmap-editor
@@ -7,7 +7,8 @@
 - Deployment: healthy
 
 ## Operator Notes
-- Desktop map nodes can now be dragged.
-- Canvas connectors redraw during drag and are validated with browser pixel checks.
-- Browser quality now performs a real Playwright mouse drag.
-- Inspect `.harness/runs/run_mpheyvim_drrxh78f.json` for the full JSON execution record.
+- Mind Map Studio now has Undo/Redo controls in both the topbar and Inspector.
+- Browser quality validates a real title edit, Undo restoration, and Redo restoration before continuing Canvas checks.
+- Full verification passed with 49 tests.
+- Inspect `.harness/runs/run_mphfbr0x_3akzdi1k.json` for the full JSON execution record.
+- Next planned product work: database-backed multi-file maps, DIFF collaboration, richer import/export, and infinite canvas.

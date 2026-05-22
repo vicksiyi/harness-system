@@ -226,3 +226,24 @@
 - 视觉复核：已读取 `.harness/browser/browser_mpheycmc-desktop-connectors-mindmap-editor.png`，确认拖拽后再布局的 Canvas 连线和节点显示正常。
 - 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mpheyvim_drrxh78f` 通过。
 - 下一步：继续增强产品样例，优先考虑后端同步或版本差异对比。
+
+## Run run_mphfbr0x_3akzdi1k
+
+- At: 2026-05-22T21:20:39.859Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加 Undo Redo 编辑历史，并用浏览器验证回退和重做
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Undo Redo Loop
+
+- At: 2026-05-23
+- 目标：让脑图编辑器支持可见的编辑历史、Undo/Redo 操作，并把浏览器门禁升级到真实验证回退和重做。
+- 已完成：新增不可变 history frame、Undo/Redo 领域逻辑、顶部按钮、Inspector Edit History、命令面板项、快捷键，以及拖拽/编辑/导入/布局的历史记录。
+- 失败与修复：TDD 首次失败发现 `undo` 搜索误命中 Redo 文案里的 `undone`，已改为 `reverted` 并重跑通过。
+- 视觉复核：已读取 `.harness/browser/browser_mphfb9ay-desktop-connectors-mindmap-editor.png` 和 `.harness/browser/browser_mphfb9ay-mobile-mindmap-editor.png`，确认按钮区、历史区、移动端布局和 Canvas 连线正常。
+- 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphfbr0x_3akzdi1k` 通过。
+- 新增路线：接下来按用户要求依次做多脑图文件 + 数据库 + RPC 后端、DIFF 协同、完善导入导出、无限画布，然后继续自主闭环。
