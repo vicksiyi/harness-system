@@ -1,9 +1,32 @@
 node_modules/
 dist/
 .vite/
+coverage/
+*.tsbuildinfo
+
+# Harness runtime artifacts
 .harness/logs/*.log
 .harness/runs/*.json
 .harness/tmp/
-coverage/
-*.tsbuildinfo
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Package manager and tool caches
+.pnpm-store/
+.turbo/
+.cache/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor files
 .DS_Store
+.idea/
+.vscode/
