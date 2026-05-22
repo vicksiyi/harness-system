@@ -16,7 +16,7 @@ $harness-polish 优化前端任务状态展示
 
 ## 适用场景
 
-- 优化前端控制台的信息密度和可读性。
+- 优化目标产品的信息密度和可读性。
 - 改善状态、日志、测试、部署展示。
 - 改善脚本、文档、Skill 调用体验。
 - 改善流程编排可观察性。
@@ -25,7 +25,7 @@ $harness-polish 优化前端任务状态展示
 
 1. 读取根目录 `AGENTS.md`。
 2. 读取 `harness-worktree/AGENTS.md`。
-3. UI 相关任务读取 `apps/web/AGENTS.md`。
+3. UI 相关任务读取 `apps/card-editor/AGENTS.md`。
 4. 流程相关任务读取 `packages/workflow-core/AGENTS.md` 和 `services/orchestrator-rpc/AGENTS.md`。
 5. 文档相关任务读取 `docs/AGENTS.md`。
 
@@ -40,7 +40,7 @@ pnpm workflow:polish "<优化目标>"
 UI polish 至少运行：
 
 ```bash
-pnpm --filter @harness/web build
+pnpm target:build
 pnpm typecheck
 pnpm test
 ```
@@ -55,7 +55,7 @@ pnpm workflow:polish "<优化目标>"
 
 ## 约束
 
-- 控制台是工具型产品，不要做营销页。
+- 目标产品是工具型编辑器，不要做营销页。
 - 第一屏优先展示任务、状态、日志、健康和 MR Summary。
 - 不要引入与现有架构不匹配的新抽象。
 - 改动要有测试或明确的手工检查记录。
@@ -68,4 +68,3 @@ pnpm workflow:polish "<优化目标>"
 - `docs/release-notes.md`
 - `docs/test-log.md`
 - `docs/agent-journal.md`
-

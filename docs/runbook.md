@@ -10,12 +10,12 @@ pnpm install
 
 ```bash
 pnpm dev:services
-pnpm dev:web
+pnpm target:dev
 ```
 
 访问：
 
-- Web Console: `http://localhost:5173`
+- Card Editor Target: `http://localhost:5175`
 - Orchestrator: `http://localhost:4100`
 
 ## Skill 调用
@@ -34,12 +34,19 @@ pnpm workflow:bugfix "测试服务日志解析失败"
 pnpm workflow:polish "优化前端任务状态展示"
 ```
 
+默认目标项目是 `apps/card-editor`。如需显式指定：
+
+```bash
+HARNESS_TARGET_PROJECT=apps/card-editor pnpm workflow:requirement "增加卡片模板"
+```
+
 ## 测试
 
 ```bash
 pnpm typecheck
 pnpm test
-pnpm --filter @harness/web build
+pnpm target:test
+pnpm target:build
 ```
 
 ## 健康检查
@@ -54,17 +61,17 @@ pnpm health
 docker compose up --build
 ```
 
-如果本机端口已被其它项目占用，可以覆盖宿主机端口，例如：
+如果目标产品端口已被其它项目占用，可以覆盖宿主机端口，例如：
 
 ```bash
-WEB_PORT=5174 docker compose up --build
+CARD_EDITOR_PORT=5176 docker compose up --build
 ```
 
 如果失败：
 
 1. 运行 `docker compose config`。
 2. 查看具体服务日志。
-3. 检查端口 `4100-4104` 和 `5173` 是否冲突。
+3. 检查端口 `4100-4104` 和 `5175` 是否冲突。
 4. 将失败摘要写入 `docs/test-log.md`。
 
 ## 生成 MR Summary

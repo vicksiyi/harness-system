@@ -20,7 +20,7 @@ $harness-bugfix 测试服务日志解析失败
 - 测试失败。
 - 日志解析失败。
 - Docker 或健康检查失败。
-- 前端控制台展示异常。
+- 目标产品 UI 展示异常。
 
 ## 渐进式读取
 
@@ -58,4 +58,3 @@ pnpm workflow:bugfix "<Bug 描述或失败日志>"
 - 根因摘要写入执行记录。
 - 回归测试覆盖失败签名。
 - MR Summary 和 Release Notes 已刷新。
-

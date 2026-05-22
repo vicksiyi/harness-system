@@ -1,27 +1,31 @@
-# Release Notes: Harness System 0.1.0
+# Release Notes: Card Editor Harness Loop
 
 ## Added
 
-- Web Console for workflow operation and observation.
-- JSON-RPC services for orchestration, requirement analysis, coding plans, testing/log parsing, and deployment checks.
-- Workflow state machine with retry, blocking, completion, scoring, MR Summary, and Release Notes generation.
-- Chinese Codex Skill entrypoints for `$harness`, `$harness-requirement`, `$harness-bugfix`, and `$harness-polish`.
-- Worktree-like execution directory with workflow scripts and runbooks.
-- Progressive `AGENTS.md` knowledge base across root, web, services, workflow-core, worktree, and docs.
-- Docker Compose deployment with health checks.
-- Unit tests for workflow-core, requirements analyzer, testing log parser, and shared RPC server.
+- Isolated Card Editor target app under `apps/card-editor`.
+- Card templates for requirement, bugfix, and polish cards.
+- Board summary metrics for draft, review, published, and tag count.
+- Markdown export for the visible card set.
+- Target-app domain tests covering templates, summaries, filtering, scoring, and export.
+
+## Changed
+
+- Removed the separate Harness front-end console to avoid confusing the control plane with the product sample.
+- Harness control is now Skill / RPC / workflow script / `.harness/runs` / docs driven.
+- Docker Compose now starts Card Editor plus the five RPC services.
+- Workflow records now include `targetProject`, defaulting to `apps/card-editor`.
+- `run-workflow.mjs` writes returned run JSON to the host `.harness/runs` even when orchestrator runs inside Docker.
 
 ## Validation
 
-- TypeScript typecheck passed.
-- Unit tests passed: 20 tests across 4 files.
-- Frontend build passed.
-- Full `pnpm verify` passed.
-- Workflow closed-loop validation passed with automatic fix and retest.
-- Docker Compose build and health checks passed.
-- Browser smoke test passed.
+- `pnpm verify`: passed
+- Unit tests: 29 passed across 5 files
+- `docker compose up --build -d --remove-orphans`: passed
+- `pnpm health`: passed
+- Browser smoke test for `http://localhost:5175`: passed
+- `$harness` script equivalent `pnpm workflow:requirement "给卡片编辑器增加模板和 Markdown 导出能力"`: passed
 
 ## Notes
 
-- Docker defaults to Web port 5173. Use `WEB_PORT=5174 docker compose up --build` if another local process already owns 5173.
+- Docker defaults the target app to port 5175. Use `CARD_EDITOR_PORT=5176 docker compose up --build` if needed.
 - Current coding execution is a deterministic simulation suitable for Harness validation; real Agent patch execution is the next major extension.

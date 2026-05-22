@@ -17,7 +17,6 @@ COPY skills ./skills
 
 RUN pnpm install --frozen-lockfile
 
-EXPOSE 4100 4101 4102 4103 4104 5173
+EXPOSE 4100 4101 4102 4103 4104 5175
 
 CMD ["pnpm", "dev:services"]
-

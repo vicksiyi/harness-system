@@ -4,6 +4,12 @@
 
 `harness-worktree` 是 Agent 闭环执行总入口。当前实现为 worktree-like 目录，负责流程编排脚本、Skill 背后的执行器、MR Summary 生成和部署验证。
 
+默认目标项目是 `apps/card-editor`。Harness 负责编排，Card Editor 是被 Agent 持续开发的产品样例。可以通过环境变量切换目标：
+
+```bash
+HARNESS_TARGET_PROJECT=apps/card-editor pnpm workflow:requirement "<需求>"
+```
+
 ## 关键入口
 
 - `scripts/run-workflow.mjs`
@@ -29,6 +35,7 @@ pnpm skills:install
 ## 修改注意事项
 
 - 脚本要能从仓库根目录稳定运行。
+- 普通需求、Bugfix、Polish 默认作用于 `apps/card-editor`。
 - 失败必须写入 `docs/agent-journal.md` 和 `docs/test-log.md`。
 - 如果迁移为真实 git worktree，可用：
 
@@ -42,4 +49,3 @@ git worktree add ../harness-system-worktree main
 
 - 服务启动超时：查看 `.harness/logs/dev-services.log`。
 - workflow 脚本退出 1：读取 `.harness/runs/<run-id>.json` 的 `blocker`。
-

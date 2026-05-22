@@ -32,7 +32,7 @@ function runTests(params: unknown): TestResult {
 
   return {
     passed,
-    command: "pnpm typecheck && pnpm test && pnpm --filter @harness/web build",
+    command: "pnpm typecheck && pnpm test && pnpm target:build",
     attempts: attempt,
     rawLog,
     failures,

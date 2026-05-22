@@ -51,7 +51,8 @@ function workflowInput(params: unknown): WorkflowInput {
   return {
     type: inferType(record.type),
     prompt: typeof record.prompt === "string" ? record.prompt : "Run the harness workflow.",
-    requestedBy: typeof record.requestedBy === "string" ? record.requestedBy : "codex"
+    requestedBy: typeof record.requestedBy === "string" ? record.requestedBy : "codex",
+    targetProject: typeof record.targetProject === "string" ? record.targetProject : "apps/card-editor"
   };
 }
 
@@ -79,10 +80,10 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
 
   try {
     transition(run, "analyzing", { message: "Analyzing natural-language task" });
-    const analysis = await rpcCall<{ type: WorkflowType; prompt: string }, RequirementAnalysis>(
+    const analysis = await rpcCall<{ type: WorkflowType; prompt: string; targetProject: string }, RequirementAnalysis>(
       serviceUrls.requirements,
       "analyze",
-      { type: run.type, prompt: run.prompt }
+      { type: run.type, prompt: run.prompt, targetProject: run.targetProject }
     );
     attachAnalysis(run, analysis);
     addLog(run, "requirements-rpc", "Structured requirement analysis completed", "info", analysis);
@@ -93,6 +94,7 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
       runId: run.id,
       type: run.type,
       prompt: run.prompt,
+      targetProject: run.targetProject,
       analysis
     });
     run.coding = coding;
@@ -103,6 +105,7 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
       runId: run.id,
       type: run.type,
       prompt: run.prompt,
+      targetProject: run.targetProject,
       attempt: 1
     });
     attachTestResult(run, testResult);
@@ -122,6 +125,7 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
         runId: run.id,
         type: run.type,
         prompt: run.prompt,
+        targetProject: run.targetProject,
         attempt: run.attempts + 1
       });
       attachTestResult(run, testResult);

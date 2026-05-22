@@ -41,6 +41,7 @@ export function createWorkflowRun(input: WorkflowInput): WorkflowRun {
   const run: WorkflowRun = {
     id: createId("run"),
     type: input.type,
+    targetProject: input.targetProject ?? "apps/card-editor",
     title: titleFromPrompt(input.type, input.prompt),
     prompt: input.prompt,
     stage: "created",
@@ -52,8 +53,11 @@ export function createWorkflowRun(input: WorkflowInput): WorkflowRun {
     events: [],
     logs: []
   };
-  addEvent(run, "created", `Created ${input.type} workflow`, "info", { requestedBy: input.requestedBy ?? "codex" });
-  addLog(run, "workflow-core", "Workflow run initialized", "info", { type: input.type });
+  addEvent(run, "created", `Created ${input.type} workflow`, "info", {
+    requestedBy: input.requestedBy ?? "codex",
+    targetProject: run.targetProject
+  });
+  addLog(run, "workflow-core", "Workflow run initialized", "info", { type: input.type, targetProject: run.targetProject });
   return run;
 }
 
@@ -156,6 +160,7 @@ export function summarizeRun(run: WorkflowRun): string {
     `# MR Summary: ${run.title}`,
     "",
     `Type: ${run.type}`,
+    `Target Project: ${run.targetProject}`,
     `Status: ${run.status}`,
     `Stage: ${run.stage}`,
     "",
@@ -188,6 +193,7 @@ export function summarizeRelease(run: WorkflowRun): string {
     `# Release Notes: ${run.title}`,
     "",
     `- Workflow type: ${run.type}`,
+    `- Target project: ${run.targetProject}`,
     `- Result: ${run.status}`,
     `- Score: ${scoreRun(run)}`,
     `- Deployment: ${run.deployment?.status ?? "not run"}`,
@@ -197,4 +203,3 @@ export function summarizeRelease(run: WorkflowRun): string {
     "- Inspect `.harness/runs` for the full JSON execution record."
   ].join("\n");
 }
-

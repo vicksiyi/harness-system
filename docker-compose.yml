@@ -92,20 +92,15 @@ services:
       timeout: 3s
       retries: 20
 
-  web:
+  card-editor:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["pnpm", "--filter", "@harness/web", "dev"]
-    environment:
-      VITE_ORCHESTRATOR_URL: http://localhost:4100
+    command: ["pnpm", "--filter", "@target/card-editor", "dev"]
     ports:
-      - "${WEB_PORT:-5173}:5173"
-    depends_on:
-      orchestrator-rpc:
-        condition: service_healthy
+      - "${CARD_EDITOR_PORT:-5175}:5175"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:5173').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5175').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 20

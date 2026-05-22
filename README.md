@@ -1,6 +1,8 @@
 # Harness System
 
-Harness System is a local-first Codex/Agent engineering harness. It provides a web console, multiple JSON-RPC services, a workflow state machine, Codex Skill instructions, Docker Compose deployment, and auditable execution records.
+Harness System is a local-first Codex/Agent engineering harness. It provides multiple JSON-RPC services, a workflow state machine, Codex Skill instructions, Docker Compose deployment, and auditable execution records.
+
+The Harness control plane is intentionally isolated from the product under development. The default target product is `apps/card-editor`, a standalone card editing app that Codex can grow through Harness workflows.
 
 Primary Codex entrypoints are the Skill-style commands documented in `skills/harness/SKILL.md`:
 
@@ -23,10 +25,10 @@ pnpm workflow:polish "优化前端任务状态展示"
 ```bash
 pnpm install
 pnpm dev:services
-pnpm dev:web
+pnpm target:dev
 ```
 
-Web console: http://localhost:5173
+Target product: http://localhost:5175
 
 RPC services:
 
@@ -36,6 +38,14 @@ RPC services:
 - Testing: http://localhost:4103
 - Deploy: http://localhost:4104
 
+Target app commands:
+
+```bash
+pnpm target:dev
+pnpm target:test
+pnpm target:build
+```
+
 ## Verify
 
 ```bash
@@ -44,4 +54,3 @@ docker compose up --build
 ```
 
 See `docs/runbook.md` for the end-to-end workflow and `docs/test-log.md` for verification history.
-

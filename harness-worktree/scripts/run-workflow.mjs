@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
 const logDir = join(root, ".harness", "logs");
+const runDir = join(root, ".harness", "runs");
 const serviceLog = join(logDir, "dev-services.log");
 const orchestratorUrl = process.env.ORCHESTRATOR_RPC_URL ?? "http://localhost:4100";
 const services = [
@@ -20,6 +21,7 @@ const services = [
 
 const type = process.argv[2] ?? "requirement";
 const prompt = process.argv.slice(3).join(" ").trim() || "Run a full harness workflow.";
+const targetProject = process.env.HARNESS_TARGET_PROJECT ?? "apps/card-editor";
 
 if (!["requirement", "bugfix", "polish"].includes(type)) {
   console.error(`Unknown workflow type "${type}". Use requirement, bugfix, or polish.`);
@@ -38,7 +40,7 @@ try {
     throw new Error("RPC services are not healthy and HARNESS_SKIP_BOOT=1 was set.");
   }
 
-  const run = await rpc("runWorkflow", { type, prompt, requestedBy: "codex-skill" });
+  const run = await rpc("runWorkflow", { type, prompt, requestedBy: "codex-skill", targetProject });
   await appendJournal(run);
   await writeWorkflowOutput(run);
   console.log(JSON.stringify({ id: run.id, status: run.status, stage: run.stage, title: run.title }, null, 2));
@@ -120,6 +122,7 @@ async function appendJournal(run) {
     `- At: ${new Date().toISOString()}`,
     `- Type: ${run.type}`,
     `- Prompt: ${run.prompt}`,
+    `- Target project: ${run.targetProject}`,
     `- Result: ${run.status} at ${run.stage}`,
     `- Tests: ${run.tests?.passed ? "passed" : "not passed"} with score ${run.tests?.score ?? "n/a"}`,
     `- Deployment: ${run.deployment?.status ?? "not run"}`,
@@ -132,6 +135,7 @@ async function appendJournal(run) {
     `## Workflow Validation ${run.id}`,
     "",
     `- Command: pnpm workflow:${run.type} "${run.prompt}"`,
+    `- Target project: ${run.targetProject}`,
     `- Result: ${run.tests?.passed ? "passed" : "failed or skipped"}`,
     `- Attempts: ${run.attempts}/${run.maxAttempts}`,
     `- Log summary: ${(run.tests?.rawLog ?? "No test log").split("\n").join(" | ")}`,
@@ -141,6 +145,8 @@ async function appendJournal(run) {
 }
 
 async function writeWorkflowOutput(run) {
+  await mkdir(runDir, { recursive: true });
+  await writeFile(join(runDir, `${run.id}.json`), `${JSON.stringify(run, null, 2)}\n`, "utf8");
   if (run.mrSummary) {
     await writeFile(join(root, "docs", "generated-mr-summary.md"), `${run.mrSummary}\n`, "utf8");
   }
@@ -152,4 +158,3 @@ async function writeWorkflowOutput(run) {
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
-

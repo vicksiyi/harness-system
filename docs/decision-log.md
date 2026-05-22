@@ -24,3 +24,8 @@
 - 原因：这些模块决定闭环可靠性，失败时需要快速定位。
 - 取舍：服务级全链路测试放在后续验证脚本和 workflow 运行中。
 
+## 0005 Isolated Target Project
+
+- 决策：新增 `apps/card-editor` 作为 Harness 默认目标产品，并移除容易混淆的 Harness 前端控制台。
+- 原因：Harness 应该编排 Agent 开发另一个产品，而不是把业务需求写进 Harness 控制面。
+- 取舍：Harness 观察面主要依赖 Skill、RPC、`.harness/runs` 和 `docs/*`；目标项目仍在同一 monorepo，便于本地测试和 Docker 部署。

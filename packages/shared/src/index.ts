@@ -43,6 +43,7 @@ export interface WorkflowInput {
   type: WorkflowType;
   prompt: string;
   requestedBy?: string;
+  targetProject?: string;
 }
 
 export interface AcceptanceCriterion {
@@ -53,6 +54,7 @@ export interface AcceptanceCriterion {
 
 export interface RequirementAnalysis {
   taskType: WorkflowType;
+  targetProject: string;
   title: string;
   scope: string[];
   risks: string[];
@@ -98,6 +100,7 @@ export interface DeploymentResult {
 export interface WorkflowRun {
   id: string;
   type: WorkflowType;
+  targetProject: string;
   title: string;
   prompt: string;
   stage: WorkflowStage;
@@ -160,7 +163,7 @@ export const servicePorts = {
   coding: 4102,
   testing: 4103,
   deploy: 4104,
-  web: 5173
+  cardEditor: 5175
 } as const;
 
 export function nowIso(): string {
@@ -305,4 +308,3 @@ export function createRpcServer(options: RpcServerOptions) {
 export function asRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
-

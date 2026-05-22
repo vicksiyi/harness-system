@@ -21,11 +21,12 @@ function planAndPatch(params: unknown): CodingResult {
   const analysis = toAnalysis(record.analysis);
   const type = inferType(record.type);
   const prompt = typeof record.prompt === "string" ? record.prompt : analysis?.title ?? "Harness task";
+  const targetProject = typeof record.targetProject === "string" ? record.targetProject : analysis?.targetProject ?? "apps/card-editor";
 
   const files = analysis?.recommendedFiles ?? [
-    "packages/workflow-core/src/index.ts",
-    "services/orchestrator-rpc/src/server.ts",
-    "apps/web/src/main.ts"
+    `${targetProject}/src/domain.ts`,
+    `${targetProject}/src/domain.test.ts`,
+    `${targetProject}/src/main.ts`
   ];
 
   const modeSummary = {
@@ -36,24 +37,25 @@ function planAndPatch(params: unknown): CodingResult {
 
   return {
     patchPlan: {
-      summary: `${modeSummary[type]} Prompt: ${prompt}`,
+      summary: `${modeSummary[type]} Target: ${targetProject}. Prompt: ${prompt}`,
       files,
       steps: [
-        "Read the nearest AGENTS.md before editing a module.",
-        "Implement the smallest coherent change across workflow-core, RPC, and web surfaces.",
-        "Run focused tests, then pnpm verify.",
+        `Read ${targetProject}/AGENTS.md before editing the target project.`,
+        "Implement the smallest coherent product change inside the target project first.",
+        "Run focused target tests, then pnpm verify.",
         "Update docs/agent-journal.md, docs/test-log.md, and generated MR notes."
       ]
     },
     changeSummary: [
-      `Generated a ${type} patch plan from structured requirement analysis.`,
+      `Generated a ${type} patch plan for ${targetProject}.`,
       "Recorded expected files, verification path, and operator-facing summary.",
       "Returned test suggestions for the testing-rpc retry loop."
     ],
     testSuggestions: [
       "pnpm typecheck",
       "pnpm test",
-      "pnpm --filter @harness/web build",
+      "pnpm target:test",
+      "pnpm target:build",
       "pnpm health"
     ]
   };
@@ -72,4 +74,3 @@ createRpcServer({
     details: { methods: ["planAndPatch"] }
   })
 });
-

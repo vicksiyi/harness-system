@@ -13,12 +13,16 @@ export function normalizePrompt(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : "Improve the harness workflow.";
 }
 
+export function normalizeTargetProject(value: unknown): string {
+  return typeof value === "string" && value.trim() ? value.trim() : "apps/card-editor";
+}
+
 export function criteriaFor(type: WorkflowType, prompt: string): AcceptanceCriterion[] {
   const base = [
     {
       id: createId("ac"),
-      statement: "Workflow run is visible in the console with current status, timeline, logs, tests, deployment, and MR summary.",
-      verification: "Open the web console and inspect the latest run detail view."
+      statement: "Workflow run is persisted with current status, timeline, logs, tests, deployment, target project, and MR summary.",
+      verification: "Inspect .harness/runs/<run-id>.json and docs/generated-mr-summary.md."
     },
     {
       id: createId("ac"),
@@ -47,8 +51,8 @@ export function criteriaFor(type: WorkflowType, prompt: string): AcceptanceCrite
     return [
       {
         id: createId("ac"),
-        statement: "The improvement makes repeated operator review faster without adding marketing content.",
-        verification: "Build the web console and review the task surface."
+        statement: "The improvement makes repeated target-app editing faster without adding marketing content.",
+        verification: "Build the target app and review the editing surface."
       },
       ...base
     ];
@@ -64,19 +68,21 @@ export function criteriaFor(type: WorkflowType, prompt: string): AcceptanceCrite
   ];
 }
 
-export function analyzeRequirement(input: { type?: unknown; prompt?: unknown }): RequirementAnalysis {
+export function analyzeRequirement(input: { type?: unknown; prompt?: unknown; targetProject?: unknown }): RequirementAnalysis {
   const type = inferRequirementType(input.type);
   const prompt = normalizePrompt(input.prompt);
+  const targetProject = normalizeTargetProject(input.targetProject);
   const titlePrefix = type === "bugfix" ? "Fix" : type === "polish" ? "Polish" : "Implement";
 
   return {
     taskType: type,
+    targetProject,
     title: `${titlePrefix}: ${prompt.replace(/\s+/g, " ").slice(0, 64)}`,
     scope: [
-      "Update workflow orchestration and run records where needed.",
-      "Expose the result in the web console and RPC API.",
-      "Refresh generated MR summary and release notes.",
-      "Verify through unit, RPC, frontend build, and deployment checks."
+      `Modify the isolated target project at ${targetProject}.`,
+      "Keep Harness orchestration code unchanged unless the task explicitly asks for Harness behavior.",
+      "Expose product changes through the target project UI and tests.",
+      "Refresh generated MR summary, release notes, and execution records."
     ],
     risks: [
       "Local Docker or port conflicts can block deployment validation.",
@@ -85,12 +91,12 @@ export function analyzeRequirement(input: { type?: unknown; prompt?: unknown }):
     ],
     acceptanceCriteria: criteriaFor(type, prompt),
     recommendedFiles: [
-      "packages/workflow-core/src/index.ts",
-      "services/orchestrator-rpc/src/server.ts",
-      "services/testing-rpc/src/server.ts",
-      "apps/web/src/main.ts",
+      `${targetProject}/AGENTS.md`,
+      `${targetProject}/src/domain.ts`,
+      `${targetProject}/src/domain.test.ts`,
+      `${targetProject}/src/main.ts`,
+      `${targetProject}/src/style.css`,
       "docs/generated-mr-summary.md"
     ]
   };
 }
-
