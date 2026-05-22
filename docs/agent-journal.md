@@ -206,3 +206,23 @@
 - Harness 反哺：浏览器门禁新增 Canvas 像素采样、connector 专用截图、桌面节点可见性检查和 Layout 行为检查。
 - 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和最终 workflow `run_mphercp6_ycgddaxm` 通过。
 - 下一步：继续不间断增强产品样例，优先考虑拖拽节点或后端同步。
+
+## Run run_mpheyvim_drrxh78f
+
+- At: 2026-05-22T21:10:40.415Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加桌面节点拖拽并实时重绘 Canvas 连线
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Desktop Drag Loop
+
+- At: 2026-05-23
+- 目标：让桌面脑图节点可拖拽，并在拖拽时实时重绘 Canvas 连线。
+- 已完成：新增 `moveNode` 领域逻辑、桌面 pointer 拖拽、拖拽中 Canvas 重绘、松手持久化和浏览器拖拽验证。
+- 视觉复核：已读取 `.harness/browser/browser_mpheycmc-desktop-connectors-mindmap-editor.png`，确认拖拽后再布局的 Canvas 连线和节点显示正常。
+- 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mpheyvim_drrxh78f` 通过。
+- 下一步：继续增强产品样例，优先考虑后端同步或版本差异对比。

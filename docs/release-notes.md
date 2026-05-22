@@ -1,13 +1,13 @@
-# Release Notes: Fix: 节点连接线漂移，将脑图连接线从 SVG 改为 Canvas 渲染并增加像素级验证
+# Release Notes: Implement: 给脑图编辑器增加桌面节点拖拽并实时重绘 Canvas 连线
 
-- Workflow type: bugfix
+- Workflow type: requirement
 - Target project: apps/mindmap-editor
 - Result: passed
 - Score: 100
 - Deployment: healthy
 
 ## Operator Notes
-- Connector rendering now uses Canvas instead of SVG.
-- Browser quality validates connector pixels and saves a dedicated desktop connector screenshot.
-- Auto Layout is available from the top toolbar and command palette.
-- Inspect `.harness/runs/run_mphercp6_ycgddaxm.json` for the full JSON execution record.
+- Desktop map nodes can now be dragged.
+- Canvas connectors redraw during drag and are validated with browser pixel checks.
+- Browser quality now performs a real Playwright mouse drag.
+- Inspect `.harness/runs/run_mpheyvim_drrxh78f.json` for the full JSON execution record.

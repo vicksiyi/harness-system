@@ -125,6 +125,18 @@ export function updateNode(node: MindNode, patch: Partial<Omit<MindNode, "id">>)
   };
 }
 
+export function moveNode(nodes: MindNode[], nodeId: string, delta: { x: number; y: number }, at = new Date().toISOString()): MindNode[] {
+  return nodes.map((node) =>
+    node.id === nodeId
+      ? updateNode(node, {
+          x: node.x + delta.x,
+          y: node.y + delta.y,
+          updatedAt: at
+        })
+      : node
+  );
+}
+
 export function createChildNode(parent: MindNode, siblingCount: number, id: string, at = new Date().toISOString()): MindNode {
   return createNode({
     id,

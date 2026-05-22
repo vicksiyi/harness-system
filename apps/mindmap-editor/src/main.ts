@@ -15,6 +15,7 @@ import {
   filterNodes,
   getAncestors,
   getChildren,
+  moveNode,
   recentActivity,
   parseMindMapJson,
   restoreSnapshot,
@@ -47,6 +48,16 @@ const storageKeys = {
 };
 
 const state: EditorState = initialState();
+let dragState:
+  | {
+      nodeId: string;
+      pointerId: number;
+      originPointerX: number;
+      originPointerY: number;
+      originNodeX: number;
+      originNodeY: number;
+    }
+  | null = null;
 
 function seedNodes(): MindNode[] {
   return [
@@ -432,6 +443,74 @@ function drawConnectors(): void {
   });
 }
 
+function beginNodeDrag(event: PointerEvent, nodeId: string): void {
+  if (window.matchMedia("(max-width: 760px)").matches) {
+    return;
+  }
+  const node = state.nodes.find((item) => item.id === nodeId);
+  const target = event.currentTarget;
+  if (!node || !(target instanceof HTMLElement)) {
+    return;
+  }
+
+  event.preventDefault();
+  target.setPointerCapture(event.pointerId);
+  target.classList.add("dragging");
+  state.selectedId = nodeId;
+  dragState = {
+    nodeId,
+    pointerId: event.pointerId,
+    originPointerX: event.clientX,
+    originPointerY: event.clientY,
+    originNodeX: node.x,
+    originNodeY: node.y
+  };
+}
+
+function moveDraggedNode(event: PointerEvent): void {
+  if (!dragState || event.pointerId !== dragState.pointerId) {
+    return;
+  }
+
+  const delta = {
+    x: event.clientX - dragState.originPointerX,
+    y: event.clientY - dragState.originPointerY
+  };
+  const moved = moveNode(
+    state.nodes.map((node) =>
+      node.id === dragState?.nodeId
+        ? {
+            ...node,
+            x: dragState.originNodeX,
+            y: dragState.originNodeY
+          }
+        : node
+    ),
+    dragState.nodeId,
+    delta
+  );
+  state.nodes = moved;
+  const movedNode = moved.find((node) => node.id === dragState?.nodeId);
+  const element = document.querySelector<HTMLElement>(`.map-node[data-node-id="${dragState.nodeId}"]`);
+  if (movedNode && element) {
+    element.style.left = `${movedNode.x}px`;
+    element.style.top = `${movedNode.y}px`;
+  }
+  drawConnectors();
+}
+
+function endNodeDrag(event: PointerEvent): void {
+  if (!dragState || event.pointerId !== dragState.pointerId) {
+    return;
+  }
+
+  const element = document.querySelector<HTMLElement>(`.map-node[data-node-id="${dragState.nodeId}"]`);
+  element?.classList.remove("dragging");
+  dragState = null;
+  persistMap();
+  render();
+}
+
 function render(): void {
   const app = byId<HTMLElement>("app");
   const node = selectedNode();
@@ -761,6 +840,11 @@ function render(): void {
     patchSelected({ status: (event.target as HTMLSelectElement).value as IdeaStatus });
   });
   document.querySelectorAll<HTMLButtonElement>("[data-node-id]").forEach((button) => {
+    button.addEventListener("pointerdown", (event) => {
+      if (button.dataset.nodeId) {
+        beginNodeDrag(event, button.dataset.nodeId);
+      }
+    });
     button.addEventListener("click", () => {
       if (button.dataset.nodeId) {
         setSelected(button.dataset.nodeId);
@@ -778,6 +862,10 @@ function render(): void {
     byId<HTMLInputElement>("command-query").focus();
   }
 }
+
+document.addEventListener("pointermove", moveDraggedNode);
+document.addEventListener("pointerup", endNodeDrag);
+document.addEventListener("pointercancel", endNodeDrag);
 
 document.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();

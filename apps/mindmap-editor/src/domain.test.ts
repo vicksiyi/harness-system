@@ -14,6 +14,7 @@ import {
   filterNodes,
   getAncestors,
   getChildren,
+  moveNode,
   recentActivity,
   parseMindMapJson,
   restoreSnapshot,
@@ -81,6 +82,15 @@ describe("mind map domain", () => {
     expect(updated.tags).toEqual(["go-to-market", "launch"]);
     expect(updated.x).toBe(1400);
     expect(updated.y).toBe(0);
+  });
+
+  it("moves a node with coordinate clamping", () => {
+    const moved = moveNode(nodes, "root", { x: 80, y: -250 }, "2026-05-23T07:00:00.000Z");
+    const root = moved.find((node) => node.id === "root");
+    const sibling = moved.find((node) => node.id === "research");
+
+    expect(root).toMatchObject({ x: 180, y: 0, updatedAt: "2026-05-23T07:00:00.000Z" });
+    expect(sibling).toMatchObject({ x: 320, y: 40, updatedAt: "2026-05-23T01:00:00.000Z" });
   });
 
   it("creates child nodes from parent context", () => {

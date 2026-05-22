@@ -76,6 +76,34 @@ try {
   const searchFocused = await page.getByLabel("Search ideas").evaluate((element) => document.activeElement === element);
   record("command focuses search", searchFocused, searchFocused ? "slash command moved focus to search" : "search input was not focused");
 
+  const launchNode = page.locator('.map-node[data-node-id="idea-launch"]').first();
+  const beforeDrag = await launchNode.evaluate((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: Number.parseFloat(node.style.left),
+      y: Number.parseFloat(node.style.top)
+    };
+  });
+  const launchBox = await launchNode.boundingBox();
+  if (!launchBox) {
+    record("node drag updates position", false, "launch node had no bounding box");
+  } else {
+    await page.mouse.move(launchBox.x + launchBox.width / 2, launchBox.y + launchBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(launchBox.x + launchBox.width / 2 + 64, launchBox.y + launchBox.height / 2 + 32, { steps: 8 });
+    await page.mouse.up();
+    const dragApplied = await launchNode.evaluate(
+      (node, before) =>
+        node instanceof HTMLElement &&
+        Number.parseFloat(node.style.left) > before.x + 40 &&
+        Number.parseFloat(node.style.top) > before.y + 20,
+      beforeDrag
+    );
+    record("node drag updates position", dragApplied, "dragging a map node updates persisted node coordinates");
+  }
+
   await page.getByRole("button", { name: "Auto layout map" }).click();
   const layoutApplied = await page.evaluate(() => {
     const root = document.querySelector('.map-node[data-node-id="idea-launch"]');
