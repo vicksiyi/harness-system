@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildOutline,
   buildCommandPalette,
+  buildMiniMap,
   autoLayoutNodes,
   collectTags,
   createExportArtifact,
@@ -323,6 +324,27 @@ describe("mind map domain", () => {
     expect(viewport).toEqual({ x: 0, y: 0, zoom: 1.8 });
     expect(panned).toEqual({ x: 320, y: 180, zoom: 1.8 });
     expect(zoomed).toEqual({ x: 320, y: 180, zoom: 0.5 });
+  });
+
+  it("builds a mini map model from nodes and viewport", () => {
+    const model = buildMiniMap(nodes, "story", createCanvasViewport({ x: 120, y: 80, zoom: 1.2 }), {
+      visibleWidth: 600,
+      visibleHeight: 360,
+      maxWidth: 150,
+      maxHeight: 90
+    });
+
+    expect(model.width).toBeLessThanOrEqual(150);
+    expect(model.height).toBeLessThanOrEqual(90);
+    expect(model.nodes).toHaveLength(3);
+    expect(model.nodes.find((node) => node.id === "story")).toMatchObject({ selected: true });
+    expect(model.viewport).toMatchObject({
+      left: expect.any(Number),
+      top: expect.any(Number),
+      width: expect.any(Number),
+      height: expect.any(Number)
+    });
+    expect(model.viewport.width).toBeGreaterThan(8);
   });
 
   it("builds command palette items with contextual disabled states", () => {

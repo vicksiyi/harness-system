@@ -83,6 +83,25 @@ export interface ExportArtifact {
   mimeType: string;
 }
 
+export interface MiniMapModel {
+  width: number;
+  height: number;
+  nodes: Array<{
+    id: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    selected: boolean;
+  }>;
+  viewport: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+}
+
 export interface MindMapImportPreview {
   total: number;
   roots: number;
@@ -543,6 +562,44 @@ export function zoomCanvasViewport(viewport: CanvasViewport, delta: number): Can
     y: viewport.y,
     zoom: viewport.zoom + delta
   });
+}
+
+export function buildMiniMap(
+  nodes: MindNode[],
+  selectedId: string,
+  viewport: CanvasViewport,
+  options: { visibleWidth?: number; visibleHeight?: number; maxWidth?: number; maxHeight?: number } = {}
+): MiniMapModel {
+  const visibleWidth = options.visibleWidth ?? 960;
+  const visibleHeight = options.visibleHeight ?? 520;
+  const maxWidth = options.maxWidth ?? 180;
+  const maxHeight = options.maxHeight ?? 120;
+  const nodeWidth = 170;
+  const nodeHeight = 74;
+  const viewportRight = viewport.x + visibleWidth / viewport.zoom;
+  const viewportBottom = viewport.y + visibleHeight / viewport.zoom;
+  const maxX = Math.max(viewportRight, ...nodes.map((node) => node.x + nodeWidth), nodeWidth);
+  const maxY = Math.max(viewportBottom, ...nodes.map((node) => node.y + nodeHeight), nodeHeight);
+  const scale = Math.min(maxWidth / maxX, maxHeight / maxY);
+
+  return {
+    width: Math.round(maxX * scale),
+    height: Math.round(maxY * scale),
+    nodes: nodes.map((node) => ({
+      id: node.id,
+      left: Math.round(node.x * scale),
+      top: Math.round(node.y * scale),
+      width: Math.max(4, Math.round(nodeWidth * scale)),
+      height: Math.max(3, Math.round(nodeHeight * scale)),
+      selected: node.id === selectedId
+    })),
+    viewport: {
+      left: Math.round(viewport.x * scale),
+      top: Math.round(viewport.y * scale),
+      width: Math.max(8, Math.round((visibleWidth / viewport.zoom) * scale)),
+      height: Math.max(8, Math.round((visibleHeight / viewport.zoom) * scale))
+    }
+  };
 }
 
 export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection: boolean; canUndo?: boolean; canRedo?: boolean }): CommandDefinition[] {

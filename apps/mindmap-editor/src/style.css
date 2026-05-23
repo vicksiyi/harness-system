@@ -426,6 +426,41 @@ label {
   padding: 0 6px;
 }
 
+.mini-map {
+  position: relative;
+  justify-self: end;
+  min-width: 120px;
+  min-height: 78px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background:
+    linear-gradient(#e7edf5 1px, transparent 1px),
+    linear-gradient(90deg, #e7edf5 1px, transparent 1px),
+    #fff;
+  background-size: 12px 12px;
+}
+
+.mini-map-node,
+.mini-map-viewport {
+  position: absolute;
+  border-radius: 3px;
+}
+
+.mini-map-node {
+  background: #94a3b8;
+}
+
+.mini-map-node.selected {
+  background: #0f766e;
+}
+
+.mini-map-viewport {
+  z-index: 1;
+  border: 2px solid #2563eb;
+  background: rgb(37 99 235 / 9%);
+}
+
 .canvas-grid {
   position: relative;
   min-height: 520px;
@@ -679,6 +714,12 @@ label {
     align-items: center;
     justify-content: center;
     min-height: 30px;
+  }
+
+  .mini-map {
+    justify-self: stretch;
+    width: 100% !important;
+    max-width: none;
   }
 
   .canvas-grid {

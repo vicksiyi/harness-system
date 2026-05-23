@@ -388,3 +388,25 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphr9x45-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphr9x45-mobile-mindmap-editor.png`，确认 Auto sync 控件在桌面和移动端协同卡片中正常。
 - 验证：`pnpm typecheck`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphrayls_hesgb8f8` 全部通过。
 - 下一步：继续产品复杂度建设，优先考虑画布小地图、节点关系洞察或协同冲突预览。
+
+## Run run_mphrha29_grrcdp7u
+
+- At: 2026-05-23T03:00:55.599Z
+- Type: requirement
+- Prompt: 给无限画布增加小地图概览并纳入浏览器质量门
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Canvas Mini Map Loop
+
+- At: 2026-05-23
+- 目标：给无限画布增加全局概览小地图，并把小地图纳入无头浏览器质量门。
+- TDD scope：先在 `apps/mindmap-editor/src/domain.test.ts` 增加 `buildMiniMap` 模型测试，覆盖节点 marker、选中节点和视口框计算。
+- 已完成：新增 `MiniMapModel` 和 `buildMiniMap`；画布区渲染小地图、选中节点 marker 和当前视口框；移动端保持小地图可见且不横向溢出。
+- Harness 反哺：浏览器质量脚本新增小地图可见性和模型渲染检查，确认 selected marker 与 viewport frame 都有实际尺寸。
+- 视觉复核：已读取 `.harness/browser/browser_mphrgcdm-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphrgcdm-mobile-mindmap-editor.png`，确认小地图在桌面和移动端显示正常。
+- 验证：`pnpm target:test` 通过 24 条产品单测；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 59 条总测试、构建和浏览器门禁；workflow `run_mphrha29_grrcdp7u` 通过。
+- 下一步：继续产品复杂度建设，优先考虑节点关系洞察、分支折叠或冲突预览。

@@ -1,45 +1,44 @@
-# MR Summary: Auto Sync Collaboration
+# MR Summary: Canvas Mini Map
 
 Type: requirement
 Target Project: apps/mindmap-editor
 Status: passed
-Workflow Run: run_mphrayls_hesgb8f8
+Workflow Run: run_mphrha29_grrcdp7u
 
 ## Background
 
-Mind Map Studio supported manual diff push/pull, but collaborative editing should also support low-friction remote updates. This change adds an opt-in automatic sync loop and proves it with two browser clients.
+The mind map now supports a large panning and zooming canvas. A mini map gives users a compact overview of document structure and current viewport position.
 
 ## Scope
 
-- Added an Auto sync toggle to the Collaboration panel.
-- Persisted the local auto-sync preference.
-- Added silent remote diff polling every 1.8 seconds.
-- Paused auto-pull while local pending operations exist or sync is already in progress.
-- Extended browser quality with a second-client auto-sync assertion.
+- Added `MiniMapModel` and `buildMiniMap` domain logic.
+- Added unit coverage for mini map sizing, selected marker, and viewport frame.
+- Rendered a mini map in the canvas panel.
+- Added selected node marker and current viewport frame.
+- Extended browser quality checks to verify mini map rendering.
 
 ## Architecture Notes
 
-Auto sync uses the existing JSON-RPC `syncMap` operation with an empty operation list. Remote operations authored by another client trigger `applyRemoteMap`; no-change silent polls avoid unnecessary renders. Manual pull remains available for explicit recovery.
+The mini map is derived from existing node coordinates and local viewport state. It introduces no new persistence or RPC contract. The main Canvas connector system remains unchanged.
 
 ## Validation
 
-- `pnpm typecheck`: passed.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed with peer auto-sync checks.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed, 58 total tests plus build and browser quality.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图协同增加自动同步开关并验证多端免手动拉取"`: passed with run `run_mphrayls_hesgb8f8`.
+- `pnpm target:test`: passed, 24 target tests.
+- `pnpm typecheck && pnpm target:test && HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed, 59 total tests plus build and browser quality.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给无限画布增加小地图概览并纳入浏览器质量门"`: passed with run `run_mphrha29_grrcdp7u`.
 
 ## Risks
 
-- Polling is simple interval-based sync rather than push transport.
-- Auto-sync is per browser and local preference only.
-- Conflicting simultaneous edits are still last-operation-wins through the operation log.
+- The mini map is read-only; clicking to navigate is not implemented yet.
+- It uses a normalized bounding box and may need richer scaling controls for extremely sparse maps.
 
 ## Rollback
 
-Revert the auto-sync toggle, timer, silent pull branch, and browser-quality peer assertion. Manual Push diff and Pull diff continue to work.
+Revert the mini map domain helper, UI rendering, CSS, and browser-quality assertions. Infinite canvas pan/zoom remains intact.
 
 ## Follow-ups
 
-- Add visible remote-change toast or timeline item.
-- Add conflict preview for simultaneous edits to the same field.
-- Replace polling with WebSocket or Server-Sent Events when the product needs lower latency.
+- Make the mini map clickable for viewport navigation.
+- Add branch density or collapsed-branch indicators.
+- Add keyboard shortcuts for moving viewport by mini map quadrants.

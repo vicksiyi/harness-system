@@ -1,27 +1,27 @@
-# Release Notes: Auto Sync Collaboration
+# Release Notes: Canvas Mini Map
 
 Date: 2026-05-23
 Target Project: apps/mindmap-editor
-Workflow Run: run_mphrayls_hesgb8f8
+Workflow Run: run_mphrha29_grrcdp7u
 
 ## Added
 
-- Auto sync toggle in the Collaboration panel.
-- Silent polling for remote diff operations.
-- Browser validation that a second client receives a rename diff without manual pull.
+- Mini map in the canvas panel.
+- Selected node marker.
+- Current viewport frame.
+- Browser quality checks for mini map visibility and rendered dimensions.
 
 ## Changed
 
-- Manual Pull diff remains available, while automatic sync skips polling when local edits are pending.
-- Browser quality now covers manual and automatic collaboration paths.
+- Domain tests now cover mini map model generation.
+- Infinite canvas verification now includes overview rendering.
 
 ## Validation
 
-- 58 total tests passed through `pnpm verify`.
-- Browser quality passed on `http://localhost:5175` with peer auto-sync checks.
-- Workflow `run_mphrayls_hesgb8f8` completed successfully.
+- 59 total tests passed through `pnpm verify`.
+- Browser quality passed on `http://localhost:5175` with mini map checks.
+- Workflow `run_mphrha29_grrcdp7u` completed successfully.
 
 ## Known Limits
 
-- Auto sync is polling-based.
-- Conflict handling remains operation-log order with no user-facing merge preview yet.
+- Mini map is visual-only; click-to-pan is a future enhancement.

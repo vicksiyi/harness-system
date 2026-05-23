@@ -5,6 +5,7 @@ import {
   buildOutline,
   autoLayoutNodes,
   buildCommandPalette,
+  buildMiniMap,
   collectTags,
   createCanvasViewport,
   createChildNode,
@@ -1036,6 +1037,7 @@ function render(): void {
   const commands = filterCommands(commandCatalog(), state.commandQuery);
   const canvasWidth = Math.max(3200, ...state.nodes.map((item) => item.x + 640));
   const canvasHeight = Math.max(2200, ...state.nodes.map((item) => item.y + 520));
+  const miniMap = buildMiniMap(state.nodes, state.selectedId, state.viewport);
   const rpcLabel = state.rpcStatus === "saved" || state.rpcStatus === "online" ? "Sync online" : state.rpcStatus === "offline" ? "Sync offline" : state.rpcStatus;
   const viewportLabel = `${Math.round(state.viewport.zoom * 100)}% · ${state.viewport.x}, ${state.viewport.y}`;
 
@@ -1211,6 +1213,16 @@ function render(): void {
             <span>${escapeHtml(viewportLabel)}</span>
             <button id="zoom-in" aria-label="Zoom canvas in">+</button>
             <button id="reset-view" aria-label="Reset canvas view">Reset</button>
+          </div>
+          <div class="mini-map" aria-label="Canvas mini map" style="width:${miniMap.width}px;height:${miniMap.height}px">
+            <div class="mini-map-viewport" style="left:${miniMap.viewport.left}px;top:${miniMap.viewport.top}px;width:${miniMap.viewport.width}px;height:${miniMap.viewport.height}px"></div>
+            ${miniMap.nodes
+              .map(
+                (item) => `
+                  <span class="mini-map-node ${item.selected ? "selected" : ""}" data-mini-node-id="${item.id}" style="left:${item.left}px;top:${item.top}px;width:${item.width}px;height:${item.height}px"></span>
+                `
+              )
+              .join("")}
           </div>
           <div class="canvas-grid" aria-label="Idea map canvas" data-pan-x="${state.viewport.x}" data-pan-y="${state.viewport.y}" data-zoom="${state.viewport.zoom}" style="--canvas-width:${canvasWidth}px;--canvas-height:${canvasHeight}px;--canvas-pan-x:${-state.viewport.x}px;--canvas-pan-y:${-state.viewport.y}px;--canvas-zoom:${state.viewport.zoom}">
             <div class="canvas-surface">

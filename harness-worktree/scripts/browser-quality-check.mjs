@@ -295,6 +295,17 @@ try {
   record("desktop connector screenshot", true, connectorScreenshotPath);
 
   await visible(page.getByRole("toolbar", { name: "Canvas viewport" }), "infinite canvas viewport controls");
+  await visible(page.getByLabel("Canvas mini map"), "canvas mini map appears");
+  const miniMapRendered = await page.evaluate(() => {
+    const miniMap = document.querySelector(".mini-map");
+    const selected = document.querySelector(".mini-map-node.selected");
+    const viewport = document.querySelector(".mini-map-viewport");
+    if (!(miniMap instanceof HTMLElement) || !(selected instanceof HTMLElement) || !(viewport instanceof HTMLElement)) {
+      return false;
+    }
+    return miniMap.getBoundingClientRect().width >= 120 && selected.getBoundingClientRect().width > 0 && viewport.getBoundingClientRect().width > 0;
+  });
+  record("canvas mini map renders model", miniMapRendered, "mini map shows selected node marker and viewport frame");
   await page.getByRole("button", { name: "Pan canvas right" }).click();
   await page.getByRole("button", { name: "Pan canvas down" }).click();
   await page.getByRole("button", { name: "Zoom canvas in" }).click();
