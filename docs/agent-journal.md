@@ -523,3 +523,22 @@
 - 验证：`pnpm test services/mindmap-rpc/src/store.test.ts`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphvsld0_04f2is6q` 全部通过。
 - 视觉复核：已读取 `.harness/browser/files-node-search-review.png`，确认 Node Search 上移后可见、结果没有明显截断。
 - 下一步：继续自主迭代，优先考虑搜索结果点击回归、节点详情元数据或 FTS 搜索。
+
+## Run run_mphvwqy2_tu52uhwl
+
+- At: 2026-05-23T05:04:56.202Z
+- Type: polish
+- Prompt: 增强浏览器质量门：跨文件节点搜索结果需要实际打开编辑器并选中对应节点
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Search Navigation Quality Gate Loop
+
+- At: 2026-05-23
+- 目标：继续反哺 Harness 质量门，让跨文件节点搜索不仅“结果可见”，还必须能打开编辑器并选中正确节点。
+- 改动：`browser-quality-check.mjs` 点击 `Launch plan` 搜索结果，等待 Editor Inspector，读取 `Idea title`，并记录 `cross-file node search selects result`。
+- 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphvwqy2_tu52uhwl` 全部通过。
+- 下一步：继续自主迭代，优先考虑节点元数据、搜索筛选或 FTS 搜索。

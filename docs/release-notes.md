@@ -1,11 +1,9 @@
-# Release Notes: Cross-File Node Search
+# Release Notes: Search Navigation Quality Gate
 
-- Files page now searches node titles, notes, tags, and map titles across saved database files.
-- `mindmap-rpc` exposes a new `searchNodes` JSON-RPC method backed by SQLite.
-- Search results show map context, status, tags, and note snippets, and can open the matching map in the editor.
-- Browser quality now verifies cross-file node search during the standard product regression.
+- Browser quality now clicks a cross-file node search result and confirms the editor opens the matching node.
+- The gate records both editor navigation and selected title assertions.
+- Full verify and workflow `run_mphvwqy2_tu52uhwl` passed.
 
 ## Operator Notes
-- Restart `mindmap-rpc` after updating so `/health` lists `searchNodes`.
-- Run `pnpm target:dev` for local product development.
-- Full workflow record: `.harness/runs/run_mphvsld0_04f2is6q.json`.
+- Run `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser` to exercise the strengthened flow.
+- Inspect `.harness/runs/run_mphvwqy2_tu52uhwl.json` for the workflow record.

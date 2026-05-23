@@ -65,7 +65,13 @@ try {
   record("file sort changes map library order", fileSortApplied, fileSortApplied ? "file library accepted the ideas sort mode" : "file sort mode did not update");
   await page.getByLabel("Search map files").fill("");
   await page.getByLabel("Search nodes across files").fill("launch");
-  await visible(page.getByRole("button", { name: /Open Launch plan in Browser diff/ }).first(), "cross-file node search finds saved node");
+  const launchSearchResult = page.getByRole("button", { name: /Open Launch plan in Browser diff/ }).first();
+  await visible(launchSearchResult, "cross-file node search finds saved node");
+  await launchSearchResult.click();
+  await visible(page.getByRole("heading", { name: "Inspector" }), "cross-file node search opens editor");
+  const selectedSearchTitle = await page.getByLabel("Idea title").inputValue();
+  record("cross-file node search selects result", selectedSearchTitle === "Launch plan", `selected idea title is ${selectedSearchTitle}`);
+  await page.getByRole("button", { name: "Open files page" }).click();
   await visible(page.getByRole("heading", { name: "Export" }), "file export section");
   const [jsonDownload] = await Promise.all([
     page.waitForEvent("download"),
