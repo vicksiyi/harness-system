@@ -644,3 +644,41 @@
 - 质量门：新增同一 browser context 内两个页面的验证，覆盖同浏览器双页签打开同一文件、端 1 修改节点标题、端 2 自动收到 `Applied ... broadcast changes` 并展示节点新标题。
 - 验证：`pnpm typecheck`、`pnpm target:test`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、workflow `run_mpi3ifzc_5u6fr7u2` 全部通过。
 - 当前支持边界：支持当前打开 map 的 `syncMap` DIFF 广播；尚未支持 create/delete/full-save 文件生命周期广播，也不会自动切换 peer 到其他 map。
+
+## Run run_mpi5frdl_dap795zp
+
+- At: 2026-05-23T09:31:44.072Z
+- Type: bugfix
+- Prompt: 修复 undo/redo 没有协同同步，并验证 task json flow 与 harness-quality Skill 是否生效
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- Task JSON: .harness/tasks/run_mpi5frdl_dap795zp.json
+- MR Summary: docs/generated-mr-summary.md
+
+## Undo/Redo Collaborative History Fix
+
+- At: 2026-05-23
+- 目标：修复 Mind Map Studio 中 undo/redo 只改本地、不产生协同 DIFF 的问题，并用本次 Bugfix 验证新 task JSON flow 与 `harness-quality` 是否能约束闭环。
+- TDD 过程：新增 `buildHistorySyncOperations` 单测，覆盖恢复帧 upsert、撤销新增节点时 delete、父节点先于子节点同步；随后接入 `applyHistoryFrame()`。
+- 产品修复：undo/redo 应用历史帧后会排队 `select-node`、父子有序 `upsert-node`、缺失节点 `delete-node`，并触发 `scheduleRemoteSave()`，因此同文件其他端能通过广播自动应用历史变化。
+- Harness 反哺：新增中文 `harness-quality` Skill；现有 `harness` / `harness-*` Skill 都要求读取 `.harness/tasks/<run-id>.json` 并进入 `quality-validation`；orchestrator 会持久化 10 步稳定 task flow。
+- 编排修正：`attachTestsToTask()` 和 `attachDeploymentToTask()` 现在会把自动化测试、浏览器质量、部署健康结果回写到每条 task test case，避免步骤通过但用例仍 pending。
+- 质量验证：workflow `run_mpi5frdl_dap795zp` 通过；浏览器质量门新增并通过 `same-browser peer receives undo diff` 与 `same-browser peer receives redo diff`；`agent-browser` 完成 open、snapshot、console、errors、screenshot 验证。
+- 最终验证：`pnpm verify` 通过，覆盖 76 个 Vitest 测试、类型检查、生产构建和完整浏览器质量门；回写修正后 `pnpm test` 通过 77 个 Vitest 测试。
+- Flow 验证：workflow `run_mpi5t35u_46w08ajp` 通过，且 `.harness/tasks/run_mpi5t35u_46w08ajp.json` 中 acceptance、quality、deployment 用例全部为 `passed`。
+- 证据：`.harness/tasks/run_mpi5frdl_dap795zp.json`、`.harness/browser/run_mpi5frdl_dap795zp-agent-browser-quality.png`、`.harness/browser/run_mpi5frdl_dap795zp-desktop-mindmap-editor.png`。
+- 下一步：继续让 task JSON 的 `testCases` 在 workflow 完成后逐条回写真实状态，而不是只在步骤层记录总体测试通过。
+
+## Run run_mpi5t35u_46w08ajp
+
+- At: 2026-05-23T09:42:10.449Z
+- Type: bugfix
+- Prompt: 验证 task json testCases 状态回写，并确认 undo redo 协同修复仍通过
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- Task JSON: .harness/tasks/run_mpi5t35u_46w08ajp.json
+- MR Summary: docs/generated-mr-summary.md

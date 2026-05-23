@@ -4,6 +4,7 @@ import {
   buildCommandPalette,
   buildMiniMap,
   buildRelationshipInsight,
+  buildHistorySyncOperations,
   collapsedDescendantCount,
   autoLayoutNodes,
   collectTags,
@@ -381,6 +382,27 @@ describe("mind map domain", () => {
     const redone = undone ? redoHistory(undone.history, undone.frame) : null;
     expect(redone?.frame.nodes.find((node) => node.id === "root")).toMatchObject({ x: 200, y: 140 });
     expect(redone?.history.past[0].nodes.find((node) => node.id === "root")).toMatchObject({ x: 100, y: 100 });
+  });
+
+  it("builds collaborative sync operations for undo and redo frames", () => {
+    const previousNodes = [
+      ...nodes,
+      createNode({
+        id: "scratch",
+        title: "Scratch branch",
+        parentId: "root",
+        x: 520,
+        y: 320
+      })
+    ];
+    const restoredNodes = [nodes[1], nodes[0], nodes[2]];
+    const operations = buildHistorySyncOperations(previousNodes, restoredNodes, "story");
+
+    expect(operations[0]).toEqual({ type: "select-node", selectedId: "story" });
+    expect(operations.map((operation) => operation.type)).toEqual(["select-node", "upsert-node", "upsert-node", "upsert-node", "delete-node"]);
+    expect(operations[1]).toMatchObject({ type: "upsert-node", node: { id: "root" } });
+    expect(operations[2]).toMatchObject({ type: "upsert-node", node: { id: "research", parentId: "root" } });
+    expect(operations.at(-1)).toEqual({ type: "delete-node", nodeId: "scratch" });
   });
 
   it("clamps and updates infinite canvas viewport state", () => {

@@ -5,6 +5,7 @@ import {
   buildOutline,
   autoLayoutNodes,
   buildCommandPalette,
+  buildHistorySyncOperations,
   buildMiniMap,
   buildRelationshipInsight,
   collapsedDescendantCount,
@@ -241,10 +242,13 @@ function editLabel(patch: Partial<Omit<MindNode, "id">>): string {
 }
 
 function applyHistoryFrame(frame: { nodes: MindNode[]; selectedId: string }): void {
+  const previousNodes = state.nodes;
   state.nodes = frame.nodes;
   state.collapsedIds = state.collapsedIds.filter((id) => state.nodes.some((node) => node.id === id));
   state.selectedId = state.nodes.some((node) => node.id === frame.selectedId) ? frame.selectedId : state.nodes[0]?.id ?? "";
+  queueOperations(buildHistorySyncOperations(previousNodes, state.nodes, state.selectedId));
   persistMap();
+  scheduleRemoteSave();
   render();
 }
 

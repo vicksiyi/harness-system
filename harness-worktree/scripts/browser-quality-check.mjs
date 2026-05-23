@@ -183,6 +183,32 @@ try {
     sameContextPeerReceivedNode,
     sameContextPeerReceivedNode ? "same browser-context peer received node title diff" : "same browser-context peer did not receive node title diff"
   );
+  await sameContextSource.locator(".canvas-grid").click({ position: { x: 24, y: 24 } });
+  await sameContextSource.keyboard.press("Control+Z");
+  const sameContextPeerReceivedUndo = await sameContextPeer
+    .getByRole("button", { name: /^Launch plan/ })
+    .first()
+    .waitFor({ timeout: 7000 })
+    .then(() => true)
+    .catch(() => false);
+  record(
+    "same-browser peer receives undo diff",
+    sameContextPeerReceivedUndo,
+    sameContextPeerReceivedUndo ? "same browser-context peer received undo history diff" : "same browser-context peer did not receive undo history diff"
+  );
+  await sameContextSource.locator(".canvas-grid").click({ position: { x: 24, y: 24 } });
+  await sameContextSource.keyboard.press("Control+Shift+Z");
+  const sameContextPeerReceivedRedo = await sameContextPeer
+    .getByRole("button", { name: new RegExp(sameContextTitle) })
+    .first()
+    .waitFor({ timeout: 7000 })
+    .then(() => true)
+    .catch(() => false);
+  record(
+    "same-browser peer receives redo diff",
+    sameContextPeerReceivedRedo,
+    sameContextPeerReceivedRedo ? "same browser-context peer received redo history diff" : "same browser-context peer did not receive redo history diff"
+  );
   await sameContext.close();
   await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
   await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");

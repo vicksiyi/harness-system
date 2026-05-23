@@ -1,3 +1,5 @@
+import type { MindMapOperationInput, StoredMindNode } from "@harness/shared";
+
 export type IdeaStatus = "seed" | "exploring" | "committed";
 
 export interface MindNode {
@@ -656,6 +658,23 @@ export function redoHistory(history: MindMapHistory, current: MindMapHistoryFram
   };
 }
 
+export function buildHistorySyncOperations(previousNodes: MindNode[], restoredNodes: MindNode[], selectedId: string): MindMapOperationInput[] {
+  const restoredIds = new Set(restoredNodes.map((node) => node.id));
+  const safeSelectedId = restoredNodes.some((node) => node.id === selectedId) ? selectedId : restoredNodes[0]?.id ?? "";
+  const deleteOperations: MindMapOperationInput[] = previousNodes
+    .filter((node) => !restoredIds.has(node.id))
+    .map((node) => ({
+      type: "delete-node",
+      nodeId: node.id
+    }));
+  const upsertOperations: MindMapOperationInput[] = orderNodesForSync(restoredNodes).map((node) => ({
+    type: "upsert-node",
+    node: toStoredSyncNode(node)
+  }));
+
+  return [{ type: "select-node", selectedId: safeSelectedId }, ...upsertOperations, ...deleteOperations];
+}
+
 export function createCanvasViewport(input: Partial<CanvasViewport> = {}): CanvasViewport {
   return {
     x: clampViewportOffset(input.x ?? 0),
@@ -883,6 +902,33 @@ function historyFramesEqual(a: MindMapHistoryFrame, b: MindMapHistoryFrame): boo
       );
     })
   );
+}
+
+function orderNodesForSync(nodes: MindNode[]): MindNode[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const visited = new Set<string>();
+  const ordered: MindNode[] = [];
+
+  function visit(node: MindNode): void {
+    if (visited.has(node.id)) {
+      return;
+    }
+    if (node.parentId) {
+      const parent = byId.get(node.parentId);
+      if (parent) {
+        visit(parent);
+      }
+    }
+    visited.add(node.id);
+    ordered.push(node);
+  }
+
+  nodes.forEach(visit);
+  return ordered;
+}
+
+function toStoredSyncNode(node: MindNode): StoredMindNode {
+  return { ...node, tags: [...node.tags] };
 }
 
 function normalizeTitle(title: string): string {
