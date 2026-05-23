@@ -45,7 +45,7 @@ try {
   const run = await rpc("runWorkflow", { type, prompt, requestedBy: "codex-skill", targetProject });
   await appendJournal(run);
   await writeWorkflowOutput(run);
-  console.log(JSON.stringify({ id: run.id, status: run.status, stage: run.stage, title: run.title }, null, 2));
+  console.log(JSON.stringify({ id: run.id, status: run.status, stage: run.stage, title: run.title, taskJson: `.harness/tasks/${run.id}.json` }, null, 2));
   process.exitCode = run.status === "passed" ? 0 : 1;
 } catch (error) {
   const message = error instanceof Error ? error.message : "Unknown workflow script failure";
@@ -128,6 +128,7 @@ async function appendJournal(run) {
     `- Result: ${run.status} at ${run.stage}`,
     `- Tests: ${run.tests?.passed ? "passed" : "not passed"} with score ${run.tests?.score ?? "n/a"}`,
     `- Deployment: ${run.deployment?.status ?? "not run"}`,
+    `- Task JSON: .harness/tasks/${run.id}.json`,
     `- MR Summary: docs/generated-mr-summary.md`
   ].join("\n");
   await appendFile(join(root, "docs", "agent-journal.md"), `${entry}\n`);
@@ -138,6 +139,7 @@ async function appendJournal(run) {
     "",
     `- Command: pnpm workflow:${run.type} "${run.prompt}"`,
     `- Target project: ${run.targetProject}`,
+    `- Task JSON: .harness/tasks/${run.id}.json`,
     `- Result: ${run.tests?.passed ? "passed" : "failed or skipped"}`,
     `- Attempts: ${run.attempts}/${run.maxAttempts}`,
     `- Log summary: ${(run.tests?.rawLog ?? "No test log").split("\n").join(" | ")}`,

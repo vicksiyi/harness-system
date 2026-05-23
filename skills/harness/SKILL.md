@@ -46,6 +46,7 @@ $harness polish 优化前端任务状态展示
 6. Docker Compose、健康检查、部署记录：读 `services/deploy-rpc/AGENTS.md`。
 7. 目标产品 UI：读 `apps/mindmap-editor/AGENTS.md`。
 8. 文档、MR Summary、Release Notes、测试日志：读 `docs/AGENTS.md`。
+9. 质量验证、E2E、截图复核、agent-browser：读 `skills/harness-quality/SKILL.md`。
 
 ## 调用本地脚本
 
@@ -66,7 +67,33 @@ pnpm workflow:polish "<优化目标>"
 - 读取测试结果和结构化失败原因。
 - 在失败可修复时进入 `fixing -> retesting`。
 - 将运行记录写入 `.harness/runs/<run-id>.json`。
+- 将稳定执行计划写入 `.harness/tasks/<run-id>.json`。
 - 更新 `docs/agent-journal.md`、`docs/test-log.md`、`docs/generated-mr-summary.md`、`docs/release-notes.md`。
+
+## Task JSON 和稳定 Flow
+
+每次 `$harness` 调用都必须以 task JSON 作为执行轨道：
+
+```txt
+.harness/tasks/<run-id>.json
+```
+
+task JSON 固定包含以下 flow：
+
+```txt
+intake -> requirement-analysis -> test-case-generation -> implementation-planning
+-> coding -> automated-testing -> quality-validation -> mr-summary
+-> deployment -> execution-record
+```
+
+执行规则：
+
+- 不要凭对话上下文猜下一步，先读取 `.harness/tasks/<run-id>.json` 的 `currentStepId` 和 `flow.steps[]`。
+- 每一步都要产出对应 `outputs`、`evidence` 或 `notes`。
+- 需求、Bug、Polish 都必须经过 `test-case-generation`，把验收标准转成测试矩阵。
+- `quality-validation` 只定义方法和证据要求，具体验证路径由 `harness-quality` Skill 根据本次改动决定。
+- 如果某一步失败，记录到该 step 的 `evidence/notes`，修复后重跑并更新状态。
+- 最终 `execution-record` 必须让 run JSON、task JSON、test log、journal 保持一致。
 
 ## 如何运行服务
 
@@ -91,9 +118,10 @@ pnpm target:dev
 按顺序读取：
 
 1. `.harness/runs/<run-id>.json`：完整事件、日志、测试、部署、阻塞原因。
-2. `.harness/logs/dev-services.log`：服务启动和端口冲突日志。
-3. `docs/test-log.md`：人工可读的测试命令、失败摘要、修复和重试记录。
-4. `docs/agent-journal.md`：每次执行摘要和下一步。
+2. `.harness/tasks/<run-id>.json`：稳定 flow、当前步骤、测试用例、质量验证和证据。
+3. `.harness/logs/dev-services.log`：服务启动和端口冲突日志。
+4. `docs/test-log.md`：人工可读的测试命令、失败摘要、修复和重试记录。
+5. `docs/agent-journal.md`：每次执行摘要和下一步。
 
 ## 如何判断失败
 
@@ -104,6 +132,13 @@ pnpm target:dev
 - `blocker`
 - `tests.failures[]`
 - `deployment.healthChecks[]`
+
+同时看 `.harness/tasks/<run-id>.json` 中的：
+
+- `currentStepId`
+- `flow.steps[].status`
+- `testCases[]`
+- `blockers[]`
 
 可修复失败必须包含：
 
@@ -116,6 +151,7 @@ pnpm target:dev
 1. `pnpm target:browser` 会输出 desktop/mobile 截图路径。
 2. Codex 必须读取截图，确认布局、可见内容、弹层、移动端显示和关键交互状态是否正常。
 3. 仅 DOM 可见性通过但截图中存在截断、遮挡、溢出、错位或不可读，也要判定为失败并修复。
+4. 当本次改动涉及关键交互、RPC、协同、复杂 UI 或用户明确要求 E2E 时，必须使用 `harness-quality` Skill 自主设计 agent-browser 验证计划；不要把质量验证简化为固定点击路径。
 
 如果失败不可自动修复，必须把阻塞原因写入 `docs/test-log.md` 和 `docs/agent-journal.md`。
 
@@ -134,8 +170,9 @@ pnpm target:build
 pnpm target:browser
 ```
 
-6. 重跑原始 workflow 命令。
-7. 把失败、修复、重试结果写入 `docs/test-log.md`。
+6. 必要时按 `harness-quality` Skill 使用 agent-browser 做语义快照、截图、console、errors、network 验证。
+7. 重跑原始 workflow 命令。
+8. 把失败、修复、重试结果写入 `docs/test-log.md`。
 
 ## 生成 MR Summary
 

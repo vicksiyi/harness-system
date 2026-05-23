@@ -49,3 +49,4 @@ git worktree add ../harness-system-worktree main
 
 - 服务启动超时：查看 `.harness/logs/dev-services.log`。
 - workflow 脚本退出 1：读取 `.harness/runs/<run-id>.json` 的 `blocker`。
+- Agent 执行跑偏：读取 `.harness/tasks/<run-id>.json`，按 `currentStepId` 和 `flow.steps[]` 恢复执行轨道。

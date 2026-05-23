@@ -8,6 +8,7 @@
 
 - `architecture.md`
 - `runbook.md`
+- `task-flow.md`
 - `agent-journal.md`
 - `decision-log.md`
 - `test-log.md`
@@ -31,4 +32,3 @@ pnpm deploy:local
 
 - MR Summary 过期：运行 `pnpm mr:summary`。
 - 测试日志缺失失败信息：补充命令、退出码、关键日志摘要和修复记录。
-

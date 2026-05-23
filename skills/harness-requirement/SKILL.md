@@ -41,13 +41,23 @@ $harness-requirement 增加一个工作流运行详情页
 pnpm workflow:requirement "<需求>"
 ```
 
+执行后必须读取：
+
+```txt
+.harness/tasks/<run-id>.json
+```
+
+按 task JSON 的 flow 执行，不要跳过 `test-case-generation`、`quality-validation`、`execution-record`。
+
 ## 测试与修复
 
 1. 查看 `.harness/runs/<run-id>.json`。
-2. 若失败，读取 `.harness/logs/dev-services.log` 和 `docs/test-log.md`。
-3. 先添加或更新单测，再实现修复。
-4. 运行 `pnpm typecheck`、`pnpm test`、`pnpm target:build`。
-5. 重新运行原始 workflow。
+2. 查看 `.harness/tasks/<run-id>.json`，确认当前 step、testCases 和 quality gates。
+3. 若失败，读取 `.harness/logs/dev-services.log` 和 `docs/test-log.md`。
+4. 先添加或更新单测，再实现修复。
+5. 运行 `pnpm typecheck`、`pnpm test`、`pnpm target:build`。
+6. 使用 `harness-quality` Skill 自主设计 E2E / 截图 / network 验证。
+7. 重新运行原始 workflow。
 
 ## MR Summary
 

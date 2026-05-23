@@ -48,6 +48,7 @@ pnpm workflow:bugfix "<Bug 描述或失败日志>"
 重点检查：
 
 - `.harness/runs/<run-id>.json` 的 `tests.failures[]`
+- `.harness/tasks/<run-id>.json` 的当前 step、失败 evidence、testCases 和 blockers
 - `.harness/logs/dev-services.log`
 - `docs/test-log.md`
 
@@ -56,6 +57,7 @@ pnpm workflow:bugfix "<Bug 描述或失败日志>"
 - 先写或更新回归单测，再修改实现。
 - 日志解析类 Bug 必须让 `testing-rpc` 返回结构化 `ParsedFailure`。
 - 修复后运行 `pnpm typecheck`、`pnpm test` 和相关 build。
+- 涉及 UI、RPC、协同、保存、画布、快捷键等用户可见问题时，使用 `harness-quality` Skill 自主设计 agent-browser 验证，不使用固定路径代替判断。
 - 重新执行同一 bugfix workflow。
 - 如果仍失败，记录证据、原因、下一步，不要假装通过。
 

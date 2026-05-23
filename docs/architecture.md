@@ -48,6 +48,7 @@ testing/retesting -> summarizing -> deploying -> completed
 ## 运行记录
 
 - `.harness/runs/<run-id>.json`：完整结构化记录。
+- `.harness/tasks/<run-id>.json`：每任务稳定执行 flow，包含步骤状态、测试用例、质量验证、证据和 blockers。
 - `.harness/logs/dev-services.log`：服务启动日志。
 - `docs/agent-journal.md`：人工可读执行摘要。
 - `docs/test-log.md`：测试和修复记录。
@@ -55,3 +56,15 @@ testing/retesting -> summarizing -> deploying -> completed
 ## 控制面与目标项目隔离
 
 Harness 的职责是分析、计划、测试、部署和记录；目标产品的职责是承载真实需求。默认目标产品为 `apps/mindmap-editor`，后续可以新增更多 `apps/*` 产品应用作为独立样例；涉及 RPC 的能力继续放在 `services/*`。目标产品只通过自己的 `AGENTS.md` 给编排提供上下文。
+
+## Task JSON Flow
+
+每次 workflow 都会创建 `.harness/tasks/<run-id>.json`，作为 Skill 和 Agent 的稳定执行轨道。标准步骤为：
+
+```txt
+intake -> requirement-analysis -> test-case-generation -> implementation-planning
+-> coding -> automated-testing -> quality-validation -> mr-summary
+-> deployment -> execution-record
+```
+
+`WorkflowRun` 记录实际运行结果；`HarnessTaskFile` 记录每一步应该做什么、输入输出、命令、质量门、证据和阻塞原因。Skill 执行时必须先读 task JSON，再根据当前 step 继续。

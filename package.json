@@ -12,6 +12,7 @@
     "target:build": "pnpm --filter @target/mindmap-editor build",
     "target:test": "vitest run apps/mindmap-editor/src",
     "target:browser": "node harness-worktree/scripts/browser-quality-check.mjs",
+    "quality:agent-browser:doctor": "agent-browser doctor --offline --quick --json",
     "dev:services": "concurrently -n orchestrator,requirements,coding,testing,deploy,mindmap -c blue,green,magenta,yellow,cyan,white \"pnpm --filter @harness/orchestrator-rpc dev\" \"pnpm --filter @harness/requirements-rpc dev\" \"pnpm --filter @harness/coding-rpc dev\" \"pnpm --filter @harness/testing-rpc dev\" \"pnpm --filter @harness/deploy-rpc dev\" \"pnpm --filter @target/mindmap-rpc dev\"",
     "workflow:requirement": "node harness-worktree/scripts/run-workflow.mjs requirement",
     "workflow:bugfix": "node harness-worktree/scripts/run-workflow.mjs bugfix",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
+    "agent-browser": "^0.27.0",
     "concurrently": "^9.1.2",
     "playwright-core": "^1.60.0",
     "tsx": "^4.19.4",

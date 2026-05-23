@@ -50,6 +50,15 @@ HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm wo
 
 该命令会将 RPC 服务移到 `4200-4204`，并让浏览器门禁使用 `5176`。
 
+每次 workflow 会生成：
+
+```txt
+.harness/runs/<run-id>.json
+.harness/tasks/<run-id>.json
+```
+
+其中 task JSON 是稳定执行 flow。继续处理任务、修复失败或做质量验证前，先读取 task JSON 的 `currentStepId`、`flow.steps[]`、`testCases[]` 和 `blockers[]`。
+
 ## 测试
 
 ```bash

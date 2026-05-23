@@ -10,6 +10,7 @@ import {
   servicePorts,
   type CodingResult,
   type DeploymentResult,
+  type HarnessTaskFile,
   type RequirementAnalysis,
   type ServiceHealth,
   type TestResult,
@@ -19,11 +20,18 @@ import {
 } from "@harness/shared";
 import {
   attachAnalysis,
+  attachAnalysisToTask,
+  attachCodingToTask,
   attachDeployment,
+  attachDeploymentToTask,
   attachTestResult,
+  attachTestsToTask,
   completeOrBlockAfterDeploy,
+  createHarnessTaskFile,
   createWorkflowRun,
   decideAfterTest,
+  finalizeTask,
+  markTaskStep,
   summarizeRelease,
   summarizeRun,
   transition
@@ -32,6 +40,7 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = process.env.HARNESS_ROOT ?? join(here, "../../..");
 const runDir = join(rootDir, ".harness", "runs");
+const taskDir = join(rootDir, ".harness", "tasks");
 const docsDir = join(rootDir, "docs");
 
 const serviceUrls = {
@@ -43,6 +52,7 @@ const serviceUrls = {
 const validationTimeoutMs = Number(process.env.HARNESS_VALIDATION_TIMEOUT_MS ?? 90000);
 
 const runs = new Map<string, WorkflowRun>();
+const tasks = new Map<string, HarnessTaskFile>();
 
 function inferType(value: unknown): WorkflowType {
   return value === "bugfix" || value === "polish" || value === "requirement" ? value : "requirement";
@@ -66,10 +76,26 @@ async function persistRun(run: WorkflowRun): Promise<void> {
   await writeFile(join(docsDir, "release-notes.md"), `${run.releaseNotes ?? summarizeRelease(run)}\n`, "utf8");
 }
 
+async function persistTask(task: HarnessTaskFile): Promise<void> {
+  await mkdir(taskDir, { recursive: true });
+  await writeFile(join(taskDir, `${task.runId}.json`), `${JSON.stringify(task, null, 2)}\n`, "utf8");
+}
+
+async function persistWorkflowState(run: WorkflowRun, task: HarnessTaskFile): Promise<void> {
+  await persistRun(run);
+  await persistTask(task);
+}
+
 async function createWorkflow(params: unknown): Promise<WorkflowRun> {
   const run = createWorkflowRun(workflowInput(params));
+  const task = createHarnessTaskFile(run);
+  markTaskStep(task, "intake", "passed", {
+    evidence: [task.artifacts.runJson, task.artifacts.taskJson],
+    notes: [`Prompt: ${run.prompt}`, `Target: ${run.targetProject}`]
+  });
   runs.set(run.id, run);
-  await persistRun(run);
+  tasks.set(run.id, task);
+  await persistWorkflowState(run, task);
   return run;
 }
 
@@ -79,18 +105,29 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
     typeof record.runId === "string" && runs.has(record.runId)
       ? (runs.get(record.runId) as WorkflowRun)
       : await createWorkflow(params);
+  const task = await getOrCreateTask(run);
 
   try {
     transition(run, "analyzing", { message: "Analyzing natural-language task" });
+    markTaskStep(task, "requirement-analysis", "in_progress", {
+      notes: ["Calling requirements-rpc analyze."]
+    });
+    await persistWorkflowState(run, task);
     const analysis = await rpcCall<{ type: WorkflowType; prompt: string; targetProject: string }, RequirementAnalysis>(
       serviceUrls.requirements,
       "analyze",
       { type: run.type, prompt: run.prompt, targetProject: run.targetProject }
     );
     attachAnalysis(run, analysis);
+    attachAnalysisToTask(task, analysis);
     addLog(run, "requirements-rpc", "Structured requirement analysis completed", "info", analysis);
+    await persistWorkflowState(run, task);
 
     transition(run, "planning", { message: "Planning implementation and validation path" });
+    markTaskStep(task, "implementation-planning", "in_progress", {
+      notes: ["Calling coding-rpc planAndPatch."]
+    });
+    await persistWorkflowState(run, task);
     transition(run, "coding", { message: "Requesting simulated coding patch plan" });
     const coding = await rpcCall<unknown, CodingResult>(serviceUrls.coding, "planAndPatch", {
       runId: run.id,
@@ -100,9 +137,16 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
       analysis
     });
     run.coding = coding;
+    attachCodingToTask(task, coding.patchPlan.files, coding.patchPlan.steps);
     addLog(run, "coding-rpc", "Patch plan and change summary produced", "info", coding.patchPlan);
+    await persistWorkflowState(run, task);
 
     transition(run, "testing", { message: "Running validation loop" });
+    markTaskStep(task, "automated-testing", "in_progress", {
+      evidence: coding.testSuggestions,
+      notes: ["Calling testing-rpc runTests."]
+    });
+    await persistWorkflowState(run, task);
     let testResult = await rpcCall<unknown, TestResult>(serviceUrls.testing, "runTests", {
       runId: run.id,
       type: run.type,
@@ -111,18 +155,29 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
       attempt: 1
     }, validationTimeoutMs);
     attachTestResult(run, testResult);
+    attachTestsToTask(task, testResult);
     addLog(run, "testing-rpc", testResult.passed ? "Initial validation passed" : "Initial validation failed", testResult.passed ? "info" : "warn", {
       failures: testResult.failures,
       suggestions: testResult.suggestions
     });
+    await persistWorkflowState(run, task);
 
     let next = decideAfterTest(run);
     while (next === "fixing") {
       transition(run, "fixing", { message: "Applying automated fix suggestion", data: testResult.failures });
+      markTaskStep(task, "coding", "in_progress", {
+        evidence: testResult.failures.map((failure) => failure.evidence),
+        notes: testResult.suggestions
+      });
       addLog(run, "coding-rpc", "Applied simulated fix from testing-rpc suggestion", "info", {
         suggestions: testResult.suggestions
       });
       transition(run, "retesting", { message: "Rerunning validation after fix" });
+      markTaskStep(task, "automated-testing", "in_progress", {
+        evidence: [`retry attempt ${run.attempts + 1}`],
+        notes: ["Rerunning testing-rpc after simulated fix."]
+      });
+      await persistWorkflowState(run, task);
       testResult = await rpcCall<unknown, TestResult>(serviceUrls.testing, "runTests", {
         runId: run.id,
         type: run.type,
@@ -131,37 +186,54 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
         attempt: run.attempts + 1
       }, validationTimeoutMs);
       attachTestResult(run, testResult);
+      attachTestsToTask(task, testResult);
       addLog(run, "testing-rpc", testResult.passed ? "Regression validation passed" : "Regression validation failed", testResult.passed ? "info" : "warn", {
         failures: testResult.failures,
         suggestions: testResult.suggestions
       });
+      await persistWorkflowState(run, task);
       next = decideAfterTest(run);
     }
 
     if (next === "blocked") {
       run.blocker = testResult.failures.map((failure) => failure.reason).join(", ") || "Validation did not pass.";
       transition(run, "blocked", { message: "Workflow blocked by validation failure", data: testResult.failures });
-      await persistRun(run);
+      markTaskStep(task, "automated-testing", "blocked", {
+        evidence: testResult.failures.map((failure) => failure.evidence),
+        notes: testResult.suggestions
+      });
+      finalizeTask(task, run);
+      await persistWorkflowState(run, task);
       return run;
     }
 
     transition(run, "summarizing", { message: "Generating MR summary and release notes" });
     run.mrSummary = summarizeRun(run);
     run.releaseNotes = summarizeRelease(run);
-    await persistRun(run);
+    markTaskStep(task, "mr-summary", "passed", {
+      evidence: [task.artifacts.mrSummary, task.artifacts.releaseNotes],
+      notes: ["Generated summary before deployment."]
+    });
+    await persistWorkflowState(run, task);
 
     transition(run, "deploying", { message: "Recording Docker Compose deployment check" });
+    markTaskStep(task, "deployment", "in_progress", {
+      notes: ["Calling deploy-rpc deploy."]
+    });
+    await persistWorkflowState(run, task);
     const deployment = await rpcCall<unknown, DeploymentResult>(serviceUrls.deploy, "deploy", {
       runId: run.id,
       target: "docker-compose-local"
     });
     attachDeployment(run, deployment);
+    attachDeploymentToTask(task, deployment);
     transition(run, completeOrBlockAfterDeploy(run), {
       message: deployment.status === "healthy" ? "Workflow completed successfully" : "Workflow blocked by deployment health"
     });
     run.mrSummary = summarizeRun(run);
     run.releaseNotes = summarizeRelease(run);
-    await persistRun(run);
+    finalizeTask(task, run);
+    await persistWorkflowState(run, task);
     return run;
   } catch (error) {
     run.blocker = error instanceof Error ? error.message : "Unknown orchestration failure";
@@ -169,8 +241,27 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
     if (run.stage !== "failed" && run.stage !== "blocked" && run.stage !== "completed") {
       transition(run, "failed", { message: "Workflow failed during orchestration", data: { error: run.blocker } });
     }
-    await persistRun(run);
+    task.blockers.push(run.blocker);
+    finalizeTask(task, run);
+    await persistWorkflowState(run, task);
     return run;
+  }
+}
+
+async function getOrCreateTask(run: WorkflowRun): Promise<HarnessTaskFile> {
+  if (tasks.has(run.id)) {
+    return tasks.get(run.id) as HarnessTaskFile;
+  }
+  try {
+    const raw = await readFile(join(taskDir, `${run.id}.json`), "utf8");
+    const task = JSON.parse(raw) as HarnessTaskFile;
+    tasks.set(run.id, task);
+    return task;
+  } catch {
+    const task = createHarnessTaskFile(run);
+    tasks.set(run.id, task);
+    await persistTask(task);
+    return task;
   }
 }
 

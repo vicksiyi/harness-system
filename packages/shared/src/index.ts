@@ -91,6 +91,78 @@ export interface TestResult {
   browserQuality?: BrowserQualityResult;
 }
 
+export type HarnessTaskStepStatus = "pending" | "in_progress" | "passed" | "failed" | "blocked" | "skipped";
+
+export type HarnessTaskStepId =
+  | "intake"
+  | "requirement-analysis"
+  | "test-case-generation"
+  | "implementation-planning"
+  | "coding"
+  | "automated-testing"
+  | "quality-validation"
+  | "mr-summary"
+  | "deployment"
+  | "execution-record";
+
+export interface HarnessTaskFlowStep {
+  id: HarnessTaskStepId;
+  title: string;
+  purpose: string;
+  owner: string;
+  status: HarnessTaskStepStatus;
+  dependsOn: HarnessTaskStepId[];
+  inputs: string[];
+  outputs: string[];
+  commands: string[];
+  qualityGates: string[];
+  startedAt?: string;
+  completedAt?: string;
+  evidence: string[];
+  notes: string[];
+}
+
+export interface HarnessTaskCase {
+  id: string;
+  title: string;
+  type: "unit" | "integration" | "e2e" | "quality" | "deployment";
+  verifies: string;
+  command: string;
+  status: HarnessTaskStepStatus;
+  evidence: string[];
+}
+
+export interface HarnessTaskFile {
+  schemaVersion: 1;
+  taskId: string;
+  runId: string;
+  type: WorkflowType;
+  title: string;
+  prompt: string;
+  targetProject: string;
+  status: WorkflowStatus;
+  currentStepId: HarnessTaskStepId;
+  createdAt: string;
+  updatedAt: string;
+  flow: {
+    name: string;
+    description: string;
+    steps: HarnessTaskFlowStep[];
+  };
+  acceptanceCriteria: AcceptanceCriterion[];
+  testCases: HarnessTaskCase[];
+  artifacts: {
+    runJson: string;
+    taskJson: string;
+    mrSummary: string;
+    releaseNotes: string;
+    testLog: string;
+    agentJournal: string;
+  };
+  decisions: string[];
+  blockers: string[];
+}
+
 export interface BrowserQualityCheck {
   name: string;
   ok: boolean;

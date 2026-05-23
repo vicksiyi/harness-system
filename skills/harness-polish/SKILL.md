@@ -52,6 +52,8 @@ pnpm typecheck
 pnpm test
 ```
 
+同时读取 `.harness/tasks/<run-id>.json`，根据 `testCases` 和 `quality-validation` step 选择 agent-browser 验证路径。不要把 polish 的质量验证固定为某个通用点击脚本；应根据本次 UI / 文案 / DX / 性能影响面设计验证。
+
 流程 polish 至少运行：
 
 ```bash

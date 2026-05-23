@@ -7,6 +7,7 @@ coverage/
 # Harness runtime artifacts
 .harness/logs/*.log
 .harness/runs/*.json
+.harness/tasks/*.json
 .harness/browser/
 .harness/mindmap/
 **/.harness/mindmap/

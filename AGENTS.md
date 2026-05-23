@@ -19,6 +19,7 @@ Harness System 用于验证 Codex / Agent 的端到端研发闭环能力。它�
 - 本地脚本：`pnpm workflow:requirement "<需求>"`
 - 开发服务：`pnpm dev:services`、`pnpm target:dev`
 - 测试闭环：`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`pnpm target:browser`
+- 任务执行轨道：`.harness/tasks/<run-id>.json`
 - Docker：`docker compose up --build`
 - 目标产品：`pnpm target:dev`、`pnpm target:test`、`pnpm target:build`、`pnpm target:browser`
 
@@ -36,6 +37,7 @@ Harness System 用于验证 Codex / Agent 的端到端研发闭环能力。它�
 ## 修改注意事项
 
 - 优先补单测，再改实现，保持类似 TDD 的节奏。
+- 运行 workflow 后必须读取 `.harness/tasks/<run-id>.json`，按 flow 当前步骤执行，不要跳过 `test-case-generation` 或 `quality-validation`。
 - 不要跳过失败日志；测试失败时必须读取日志、判断原因、修复、重跑，并写入 `docs/test-log.md`。
 - 不要破坏 Git 历史，不使用 `git reset --hard` 或 `git checkout --` 丢弃用户改动。
 - Harness 控制面和目标产品必须隔离；普通产品需求优先修改 `apps/mindmap-editor`，不要把业务功能写进 Harness。

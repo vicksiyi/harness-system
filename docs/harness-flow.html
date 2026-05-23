@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Harness 整体流程</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7f2;
+        --surface: #ffffff;
+        --surface-soft: #eef2e8;
+        --ink: #18201b;
+        --muted: #667064;
+        --line: #d7decf;
+        --green: #0f7b5d;
+        --green-soft: #dceee7;
+        --amber: #b87514;
+        --amber-soft: #f6ead4;
+        --red: #b7473a;
+        --red-soft: #f4dedb;
+        --blue: #366f8f;
+        --blue-soft: #deebf1;
+        --shadow: 0 18px 50px rgba(31, 48, 38, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          linear-gradient(180deg, rgba(15, 123, 93, 0.09), transparent 360px),
+          var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      code {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.72);
+        color: #23352b;
+        font-family:
+          "SFMono-Regular",
+          Consolas,
+          "Liberation Mono",
+          monospace;
+        font-size: 0.92em;
+        padding: 0.12rem 0.32rem;
+      }
+
+      .page {
+        width: min(1180px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+
+      .hero {
+        min-height: 78vh;
+        display: grid;
+        align-items: center;
+        gap: 40px;
+        padding: 56px 0 42px;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+        gap: 44px;
+        align-items: center;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 22px;
+        color: var(--green);
+        font-size: 0.83rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 34px;
+        height: 2px;
+        background: currentColor;
+        content: "";
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        max-width: 790px;
+        font-size: clamp(3rem, 8vw, 6.8rem);
+        line-height: 0.96;
+        font-weight: 880;
+        letter-spacing: 0;
+      }
+
+      .lead {
+        max-width: 710px;
+        margin-top: 26px;
+        color: #3f4b42;
+        font-size: clamp(1.08rem, 2vw, 1.34rem);
+        line-height: 1.72;
+      }
+
+      .quick-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 34px;
+      }
+
+      .quick-links a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        color: #223128;
+        font-size: 0.92rem;
+        font-weight: 760;
+        padding: 0 17px;
+        text-decoration: none;
+      }
+
+      .system-card {
+        border: 1px solid rgba(215, 222, 207, 0.82);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .system-card header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        border-bottom: 1px solid var(--line);
+        padding: 20px;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--green);
+        font-size: 0.86rem;
+        font-weight: 800;
+      }
+
+      .status::before {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 0 5px var(--green-soft);
+        content: "";
+      }
+
+      .system-list {
+        display: grid;
+        gap: 0;
+      }
+
+      .system-row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 18px;
+        border-bottom: 1px solid var(--line);
+        padding: 17px 20px;
+      }
+
+      .system-row:last-child {
+        border-bottom: 0;
+      }
+
+      .system-row strong {
+        font-size: 0.86rem;
+        text-transform: uppercase;
+      }
+
+      .system-row span {
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .below-fold-hint {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .metric {
+        min-height: 112px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.7);
+        padding: 19px;
+      }
+
+      .metric b {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 2rem;
+        line-height: 1;
+      }
+
+      .metric span {
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      section {
+        padding: 78px 0;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 28px;
+        margin-bottom: 28px;
+      }
+
+      .section-head h2 {
+        font-size: clamp(2rem, 4vw, 3.3rem);
+        line-height: 1.05;
+        font-weight: 850;
+      }
+
+      .section-head p {
+        max-width: 560px;
+        color: var(--muted);
+        font-size: 1.03rem;
+        line-height: 1.7;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(10, minmax(160px, 1fr));
+        gap: 12px;
+        overflow-x: auto;
+        padding-bottom: 8px;
+        scroll-snap-type: x proximity;
+      }
+
+      .step {
+        position: relative;
+        min-height: 220px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 18px;
+        scroll-snap-align: start;
+      }
+
+      .step::after {
+        position: absolute;
+        top: 38px;
+        right: -12px;
+        width: 12px;
+        height: 2px;
+        background: var(--line);
+        content: "";
+      }
+
+      .step:last-child::after {
+        display: none;
+      }
+
+      .step-number {
+        display: inline-grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        background: var(--green-soft);
+        color: var(--green);
+        font-weight: 850;
+      }
+
+      .step h3 {
+        margin-top: 16px;
+        font-size: 1rem;
+        line-height: 1.35;
+      }
+
+      .step p {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 0.93rem;
+        line-height: 1.58;
+      }
+
+      .owner {
+        display: inline-flex;
+        margin-top: 14px;
+        border-radius: 999px;
+        background: var(--surface-soft);
+        color: #334138;
+        font-size: 0.78rem;
+        font-weight: 760;
+        padding: 0.28rem 0.62rem;
+      }
+
+      .flowchart {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background:
+          linear-gradient(90deg, rgba(15, 123, 93, 0.06) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(15, 123, 93, 0.06) 1px, transparent 1px),
+          rgba(255, 255, 255, 0.9);
+        background-size: 28px 28px;
+        box-shadow: var(--shadow);
+        padding: 24px;
+      }
+
+      .flowchart-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 22px;
+      }
+
+      .flowchart-title h3 {
+        font-size: 1.18rem;
+      }
+
+      .flowchart-title span {
+        color: var(--muted);
+        font-size: 0.93rem;
+      }
+
+      .chart-row {
+        display: grid;
+        grid-template-columns: minmax(190px, 1fr) 32px minmax(190px, 1fr) 32px minmax(190px, 1fr) 32px minmax(190px, 1fr);
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      .chart-row + .chart-row {
+        margin-top: 18px;
+      }
+
+      .chart-node {
+        position: relative;
+        min-height: 116px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 16px;
+      }
+
+      .chart-node.start {
+        border-color: rgba(15, 123, 93, 0.45);
+        background: var(--green-soft);
+      }
+
+      .chart-node.control {
+        border-color: rgba(54, 111, 143, 0.42);
+        background: var(--blue-soft);
+      }
+
+      .chart-node.agent {
+        border-color: rgba(184, 117, 20, 0.42);
+        background: var(--amber-soft);
+      }
+
+      .chart-node.fail {
+        border-color: rgba(183, 71, 58, 0.42);
+        background: var(--red-soft);
+      }
+
+      .chart-node small {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.76rem;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      .chart-node strong {
+        display: block;
+        font-size: 1.02rem;
+        line-height: 1.32;
+      }
+
+      .chart-node span {
+        display: block;
+        margin-top: 8px;
+        color: #4f5c53;
+        font-size: 0.9rem;
+        line-height: 1.45;
+      }
+
+      .chart-arrow,
+      .chart-down {
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        font-size: 1.8rem;
+        font-weight: 860;
+      }
+
+      .chart-down {
+        height: 42px;
+        margin: 10px 0;
+      }
+
+      .chart-down span {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 1px solid var(--line);
+      }
+
+      .loop-diagram {
+        display: grid;
+        grid-template-columns: 1fr 44px 1fr 44px 1fr;
+        gap: 12px;
+        align-items: stretch;
+        margin-top: 22px;
+        border: 1px dashed rgba(183, 71, 58, 0.45);
+        border-radius: 8px;
+        background: rgba(244, 222, 219, 0.32);
+        padding: 18px;
+      }
+
+      .loop-label {
+        grid-column: 1 / -1;
+        margin-bottom: 2px;
+        color: var(--red);
+        font-size: 0.86rem;
+        font-weight: 840;
+      }
+
+      .compact-flow {
+        margin-top: 18px;
+        border-top: 1px solid var(--line);
+        padding-top: 18px;
+      }
+
+      .compact-flow h3 {
+        margin-bottom: 12px;
+        font-size: 1.05rem;
+      }
+
+      .lane-wrap {
+        display: grid;
+        grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.25fr);
+        gap: 22px;
+        align-items: stretch;
+      }
+
+      .lane-panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 24px;
+      }
+
+      .lane-panel h3 {
+        margin-bottom: 14px;
+        font-size: 1.15rem;
+      }
+
+      .lane-panel p {
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .lanes {
+        display: grid;
+        gap: 12px;
+      }
+
+      .lane {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 16px;
+        align-items: stretch;
+      }
+
+      .lane-title {
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        font-weight: 830;
+        padding: 16px;
+      }
+
+      .lane-items {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .lane-item {
+        min-height: 104px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.72);
+        padding: 14px;
+      }
+
+      .lane-item b {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 0.92rem;
+      }
+
+      .lane-item span {
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.48;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 24px;
+      }
+
+      .card h3 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        font-size: 1.14rem;
+      }
+
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        background: var(--green);
+      }
+
+      .dot.blue {
+        background: var(--blue);
+      }
+
+      .dot.amber {
+        background: var(--amber);
+      }
+
+      .dot.red {
+        background: var(--red);
+      }
+
+      .card p,
+      .card li {
+        color: var(--muted);
+        line-height: 1.64;
+      }
+
+      .card ul {
+        display: grid;
+        gap: 9px;
+        margin: 0;
+        padding-left: 1.15rem;
+      }
+
+      .command-band {
+        display: grid;
+        grid-template-columns: 0.82fr 1.18fr;
+        gap: 22px;
+        align-items: stretch;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #19231e;
+        color: #f6fbf7;
+        overflow: hidden;
+      }
+
+      .command-copy {
+        padding: 28px;
+      }
+
+      .command-copy p {
+        margin-top: 12px;
+        color: #c7d7cc;
+        line-height: 1.65;
+      }
+
+      .terminal {
+        margin: 0;
+        overflow-x: auto;
+        background: #111813;
+        color: #e4f4e9;
+        font-family:
+          "SFMono-Regular",
+          Consolas,
+          "Liberation Mono",
+          monospace;
+        font-size: 0.93rem;
+        line-height: 1.8;
+        padding: 28px;
+      }
+
+      .terminal code {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        padding: 0;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px;
+      }
+
+      .artifact-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .artifact {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 14px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 16px 18px;
+      }
+
+      .artifact b {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .artifact span {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .tag {
+        border-radius: 999px;
+        background: var(--green-soft);
+        color: var(--green);
+        font-size: 0.76rem;
+        font-weight: 800;
+        padding: 0.3rem 0.6rem;
+        white-space: nowrap;
+      }
+
+      .tag.amber {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+
+      .tag.blue {
+        background: var(--blue-soft);
+        color: var(--blue);
+      }
+
+      .tag.red {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+
+      .footer {
+        border-top: 1px solid var(--line);
+        padding: 34px 0 44px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      @media (max-width: 980px) {
+        .hero {
+          min-height: auto;
+        }
+
+        .hero-grid,
+        .lane-wrap,
+        .command-band,
+        .split {
+          grid-template-columns: 1fr;
+        }
+
+        .below-fold-hint,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .section-head {
+          display: block;
+        }
+
+        .section-head p {
+          margin-top: 14px;
+        }
+
+        .lane {
+          grid-template-columns: 1fr;
+        }
+
+        .lane-items {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .chart-row,
+        .loop-diagram {
+          grid-template-columns: 1fr;
+        }
+
+        .chart-arrow {
+          min-height: 24px;
+          transform: rotate(90deg);
+        }
+
+        .chart-down {
+          margin: 4px 0;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .page {
+          width: min(100% - 28px, 1180px);
+        }
+
+        .hero {
+          padding-top: 34px;
+        }
+
+        h1 {
+          font-size: clamp(2.55rem, 15vw, 4rem);
+        }
+
+        section {
+          padding: 54px 0;
+        }
+
+        .system-row,
+        .artifact {
+          grid-template-columns: 1fr;
+        }
+
+        .lane-items {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="page hero">
+        <div class="hero-grid">
+          <div>
+            <div class="eyebrow">Harness System Flow</div>
+            <h1>当前 Harness 整体流程</h1>
+            <p class="lead">
+              Harness 是本地优先的 Codex / Agent 研发闭环控制面。一次任务会从
+              <code>$harness</code> 或 <code>pnpm workflow:*</code> 进入，经过需求结构化、测试矩阵、编码计划、自动测试、质量验证、MR Summary、部署记录和最终执行归档。
+            </p>
+            <nav class="quick-links" aria-label="页面导航">
+              <a href="#flow">十步执行轨道</a>
+              <a href="#lanes">服务泳道</a>
+              <a href="#quality">质量闭环</a>
+              <a href="#artifacts">审计产物</a>
+            </nav>
+          </div>
+
+          <aside class="system-card" aria-label="系统概要">
+            <header>
+              <strong>默认目标</strong>
+              <span class="status">local first</span>
+            </header>
+            <div class="system-list">
+              <div class="system-row">
+                <strong>控制面</strong>
+                <span><code>services/*-rpc</code>、<code>packages/workflow-core</code>、<code>harness-worktree</code></span>
+              </div>
+              <div class="system-row">
+                <strong>目标产品</strong>
+                <span><code>apps/mindmap-editor</code>，业务改动默认落在这里，和 Harness 控制面隔离。</span>
+              </div>
+              <div class="system-row">
+                <strong>执行轨道</strong>
+                <span><code>.harness/tasks/&lt;run-id&gt;.json</code> 固定当前步骤、证据、测试用例和阻塞原因。</span>
+              </div>
+              <div class="system-row">
+                <strong>服务协议</strong>
+                <span>所有 RPC 服务统一暴露 <code>GET /health</code> 和 <code>POST /rpc</code>。</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="below-fold-hint" aria-label="流程摘要">
+          <div class="metric">
+            <b>10</b>
+            <span>稳定 task flow 步骤，从 intake 到 execution-record。</span>
+          </div>
+          <div class="metric">
+            <b>6</b>
+            <span>核心 RPC 服务：orchestrator、requirements、coding、testing、deploy、mindmap。</span>
+          </div>
+          <div class="metric">
+            <b>3</b>
+            <span>任务类型：requirement、bugfix、polish，共用同一条可审计闭环。</span>
+          </div>
+        </div>
+      </header>
+
+      <section id="flow">
+        <div class="page">
+          <div class="section-head">
+            <h2>Harness Skill 入口流程图</h2>
+            <p>
+              这张图按实际入口画：用户调用 <code>$harness</code> 后，脚本先保证 RPC 服务健康，再由
+              <code>orchestrator-rpc</code> 固定 task JSON，后续所有步骤都围绕这份执行轨道推进。
+            </p>
+          </div>
+
+          <div class="flowchart" aria-label="从 Harness Skill 到执行归档的流程图">
+            <div class="flowchart-title">
+              <h3>主流程：从 Skill 进入到完成记录</h3>
+              <span>绿色是入口，蓝色是控制面，黄色是 Codex 真实执行，红色是失败修复回路。</span>
+            </div>
+
+            <div class="chart-row">
+              <div class="chart-node start">
+                <small>Entry</small>
+                <strong>$harness Skill</strong>
+                <span><code>requirement</code> / <code>bugfix</code> / <code>polish</code> 接收用户目标。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node">
+                <small>Local Runner</small>
+                <strong>run-workflow.mjs</strong>
+                <span>映射到 <code>pnpm workflow:*</code>，设置目标项目和运行上下文。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node">
+                <small>Health Gate</small>
+                <strong>检查 RPC /health</strong>
+                <span>服务未就绪时自动启动 <code>pnpm dev:services</code>。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node control">
+                <small>Orchestration</small>
+                <strong>orchestrator.runWorkflow</strong>
+                <span>创建 run，驱动后续 RPC，负责最终持久化。</span>
+              </div>
+            </div>
+
+            <div class="chart-down" aria-hidden="true"><span>↓</span></div>
+
+            <div class="chart-row">
+              <div class="chart-node control">
+                <small>Task Contract</small>
+                <strong>创建 task JSON</strong>
+                <span><code>.harness/tasks/&lt;run-id&gt;.json</code> 固定十步 flow。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node">
+                <small>Analysis</small>
+                <strong>requirements-rpc</strong>
+                <span>输出范围、风险、推荐文件和 acceptance criteria。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node control">
+                <small>Validation Matrix</small>
+                <strong>workflow-core</strong>
+                <span>把验收标准转成 <code>testCases[]</code> 和质量门。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node">
+                <small>Plan</small>
+                <strong>coding-rpc</strong>
+                <span>生成 patch plan、变更摘要、测试建议和文件列表。</span>
+              </div>
+            </div>
+
+            <div class="chart-down" aria-hidden="true"><span>↓</span></div>
+
+            <div class="chart-row">
+              <div class="chart-node agent">
+                <small>Implementation</small>
+                <strong>Codex 编码</strong>
+                <span>按 task 当前步骤改代码；Bugfix 先补回归测试。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node">
+                <small>Automated Tests</small>
+                <strong>testing-rpc</strong>
+                <span>跑类型检查、单测、构建、浏览器质量门并解析日志。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node agent">
+                <small>Quality</small>
+                <strong>harness-quality</strong>
+                <span>按本次风险选择截图、console、network、E2E 证据。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node control">
+                <small>Ship Record</small>
+                <strong>MR + Deploy + Record</strong>
+                <span>生成 Summary / Release Notes，记录部署和执行归档。</span>
+              </div>
+            </div>
+
+            <div class="loop-diagram" aria-label="失败修复重跑回路">
+              <div class="loop-label">失败分支：测试或质量门不过时，不直接结束，而是进入修复与重跑</div>
+              <div class="chart-node fail">
+                <small>Failure</small>
+                <strong>ParsedFailure</strong>
+                <span>reason、evidence、suggestedFix 写入 task 和 test log。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node agent">
+                <small>Fixing</small>
+                <strong>Codex 修复</strong>
+                <span>读取失败日志，补测试，做最小必要修复。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node">
+                <small>Retesting</small>
+                <strong>重新验证</strong>
+                <span>重跑同一验证；通过后回到总结，仍失败则继续或 blocked。</span>
+              </div>
+            </div>
+
+            <div class="compact-flow">
+              <h3>对应的 task JSON 十步 flow</h3>
+              <div class="flow" aria-label="Harness 标准执行轨道">
+                <article class="step">
+                  <span class="step-number">1</span>
+                  <h3>intake</h3>
+                  <p>记录 prompt、类型、目标项目和产物路径。</p>
+                  <span class="owner">orchestrator</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">2</span>
+                  <h3>requirement-analysis</h3>
+                  <p>结构化范围、风险和验收标准。</p>
+                  <span class="owner">requirements</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">3</span>
+                  <h3>test-case-generation</h3>
+                  <p>生成本地验证矩阵。</p>
+                  <span class="owner">workflow-core</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">4</span>
+                  <h3>implementation-planning</h3>
+                  <p>形成 patch plan 和测试建议。</p>
+                  <span class="owner">coding-rpc</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">5</span>
+                  <h3>coding</h3>
+                  <p>Codex 执行真实代码和测试改动。</p>
+                  <span class="owner">Codex</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">6</span>
+                  <h3>automated-testing</h3>
+                  <p>跑确定性检查并解析失败。</p>
+                  <span class="owner">testing-rpc</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">7</span>
+                  <h3>quality-validation</h3>
+                  <p>补截图、交互、网络、console 等证据。</p>
+                  <span class="owner">Codex</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">8</span>
+                  <h3>mr-summary</h3>
+                  <p>输出 MR Summary 和 Release Notes。</p>
+                  <span class="owner">workflow-core</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">9</span>
+                  <h3>deployment</h3>
+                  <p>记录 Docker Compose 和健康检查。</p>
+                  <span class="owner">deploy-rpc</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">10</span>
+                  <h3>execution-record</h3>
+                  <p>同步 run、task、日志和 docs。</p>
+                  <span class="owner">orchestrator</span>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="lanes">
+        <div class="page">
+          <div class="section-head">
+            <h2>服务泳道</h2>
+            <p>
+              当前 Harness 用多个 JSON-RPC 服务拆开职责：编排服务只推进状态机和持久化记录，分析、计划、测试、部署分别由独立服务负责。
+            </p>
+          </div>
+
+          <div class="lane-wrap">
+            <aside class="lane-panel">
+              <h3>一次 run 的主线</h3>
+              <p>
+                <code>run-workflow.mjs</code> 先检查 <code>/health</code>。如果服务未就绪且没有设置
+                <code>HARNESS_SKIP_BOOT=1</code>，脚本会启动 <code>pnpm dev:services</code>，再调用 orchestrator 的
+                <code>runWorkflow</code>。
+              </p>
+            </aside>
+
+            <div class="lanes" aria-label="RPC 职责泳道">
+              <div class="lane">
+                <div class="lane-title">入口层</div>
+                <div class="lane-items">
+                  <div class="lane-item">
+                    <b>Codex Skill</b>
+                    <span><code>$harness requirement|bugfix|polish</code></span>
+                  </div>
+                  <div class="lane-item">
+                    <b>本地脚本</b>
+                    <span><code>pnpm workflow:requirement</code> 等价入口</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>目标切换</b>
+                    <span><code>HARNESS_TARGET_PROJECT</code> 指向具体产品</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>服务启动</b>
+                    <span>健康检查失败时自动拉起开发服务</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lane">
+                <div class="lane-title">控制面</div>
+                <div class="lane-items">
+                  <div class="lane-item">
+                    <b>orchestrator</b>
+                    <span>创建 run、推进状态、调用依赖 RPC</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>workflow-core</b>
+                    <span>状态机、重试决策、评分、摘要生成</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>rpc-client</b>
+                    <span>统一 RPC 调用和健康检查</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>shared</b>
+                    <span>共享类型、JSON-RPC server、工具函数</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lane">
+                <div class="lane-title">能力服务</div>
+                <div class="lane-items">
+                  <div class="lane-item">
+                    <b>requirements</b>
+                    <span>结构化需求、范围、风险、验收标准</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>coding</b>
+                    <span>patch plan、变更摘要、测试建议</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>testing</b>
+                    <span>测试执行、日志解析、失败归因</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>deploy</b>
+                    <span>Docker Compose 记录、健康检查、回滚建议</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lane">
+                <div class="lane-title">目标产品</div>
+                <div class="lane-items">
+                  <div class="lane-item">
+                    <b>Mind Map Studio</b>
+                    <span><code>apps/mindmap-editor</code> 承载真实产品需求</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>mindmap-rpc</b>
+                    <span>文件、SQLite、DIFF 协同、跨文件搜索</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>隔离原则</b>
+                    <span>普通业务需求不写进 Harness 控制面</span>
+                  </div>
+                  <div class="lane-item">
+                    <b>产品上下文</b>
+                    <span>通过产品自己的 <code>AGENTS.md</code> 提供</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="quality">
+        <div class="page">
+          <div class="section-head">
+            <h2>质量闭环</h2>
+            <p>
+              Harness 的关键不是只跑命令，而是把失败日志变成修复建议，把修复变成重跑证据，再把证据写回 task JSON 和 docs。
+            </p>
+          </div>
+
+          <div class="grid">
+            <article class="card">
+              <h3><span class="dot"></span>自动验证</h3>
+              <ul>
+                <li><code>pnpm typecheck</code> 覆盖 TypeScript 类型契约。</li>
+                <li><code>pnpm test</code> 运行 Vitest 单元测试。</li>
+                <li><code>pnpm target:build</code> 验证目标产品构建。</li>
+                <li><code>pnpm target:browser</code> 执行无头浏览器质量门。</li>
+              </ul>
+            </article>
+
+            <article class="card">
+              <h3><span class="dot amber"></span>失败处理</h3>
+              <p>
+                <code>testing-rpc</code> 输出 <code>ParsedFailure</code>，必须包含
+                reason、evidence 和 suggestedFix。可修复时进入
+                <code>fixing -&gt; retesting</code>，超过重试或部署异常则 blocked。
+              </p>
+            </article>
+
+            <article class="card">
+              <h3><span class="dot blue"></span>视觉与 E2E</h3>
+              <p>
+                <code>quality-validation</code> 不写死点击路径。Codex 根据本次改动选择截图、语义快照、网络、console、可访问性或 agent-browser 验证，并留下任务相关证据。
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="page">
+          <div class="command-band">
+            <div class="command-copy">
+              <h2>常用入口命令</h2>
+              <p>
+                三类任务共享同一条稳定 flow。区别在于前置判断：requirement 强调验收标准，bugfix 强调复现和回归测试，polish 强调影响面与用户可见改进。
+              </p>
+            </div>
+            <pre class="terminal"><code>$harness requirement 增加一个工作流运行详情页
+$harness bugfix 测试服务日志解析失败
+$harness polish 优化前端任务状态展示
+
+pnpm workflow:requirement "&lt;需求&gt;"
+pnpm workflow:bugfix "&lt;Bug 或失败日志&gt;"
+pnpm workflow:polish "&lt;优化目标&gt;"
+
+pnpm verify
+pnpm health
+docker compose up --build</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="artifacts">
+        <div class="page">
+          <div class="section-head">
+            <h2>审计产物</h2>
+            <p>
+              一次流程结束后，结构化记录和人工可读文档必须互相对得上。这里是排查“跑到哪一步了”和“为什么失败”的第一现场。
+            </p>
+          </div>
+
+          <div class="split">
+            <div class="artifact-list">
+              <div class="artifact">
+                <div>
+                  <b><code>.harness/tasks/&lt;run-id&gt;.json</code></b>
+                  <span>稳定执行轨道、当前步骤、测试用例、质量门、证据和 blockers。</span>
+                </div>
+                <span class="tag">task</span>
+              </div>
+              <div class="artifact">
+                <div>
+                  <b><code>.harness/runs/&lt;run-id&gt;.json</code></b>
+                  <span>完整运行事件、日志、测试结果、部署状态和最终 stage。</span>
+                </div>
+                <span class="tag blue">run</span>
+              </div>
+              <div class="artifact">
+                <div>
+                  <b><code>.harness/logs/dev-services.log</code></b>
+                  <span>开发服务启动、端口冲突和健康检查相关日志。</span>
+                </div>
+                <span class="tag amber">logs</span>
+              </div>
+            </div>
+
+            <div class="artifact-list">
+              <div class="artifact">
+                <div>
+                  <b><code>docs/test-log.md</code></b>
+                  <span>测试命令、失败摘要、修复动作和重试结果。</span>
+                </div>
+                <span class="tag red">quality</span>
+              </div>
+              <div class="artifact">
+                <div>
+                  <b><code>docs/agent-journal.md</code></b>
+                  <span>人工可读执行摘要、目标项目、状态和下一步。</span>
+                </div>
+                <span class="tag">journal</span>
+              </div>
+              <div class="artifact">
+                <div>
+                  <b><code>docs/generated-mr-summary.md</code></b>
+                  <span>MR Summary；旁路产物包括 <code>docs/release-notes.md</code>。</span>
+                </div>
+                <span class="tag blue">summary</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="page">
+        基于当前仓库的 <code>AGENTS.md</code>、<code>README.md</code>、<code>docs/task-flow.md</code>、
+        <code>packages/workflow-core</code> 和 <code>harness-worktree/scripts/run-workflow.mjs</code> 整理。
+      </div>
+    </footer>
+  </body>
+</html>

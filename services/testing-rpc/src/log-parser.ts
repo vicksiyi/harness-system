@@ -36,6 +36,15 @@ export function parseFailureLog(rawLog: string): ParsedFailure[] {
         suggestedFix: "Normalize multiline log input and add regression coverage for parser signatures."
       });
     } else if (
+      (normalized.includes("agent-browser-e2e: failed") || normalized.includes("agent-browser e2e failed")) &&
+      (normalized.includes("console") || normalized.includes("page errors") || normalized.includes("network"))
+    ) {
+      failures.push({
+        reason: "Agent-browser E2E failed",
+        evidence: line,
+        suggestedFix: "Use the harness-quality Skill with agent-browser to inspect snapshot, console, errors, and network evidence, then rerun the chosen validation."
+      });
+    } else if (
       (normalized.includes("browser-quality: failed") || normalized.includes("browser quality failed")) &&
       (normalized.includes("accessible control") || normalized.includes("accessibility"))
     ) {
@@ -49,6 +58,12 @@ export function parseFailureLog(rawLog: string): ParsedFailure[] {
         reason: "Browser quality failed",
         evidence: line,
         suggestedFix: "Run pnpm target:browser, inspect the screenshot artifact, then fix the UI or accessibility regression."
+      });
+    } else if (normalized.includes("agent-browser-e2e: failed") || normalized.includes("agent-browser e2e failed")) {
+      failures.push({
+        reason: "Agent-browser E2E failed",
+        evidence: line,
+        suggestedFix: "Use the harness-quality Skill with agent-browser, inspect the semantic snapshot and screenshot artifact, then fix the UI or RPC regression."
       });
     }
   }

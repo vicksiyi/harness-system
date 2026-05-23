@@ -5,6 +5,10 @@ import {
   nowIso,
   titleFromPrompt,
   type DeploymentResult,
+  type HarnessTaskCase,
+  type HarnessTaskFile,
+  type HarnessTaskStepId,
+  type HarnessTaskStepStatus,
   type RequirementAnalysis,
   type TestResult,
   type WorkflowInput,
@@ -59,6 +63,306 @@ export function createWorkflowRun(input: WorkflowInput): WorkflowRun {
   });
   addLog(run, "workflow-core", "Workflow run initialized", "info", { type: input.type, targetProject: run.targetProject });
   return run;
+}
+
+export function createHarnessTaskFile(run: WorkflowRun): HarnessTaskFile {
+  const taskJson = `.harness/tasks/${run.id}.json`;
+  return {
+    schemaVersion: 1,
+    taskId: run.id,
+    runId: run.id,
+    type: run.type,
+    title: run.title,
+    prompt: run.prompt,
+    targetProject: run.targetProject,
+    status: run.status,
+    currentStepId: "intake",
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+    flow: {
+      name: `${run.type} development loop`,
+      description: "Stable local execution flow used by Codex Skills to avoid drifting across steps.",
+      steps: defaultTaskFlow(run.type)
+    },
+    acceptanceCriteria: [],
+    testCases: [],
+    artifacts: {
+      runJson: `.harness/runs/${run.id}.json`,
+      taskJson,
+      mrSummary: "docs/generated-mr-summary.md",
+      releaseNotes: "docs/release-notes.md",
+      testLog: "docs/test-log.md",
+      agentJournal: "docs/agent-journal.md"
+    },
+    decisions: [
+      "Use the task JSON as the stable execution contract before running or editing code.",
+      "Keep Harness orchestration and target product changes isolated unless the task explicitly changes Harness."
+    ],
+    blockers: []
+  };
+}
+
+export function defaultTaskFlow(type: WorkflowInput["type"]): HarnessTaskFile["flow"]["steps"] {
+  const implementationNote =
+    type === "bugfix"
+      ? "Reproduce or preserve the failure signature before changing behavior."
+      : type === "polish"
+        ? "Keep the product tool-focused and verify the user-facing improvement."
+        : "Implement the smallest coherent change that satisfies acceptance criteria.";
+
+  return [
+    taskStep("intake", "Task Intake", "Capture prompt, target project, task type, audit files, and expected artifacts.", "orchestrator-rpc", [], [
+      "WorkflowInput",
+      "AGENTS.md index"
+    ], [".harness/runs/<run-id>.json", ".harness/tasks/<run-id>.json"], ["pnpm workflow:<type> \"<prompt>\""], [
+      "Task file exists before later steps run."
+    ]),
+    taskStep("requirement-analysis", "Requirement Analysis", "Convert natural language into scope, risks, files, and acceptance criteria.", "requirements-rpc", ["intake"], [
+      "WorkflowInput",
+      "target AGENTS.md"
+    ], ["RequirementAnalysis", "acceptanceCriteria[]"], [], [
+      "Acceptance criteria are concrete and verifiable."
+    ]),
+    taskStep("test-case-generation", "Test Case Generation", "Turn acceptance criteria and risk areas into a local validation matrix.", "workflow-core", ["requirement-analysis"], [
+      "RequirementAnalysis",
+      "risk list"
+    ], ["testCases[]"], [], [
+      "At least unit, integration/E2E or quality, and deployment checks are considered."
+    ]),
+    taskStep("implementation-planning", "Implementation Planning", "Produce patch plan, touched files, sequencing, and rollback notes.", "coding-rpc", ["test-case-generation"], [
+      "RequirementAnalysis",
+      "testCases[]"
+    ], ["PatchPlan", "changeSummary[]"], [], [
+      "Plan references module AGENTS.md and avoids unrelated refactors."
+    ]),
+    taskStep("coding", "Coding", implementationNote, "Codex Agent", ["implementation-planning"], [
+      "PatchPlan",
+      "testCases[]"
+    ], ["code diff", "updated tests", "docs updates"], [], [
+      "Focused tests are added or updated before risky behavior changes."
+    ]),
+    taskStep("automated-testing", "Automated Testing", "Run deterministic checks and parse failures into actionable repair advice.", "testing-rpc", ["coding"], [
+      "code diff",
+      "testCases[]"
+    ], ["TestResult", "ParsedFailure[]"], ["pnpm typecheck", "pnpm test", "pnpm target:build", "pnpm target:browser"], [
+      "Failures include reason, evidence, and suggestedFix."
+    ]),
+    taskStep("quality-validation", "Quality Validation", "Use screenshot, accessibility, console, network, and agent-browser checks selected for this task.", "Codex Agent", ["automated-testing"], [
+      "TestResult",
+      "changed user flows",
+      "harness-quality Skill"
+    ], ["quality evidence", "screenshot paths", "network/console notes"], ["pnpm quality:agent-browser:doctor", "agent-browser commands chosen by the Agent"], [
+      "Validation plan is task-specific, not a hard-coded path.",
+      "Any visual or E2E failure is fixed and rerun."
+    ]),
+    taskStep("mr-summary", "MR Summary", "Generate human-readable summary, risk, rollback, validation, and follow-up notes.", "workflow-core", ["quality-validation"], [
+      "WorkflowRun",
+      "HarnessTaskFile"
+    ], ["docs/generated-mr-summary.md", "docs/release-notes.md"], ["pnpm mr:summary"], [
+      "Summary references actual validation evidence."
+    ]),
+    taskStep("deployment", "Deployment", "Run or record Docker Compose deployment and health checks.", "deploy-rpc", ["mr-summary"], [
+      "release notes",
+      "deployment target"
+    ], ["DeploymentResult"], ["docker compose up --build", "pnpm health"], [
+      "Failed deployment includes rollback suggestion."
+    ]),
+    taskStep("execution-record", "Execution Record", "Persist final run, task flow, test log, journal, and blocker state.", "orchestrator-rpc", ["deployment"], [
+      "WorkflowRun",
+      "HarnessTaskFile",
+      "DeploymentResult"
+    ], [".harness/runs/<run-id>.json", ".harness/tasks/<run-id>.json", "docs/test-log.md", "docs/agent-journal.md"], [], [
+      "Task JSON and run JSON agree on final status."
+    ])
+  ];
+}
+
+function taskStep(
+  id: HarnessTaskStepId,
+  title: string,
+  purpose: string,
+  owner: string,
+  dependsOn: HarnessTaskStepId[],
+  inputs: string[],
+  outputs: string[],
+  commands: string[],
+  qualityGates: string[]
+): HarnessTaskFile["flow"]["steps"][number] {
+  return {
+    id,
+    title,
+    purpose,
+    owner,
+    status: "pending",
+    dependsOn,
+    inputs,
+    outputs,
+    commands,
+    qualityGates,
+    evidence: [],
+    notes: []
+  };
+}
+
+export function updateTaskFromRun(task: HarnessTaskFile, run: WorkflowRun): HarnessTaskFile {
+  task.title = run.title;
+  task.status = run.status;
+  task.updatedAt = run.updatedAt;
+  if (run.blocker && !task.blockers.includes(run.blocker)) {
+    task.blockers.push(run.blocker);
+  }
+  return task;
+}
+
+export function markTaskStep(
+  task: HarnessTaskFile,
+  stepId: HarnessTaskStepId,
+  status: HarnessTaskStepStatus,
+  options: { at?: string; evidence?: string[]; notes?: string[] } = {}
+): HarnessTaskFile {
+  const step = task.flow.steps.find((item) => item.id === stepId);
+  if (!step) {
+    throw new Error(`Unknown task flow step: ${stepId}`);
+  }
+  const at = options.at ?? nowIso();
+  step.status = status;
+  step.startedAt = step.startedAt ?? at;
+  if (status === "passed" || status === "failed" || status === "blocked" || status === "skipped") {
+    step.completedAt = at;
+  }
+  step.evidence = appendUnique(step.evidence, options.evidence ?? []);
+  step.notes = appendUnique(step.notes, options.notes ?? []);
+  task.currentStepId = stepId;
+  task.updatedAt = at;
+  return task;
+}
+
+export function attachAnalysisToTask(task: HarnessTaskFile, analysis: RequirementAnalysis): HarnessTaskFile {
+  task.acceptanceCriteria = analysis.acceptanceCriteria;
+  task.testCases = generateTaskCases(analysis);
+  markTaskStep(task, "requirement-analysis", "passed", {
+    evidence: [`${analysis.acceptanceCriteria.length} acceptance criteria`, `${analysis.risks.length} risks`],
+    notes: analysis.scope
+  });
+  markTaskStep(task, "test-case-generation", "passed", {
+    evidence: task.testCases.map((testCase) => `${testCase.id}: ${testCase.title}`),
+    notes: ["Generated from acceptance criteria and fixed Harness quality flow."]
+  });
+  return task;
+}
+
+export function attachCodingToTask(task: HarnessTaskFile, files: string[], steps: string[]): HarnessTaskFile {
+  markTaskStep(task, "implementation-planning", "passed", {
+    evidence: files,
+    notes: steps
+  });
+  markTaskStep(task, "coding", "passed", {
+    evidence: files,
+    notes: ["Coding phase completed or simulated by coding-rpc; real Codex edits must still be reflected in git diff."]
+  });
+  return task;
+}
+
+export function attachTestsToTask(task: HarnessTaskFile, result: TestResult): HarnessTaskFile {
+  const status = result.passed ? "passed" : "failed";
+  task.testCases = task.testCases.map((testCase) => {
+    if (testCase.type === "deployment") {
+      return testCase;
+    }
+    if (testCase.type === "quality") {
+      if (!result.browserQuality) {
+        return testCase;
+      }
+      return {
+        ...testCase,
+        status: result.browserQuality.passed ? "passed" : "failed",
+        evidence: appendUnique(testCase.evidence, [result.browserQuality.command, result.browserQuality.screenshotPath ?? "no screenshot path"])
+      };
+    }
+    return {
+      ...testCase,
+      status,
+      evidence: appendUnique(testCase.evidence, [result.command, ...result.failures.map((failure) => failure.reason)])
+    };
+  });
+  markTaskStep(task, "automated-testing", status, {
+    evidence: [result.command, `score=${result.score}`, ...result.failures.map((failure) => failure.reason)],
+    notes: result.suggestions
+  });
+  markTaskStep(task, "quality-validation", result.browserQuality?.passed === false ? "failed" : result.passed ? "passed" : "pending", {
+    evidence: result.browserQuality ? [result.browserQuality.command, result.browserQuality.screenshotPath ?? "no screenshot path"] : [],
+    notes: result.browserQuality ? ["Deterministic browser quality completed; task-specific agent-browser validation is selected by harness-quality Skill when needed."] : []
+  });
+  return task;
+}
+
+export function attachDeploymentToTask(task: HarnessTaskFile, deployment: DeploymentResult): HarnessTaskFile {
+  const evidence = deployment.healthChecks.map((check) => `${check.name}: ${check.ok ? "ok" : "failed"} - ${check.detail}`);
+  const status = deployment.status === "healthy" ? "passed" : "blocked";
+  task.testCases = task.testCases.map((testCase) =>
+    testCase.type === "deployment"
+      ? {
+          ...testCase,
+          status,
+          evidence: appendUnique(testCase.evidence, evidence)
+        }
+      : testCase
+  );
+  markTaskStep(task, "deployment", status, {
+    evidence,
+    notes: deployment.rollbackSuggestion ? [deployment.rollbackSuggestion] : []
+  });
+  return task;
+}
+
+export function finalizeTask(task: HarnessTaskFile, run: WorkflowRun): HarnessTaskFile {
+  updateTaskFromRun(task, run);
+  markTaskStep(task, "mr-summary", run.mrSummary ? "passed" : "pending", {
+    evidence: run.mrSummary ? [task.artifacts.mrSummary, task.artifacts.releaseNotes] : [],
+    notes: ["MR Summary and Release Notes generated from current WorkflowRun."]
+  });
+  markTaskStep(task, "execution-record", run.status === "passed" ? "passed" : run.status === "blocked" ? "blocked" : run.status === "failed" ? "failed" : "in_progress", {
+    evidence: [task.artifacts.runJson, task.artifacts.taskJson, task.artifacts.testLog, task.artifacts.agentJournal],
+    notes: [`Final run status: ${run.status}`]
+  });
+  return task;
+}
+
+export function generateTaskCases(analysis: RequirementAnalysis): HarnessTaskCase[] {
+  const acceptanceCases = analysis.acceptanceCriteria.map((criterion, index) => ({
+    id: createId("tc"),
+    title: `Acceptance ${index + 1}: ${criterion.statement.slice(0, 72)}`,
+    type: index === 0 ? "integration" as const : "unit" as const,
+    verifies: criterion.statement,
+    command: criterion.verification.startsWith("Run ") ? criterion.verification.replace(/^Run /, "") : "pnpm test",
+    status: "pending" as const,
+    evidence: []
+  }));
+  return [
+    ...acceptanceCases,
+    {
+      id: createId("tc"),
+      title: "Task-specific quality validation",
+      type: "quality",
+      verifies: "User-visible behavior, screenshot, accessibility snapshot, console, page errors, and network health match this task's risk profile.",
+      command: "Use harness-quality Skill and selected agent-browser commands",
+      status: "pending",
+      evidence: []
+    },
+    {
+      id: createId("tc"),
+      title: "Deployment health",
+      type: "deployment",
+      verifies: "Docker Compose or local deployment health checks are recorded.",
+      command: "pnpm health",
+      status: "pending",
+      evidence: []
+    }
+  ];
+}
+
+function appendUnique<T>(target: T[], values: T[]): T[] {
+  return [...target, ...values.filter((value) => !target.includes(value))];
 }
 
 export function transition(run: WorkflowRun, next: WorkflowStage, options: TransitionOptions = {}): WorkflowRun {

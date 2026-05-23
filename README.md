@@ -11,6 +11,7 @@ Harness System 是一个本地优先的 Codex / Agent 端到端研发闭环验�
 - 独立产品后端：`mindmap-rpc`，提供多文件、SQLite 存储、DIFF 协同、跨文件节点搜索。
 - 独立产品前端：`apps/mindmap-editor`，提供脑图编辑、文件管理、导入导出、无限画布、快捷键、协同同步和可视化状态。
 - 自动化质量闭环：单测、类型检查、前端构建、RPC 健康检查、无头浏览器交互、截图复核、失败日志解析。
+- 每任务执行轨道：`.harness/tasks/<run-id>.json` 记录稳定 flow、测试矩阵、质量验证、证据和 blockers。
 - 渐进式知识库：根目录和各模块 `AGENTS.md`。
 - 可审计输出：`.harness/runs/*.json`、`docs/agent-journal.md`、`docs/test-log.md`、`docs/generated-mr-summary.md`、`docs/release-notes.md`。
 - Docker Compose 部署：`docker compose up --build`。
@@ -70,6 +71,7 @@ Skill 文件位置：
 - `skills/harness-requirement/SKILL.md`
 - `skills/harness-bugfix/SKILL.md`
 - `skills/harness-polish/SKILL.md`
+- `skills/harness-quality/SKILL.md`
 
 安装到本机 Codex Skill 目录：
 
@@ -171,12 +173,14 @@ testing/retesting -> summarizing -> deploying -> completed
 一次 `$harness bugfix ...` 会大致执行：
 
 1. requirements-rpc 分析输入。
-2. coding-rpc 生成修复计划。
-3. testing-rpc 运行类型检查、单测、构建和浏览器质量门。
-4. 失败时进入 fixing / retesting。
-5. workflow-core 评分并生成 MR Summary / Release Notes。
-6. deploy-rpc 记录部署和健康状态。
-7. run 记录写入 `.harness/runs/<run-id>.json` 和 docs。
+2. workflow-core 生成 `.harness/tasks/<run-id>.json`，固定 `intake -> requirement-analysis -> test-case-generation -> implementation-planning -> coding -> automated-testing -> quality-validation -> mr-summary -> deployment -> execution-record`。
+3. coding-rpc 生成修复计划。
+4. testing-rpc 运行类型检查、单测、构建和浏览器质量门。
+5. 需要 E2E/截图/网络验证时，Codex 按 `harness-quality` Skill 自主选择 agent-browser 验证路径。
+6. 失败时进入 fixing / retesting。
+7. workflow-core 评分并生成 MR Summary / Release Notes。
+8. deploy-rpc 记录部署和健康状态。
+9. run 记录写入 `.harness/runs/<run-id>.json`、task 记录写入 `.harness/tasks/<run-id>.json` 和 docs。
 
 ## 质量验证
 
@@ -232,6 +236,7 @@ pnpm verify
 
 ```txt
 .harness/runs/<run-id>.json
+.harness/tasks/<run-id>.json
 .harness/logs/dev-services.log
 .harness/mindmap/mindmaps.sqlite
 ```

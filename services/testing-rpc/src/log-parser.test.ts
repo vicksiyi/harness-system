@@ -42,6 +42,13 @@ describe("parseFailureLog", () => {
     expect(accessibility.map((failure) => failure.reason)).toContain("Accessibility validation failed");
   });
 
+  it("classifies agent-browser E2E failures", () => {
+    const failures = parseFailureLog("agent-browser-e2e: failed: agent-browser rpc network health - no RPC POST requests captured");
+
+    expect(failures[0]?.reason).toBe("Agent-browser E2E failed");
+    expect(failures[0]?.suggestedFix).toContain("harness-quality");
+  });
+
   it("keeps unknown errors actionable", () => {
     const failures = parseFailureLog("Fatal error: something new happened");
 
