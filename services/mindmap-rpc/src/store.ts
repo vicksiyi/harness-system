@@ -245,9 +245,10 @@ export class MindMapStore {
   }
 
   syncMap(input: MindMapSyncInput): MindMapSyncResult {
-    const existing = this.getMap(input.id);
+    const mapId = syncMapId(input);
+    const existing = this.getMap(mapId);
     if (!existing) {
-      throw new Error(`Mind map file not found: ${input.id}`);
+      throw new Error(`Mind map file not found: ${mapId}`);
     }
     if (input.sinceVersion > existing.version) {
       throw new Error(`Mind map version conflict: server is ${existing.version}, client is ${input.sinceVersion}`);
@@ -255,8 +256,9 @@ export class MindMapStore {
 
     if (input.operations.length === 0) {
       return {
+        mapId,
         document: existing,
-        operations: this.listOperationsSince(input.id, input.sinceVersion)
+        operations: this.listOperationsSince(mapId, input.sinceVersion)
       };
     }
 
@@ -265,20 +267,21 @@ export class MindMapStore {
     this.transaction(() => {
       for (const operation of input.operations) {
         version += 1;
-        this.applyOperation(input.id, operation, at);
-        this.recordOperation(input.id, version, input.clientId, operation, at);
+        this.applyOperation(mapId, operation, at);
+        this.recordOperation(mapId, version, input.clientId, operation, at);
       }
-      const selectedId = this.safeSelectedIdFromDatabase(input.id, this.currentSelectedId(input.id));
-      this.db.prepare("UPDATE maps SET selected_id = ?, version = ?, updated_at = ? WHERE id = ?").run(selectedId, version, at, input.id);
+      const selectedId = this.safeSelectedIdFromDatabase(mapId, this.currentSelectedId(mapId));
+      this.db.prepare("UPDATE maps SET selected_id = ?, version = ?, updated_at = ? WHERE id = ?").run(selectedId, version, at, mapId);
     });
 
-    const document = this.getMap(input.id);
+    const document = this.getMap(mapId);
     if (!document) {
-      throw new Error(`Synced map ${input.id} could not be read.`);
+      throw new Error(`Synced map ${mapId} could not be read.`);
     }
     return {
+      mapId,
       document,
-      operations: this.listOperationsSince(input.id, input.sinceVersion)
+      operations: this.listOperationsSince(mapId, input.sinceVersion)
     };
   }
 
@@ -535,6 +538,10 @@ function readOperationPayload(value: string): MindMapOperationInput {
     // Fall through to a harmless operation shape for corrupted historical rows.
   }
   return { type: "rename-map", title: "Unknown operation" };
+}
+
+function syncMapId(input: MindMapSyncInput): string {
+  return input.mapId ?? input.id ?? "";
 }
 
 function escapeLike(value: string): string {

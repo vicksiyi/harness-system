@@ -387,10 +387,12 @@ describe("mind map domain", () => {
     const viewport = createCanvasViewport({ x: -20, y: Number.NaN, zoom: 8 });
     const panned = panCanvasViewport(viewport, { x: 320, y: 180 });
     const zoomed = zoomCanvasViewport(panned, -1.6);
+    const focalZoomed = zoomCanvasViewport(createCanvasViewport({ x: 120, y: 80, zoom: 1 }), 0.5, { x: 300, y: 160 });
 
     expect(viewport).toEqual({ x: 0, y: 0, zoom: 1.8 });
     expect(panned).toEqual({ x: 320, y: 180, zoom: 1.8 });
     expect(zoomed).toEqual({ x: 320, y: 180, zoom: 0.5 });
+    expect(focalZoomed).toEqual({ x: 220, y: 133, zoom: 1.5 });
   });
 
   it("builds a mini map model from nodes and viewport", () => {
@@ -426,6 +428,9 @@ describe("mind map domain", () => {
       "restore-latest",
       "focus-search",
       "auto-layout",
+      "zoom-in",
+      "zoom-out",
+      "reset-view",
       "export-markdown",
       "export-json",
       "focus-import"
@@ -445,17 +450,35 @@ describe("mind map domain", () => {
     expect(filterCommands(commands, "layout").map((command) => command.id)).toEqual(["auto-layout"]);
     expect(filterCommands(commands, "json").map((command) => command.id)).toEqual(["export-json", "focus-import"]);
     expect(filterCommands(commands, "undo").map((command) => command.id)).toEqual(["undo-edit"]);
+    expect(filterCommands(commands, "zoom").map((command) => command.id)).toEqual(["zoom-in", "zoom-out", "reset-view"]);
   });
 
-  it("resolves editor keyboard shortcuts for node editing and canvas zoom", () => {
+  it("resolves editor keyboard shortcuts with clear browser-safe ownership", () => {
     expect(resolveEditorShortcut({ key: "r" })).toBe("add-root");
     expect(resolveEditorShortcut({ key: "c" })).toBe("add-child");
+    expect(resolveEditorShortcut({ key: "l" })).toBe("auto-layout");
+    expect(resolveEditorShortcut({ key: "r", shiftKey: true })).toBe("restore-latest");
     expect(resolveEditorShortcut({ key: "z", metaKey: true })).toBe("undo-edit");
     expect(resolveEditorShortcut({ key: "z", ctrlKey: true, shiftKey: true })).toBe("redo-edit");
+    expect(resolveEditorShortcut({ key: "y", ctrlKey: true })).toBe("redo-edit");
+    expect(resolveEditorShortcut({ key: "s", metaKey: true })).toBe("save-snapshot");
     expect(resolveEditorShortcut({ key: "=", metaKey: true })).toBe("zoom-in");
+    expect(resolveEditorShortcut({ key: "+", ctrlKey: true })).toBe("zoom-in");
     expect(resolveEditorShortcut({ key: "-", ctrlKey: true })).toBe("zoom-out");
     expect(resolveEditorShortcut({ key: "0", metaKey: true })).toBe("reset-view");
+    expect(resolveEditorShortcut({ key: "k", metaKey: true, targetIsTyping: true })).toBe("open-command-palette");
+  });
+
+  it("preserves browser and text editing shortcuts instead of falling through to app commands", () => {
+    expect(resolveEditorShortcut({ key: "r", metaKey: true })).toBeNull();
+    expect(resolveEditorShortcut({ key: "r", ctrlKey: true })).toBeNull();
+    expect(resolveEditorShortcut({ key: "c", metaKey: true })).toBeNull();
+    expect(resolveEditorShortcut({ key: "l", ctrlKey: true })).toBeNull();
     expect(resolveEditorShortcut({ key: "r", targetIsTyping: true })).toBeNull();
+    expect(resolveEditorShortcut({ key: "z", metaKey: true, targetIsTyping: true })).toBeNull();
+    expect(resolveEditorShortcut({ key: "s", ctrlKey: true, targetIsTyping: true })).toBeNull();
+    expect(resolveEditorShortcut({ key: "=", metaKey: true, targetIsTyping: true })).toBeNull();
+    expect(resolveEditorShortcut({ key: "c", shiftKey: true })).toBeNull();
   });
 
   it("filters and sorts map files for the file workspace", () => {

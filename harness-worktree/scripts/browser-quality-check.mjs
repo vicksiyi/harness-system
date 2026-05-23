@@ -23,12 +23,18 @@ let browser;
 
 try {
   await mkdir(artifactDir, { recursive: true });
-  const rpcAvailability = await ensureServiceAvailable(mindmapServiceUrl, "@target/mindmap-rpc", "mindmap-rpc");
-  mindmapRpcServer = rpcAvailability.devServer;
-  record("mind map sync service reachable", true, `sync service served at ${mindmapServiceUrl}`);
   const availability = await ensureTargetAvailable(targetUrl);
   devServer = availability.devServer;
   record("target reachable", true, `${targetProject} served at ${targetUrl}`);
+  const rpcAvailability = await ensureServiceAvailable(mindmapServiceUrl, "@target/mindmap-rpc", "mindmap-rpc", [], {
+    keepAlive: !availability.started
+  });
+  mindmapRpcServer = rpcAvailability.devServer;
+  record(
+    "mind map sync service reachable",
+    true,
+    rpcAvailability.keptAlive ? `sync service served at ${mindmapServiceUrl} and will stay online for the existing frontend` : `sync service served at ${mindmapServiceUrl}`
+  );
 
   const executablePath = findChromiumExecutable();
   browser = await chromium.launch({
@@ -52,6 +58,12 @@ try {
   await page.getByRole("button", { name: "Create map file" }).click();
   await page.waitForFunction(() => document.querySelectorAll("[data-map-file-id]").length > 0);
   record("database map file creation", true, "front-end created a database-backed map through the sync service");
+  const createdMapId = await page.locator("[data-current-map-id]").first().getAttribute("data-current-map-id");
+  record(
+    "file id visible for diff sync",
+    Boolean(createdMapId && createdMapId.startsWith("map_")),
+    createdMapId ? `current database file id is ${createdMapId}` : "current database file id was not exposed"
+  );
   await page.getByLabel("Map file title").fill(`Browser save ${runId}`);
   await page.getByRole("button", { name: "Save map file" }).click();
   await visible(page.getByText(/Saved file to database|Saved \d+ changes/).first(), "manual save file succeeds");
@@ -88,6 +100,7 @@ try {
   ]);
   record("markdown file export download", /\.md$/.test(markdownDownload.suggestedFilename()), `downloaded ${markdownDownload.suggestedFilename()}`);
   await page.getByRole("button", { name: "Open editor page" }).click();
+  await visible(page.locator(".collaboration-panel [data-current-map-id]").first(), "collaboration panel exposes current file id");
   const peerContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const peerPage = await peerContext.newPage();
   await peerPage.goto(targetUrl, { waitUntil: "networkidle" });
@@ -384,6 +397,28 @@ try {
   await page.screenshot({ path: viewportScreenshotPath, fullPage: true });
   record("desktop viewport screenshot", true, viewportScreenshotPath);
   await page.keyboard.press("Control+0");
+  const canvasBox = await page.locator(".canvas-grid").boundingBox();
+  if (canvasBox) {
+    await page.mouse.move(canvasBox.x + 520, canvasBox.y + 410);
+    await page.mouse.down();
+    await page.mouse.move(canvasBox.x + 340, canvasBox.y + 260, { steps: 6 });
+    await page.mouse.up();
+  }
+  const backgroundDragPans = await page.evaluate(() => {
+    const canvas = document.querySelector(".canvas-grid");
+    return Number(canvas?.getAttribute("data-pan-x")) > 0 && Number(canvas?.getAttribute("data-pan-y")) > 0;
+  });
+  record("canvas background drag pans viewport", backgroundDragPans, "dragging empty canvas background updates pan state");
+  const beforeWheelZoom = await page.evaluate(() => Number(document.querySelector(".canvas-grid")?.getAttribute("data-zoom") ?? 0));
+  if (canvasBox) {
+    await page.mouse.wheel(0, -260);
+  }
+  const wheelZoomsCanvas = await page.evaluate((beforeZoom) => {
+    const canvas = document.querySelector(".canvas-grid");
+    return Number(canvas?.getAttribute("data-zoom")) > beforeZoom;
+  }, beforeWheelZoom);
+  record("canvas wheel zooms viewport", wheelZoomsCanvas, "wheel gesture over canvas changes zoom without using toolbar");
+  await page.keyboard.press("Control+0");
   const viewportReset = await page.evaluate(() => {
     const canvas = document.querySelector(".canvas-grid");
     return canvas?.getAttribute("data-pan-x") === "0" && canvas?.getAttribute("data-pan-y") === "0" && canvas?.getAttribute("data-zoom") === "1";
@@ -531,7 +566,7 @@ async function ensureTargetAvailable(url) {
   return ensureServiceAvailable(url, "@target/mindmap-editor", "target-dev", ["--", "--port", port]);
 }
 
-async function ensureServiceAvailable(url, filter, label, extraArgs = []) {
+async function ensureServiceAvailable(url, filter, label, extraArgs = [], options = {}) {
   if (await isReachable(url)) {
     return { started: false };
   }
@@ -543,22 +578,28 @@ async function ensureServiceAvailable(url, filter, label, extraArgs = []) {
   }
 
   const logPath = join(artifactDir, `${runId}-${label}.log`);
-  const stream = createWriteStream(logPath, { flags: "a" });
+  const env = {
+    ...process.env,
+    VITE_MINDMAP_RPC_URL: process.env.VITE_MINDMAP_RPC_URL ?? mindmapServiceUrl
+  };
   const proc = spawn("pnpm", ["--filter", filter, "dev", ...extraArgs], {
     cwd: root,
-    env: {
-      ...process.env,
-      VITE_MINDMAP_RPC_URL: process.env.VITE_MINDMAP_RPC_URL ?? mindmapServiceUrl
-    },
-    stdio: ["ignore", "pipe", "pipe"]
+    env,
+    detached: Boolean(options.keepAlive),
+    stdio: options.keepAlive ? "ignore" : ["ignore", "pipe", "pipe"]
   });
-  proc.stdout.pipe(stream);
-  proc.stderr.pipe(stream);
+  if (options.keepAlive) {
+    proc.unref();
+  } else {
+    const stream = createWriteStream(logPath, { flags: "a" });
+    proc.stdout.pipe(stream);
+    proc.stderr.pipe(stream);
+  }
 
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
     if (await isReachable(url)) {
-      return { started: true, devServer: proc };
+      return { started: true, devServer: options.keepAlive ? undefined : proc, keptAlive: Boolean(options.keepAlive) };
     }
     await sleep(500);
   }

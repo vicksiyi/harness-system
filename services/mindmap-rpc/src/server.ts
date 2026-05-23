@@ -46,7 +46,7 @@ function createMap(params: unknown) {
 function saveMap(params: unknown) {
   const record = asRecord(params);
   const input: MindMapSaveInput = {
-    id: typeof record.id === "string" ? record.id : "",
+    id: typeof record.id === "string" ? record.id : typeof record.mapId === "string" ? record.mapId : "",
     title: typeof record.title === "string" ? record.title : "Untitled map",
     selectedId: typeof record.selectedId === "string" ? record.selectedId : "",
     nodes: Array.isArray(record.nodes) ? (record.nodes as StoredMindNode[]) : [],
@@ -64,7 +64,8 @@ function deleteMap(params: unknown) {
 function syncMap(params: unknown) {
   const record = asRecord(params);
   return store.syncMap({
-    id: typeof record.id === "string" ? record.id : "",
+    id: typeof record.id === "string" ? record.id : undefined,
+    mapId: typeof record.mapId === "string" ? record.mapId : undefined,
     clientId: typeof record.clientId === "string" ? record.clientId : "anonymous-client",
     sinceVersion: typeof record.sinceVersion === "number" ? record.sinceVersion : 0,
     operations: Array.isArray(record.operations) ? (record.operations as MindMapOperationInput[]) : []

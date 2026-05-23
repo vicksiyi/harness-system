@@ -564,3 +564,24 @@
 - Harness 反哺：浏览器质量新增 `cross-file node search filters by status`，先验证 committed-only 搜索，再验证结果点击进入编辑器。
 - 验证：`pnpm test services/mindmap-rpc/src/store.test.ts`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphw9qox_t7loz6ea` 全部通过。
 - 下一步：继续自主迭代，优先考虑标签筛选或 SQLite FTS。
+
+## Run run_mphzxyd4_bye74m1r
+
+- At: 2026-05-23T06:57:51.493Z
+- Type: bugfix
+- Prompt: 修复保存文件失败、Cmd+R 误触创建节点、无限画布拖拽缩放缺失、协同 DIFF 缺少文件 ID 语义
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Save, Shortcut, Canvas, Diff-ID Fix Loop
+
+- At: 2026-05-23
+- 目标：按用户要求用并行 worker 分别修复保存/DIFF、快捷键、无限画布拖拽缩放，再由主流程收拢验证。
+- 产品修复：前端协同调用改为显式 `mapId`；Files 页面和 Collaboration 面板显示当前 File ID；`Cmd/Ctrl+R` 释放给浏览器刷新，创建根节点改为裸 `R`；画布支持背景拖动平移、滚轮焦点缩放和命令面板缩放。
+- Harness 反哺：浏览器质量门会在已有 5175 前端运行时保持 `mindmap-rpc` 在线，避免质检脚本结束后留下“前端在线、后端离线”的保存失败状态；质量门新增 File ID、背景拖拽、滚轮缩放断言。
+- 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过，包含 69 个单测、类型检查、生产构建和无头浏览器截图验证；workflow `run_mphzxyd4_bye74m1r` 通过。
+- 截图证据：`.harness/browser/browser_mphzx2y7-desktop-mindmap-editor.png`、`.harness/browser/browser_mphzx2y7-mobile-mindmap-editor.png`、`.harness/browser/run_mphzxyd4_bye74m1r-desktop-viewport-mindmap-editor.png`。
+- 下一步：继续自主迭代，优先考虑协同冲突展示、版本历史或节点批量编辑能力。

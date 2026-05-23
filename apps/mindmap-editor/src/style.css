@@ -527,6 +527,8 @@ label {
   border: 1px solid #dce4ef;
   border-radius: 8px;
   background: #fff;
+  cursor: grab;
+  touch-action: none;
 }
 
 .canvas-grid::before {
@@ -544,6 +546,10 @@ label {
     linear-gradient(90deg, #e7edf5 1px, transparent 1px),
     #fff;
   background-size: 28px 28px;
+}
+
+.canvas-grid.panning {
+  cursor: grabbing;
 }
 
 .connector-layer {

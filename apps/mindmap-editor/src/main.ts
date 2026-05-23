@@ -105,6 +105,15 @@ let dragState:
       hasMoved: boolean;
     }
   | null = null;
+let canvasPanState:
+  | {
+      pointerId: number;
+      originPointerX: number;
+      originPointerY: number;
+      originViewport: CanvasViewport;
+      hasMoved: boolean;
+    }
+  | null = null;
 
 function seedNodes(): MindNode[] {
   return [
@@ -348,7 +357,7 @@ async function syncCurrentRemoteDiff(successMessage?: string): Promise<void> {
     state.rpcMessage = `Syncing ${operations.length} changes`;
     render();
     const result = await syncRemoteMap({
-      id: state.mapId,
+      mapId: state.mapId,
       clientId: state.clientId,
       sinceVersion: state.mapVersion,
       operations
@@ -377,7 +386,7 @@ async function pullRemoteChanges(options: { silent?: boolean } = {}): Promise<vo
       render();
     }
     const result = await syncRemoteMap({
-      id: state.mapId,
+      mapId: state.mapId,
       clientId: state.clientId,
       sinceVersion: state.mapVersion,
       operations: []
@@ -576,8 +585,8 @@ function panCanvas(delta: { x: number; y: number }): void {
   render();
 }
 
-function zoomCanvas(delta: number): void {
-  state.viewport = zoomCanvasViewport(state.viewport, delta);
+function zoomCanvas(delta: number, focalPoint?: { x: number; y: number }): void {
+  state.viewport = zoomCanvasViewport(state.viewport, delta, focalPoint);
   persistMap();
   render();
 }
@@ -813,6 +822,15 @@ function runCommand(commandId: string): void {
       break;
     case "auto-layout":
       autoLayoutMap();
+      break;
+    case "zoom-in":
+      zoomCanvas(0.1);
+      break;
+    case "zoom-out":
+      zoomCanvas(-0.1);
+      break;
+    case "reset-view":
+      resetCanvasView();
       break;
     case "export-markdown": {
       state.commandPaletteOpen = false;
@@ -1091,6 +1109,7 @@ function renderFilesPage(app: HTMLElement): void {
             <button id="save-map-file" aria-label="Save map file" ${state.mapId ? "" : "disabled"}>Save file</button>
           </div>
           <p class="remote-status ${state.rpcStatus}">${escapeHtml(state.rpcMessage)}</p>
+          <p class="remote-status online" data-current-map-id="${escapeHtml(state.mapId ?? "local")}">File ID ${escapeHtml(state.mapId ?? "local draft")}</p>
           <div class="summary-grid" aria-label="Current file summary">
             <div><span>Ideas</span><strong>${summary.total}</strong></div>
             <div><span>Roots</span><strong>${summary.roots}</strong></div>
@@ -1351,6 +1370,94 @@ function endNodeDrag(event: PointerEvent): void {
   render();
 }
 
+function beginCanvasPan(event: PointerEvent): void {
+  if (dragState || event.button !== 0) {
+    return;
+  }
+  const grid = event.currentTarget;
+  const target = event.target;
+  if (!(grid instanceof HTMLElement) || !(target instanceof HTMLElement) || target.closest(".map-node")) {
+    return;
+  }
+
+  event.preventDefault();
+  grid.setPointerCapture(event.pointerId);
+  grid.classList.add("panning");
+  canvasPanState = {
+    pointerId: event.pointerId,
+    originPointerX: event.clientX,
+    originPointerY: event.clientY,
+    originViewport: state.viewport,
+    hasMoved: false
+  };
+}
+
+function moveCanvasPan(event: PointerEvent): void {
+  if (!canvasPanState || event.pointerId !== canvasPanState.pointerId) {
+    return;
+  }
+
+  const delta = {
+    x: (canvasPanState.originPointerX - event.clientX) / canvasPanState.originViewport.zoom,
+    y: (canvasPanState.originPointerY - event.clientY) / canvasPanState.originViewport.zoom
+  };
+  if (Math.abs(delta.x) > 1 || Math.abs(delta.y) > 1) {
+    canvasPanState.hasMoved = true;
+  }
+  state.viewport = createCanvasViewport({
+    x: canvasPanState.originViewport.x + delta.x,
+    y: canvasPanState.originViewport.y + delta.y,
+    zoom: canvasPanState.originViewport.zoom
+  });
+  refreshCanvasViewportElement();
+}
+
+function endCanvasPan(event: PointerEvent): void {
+  if (!canvasPanState || event.pointerId !== canvasPanState.pointerId) {
+    return;
+  }
+
+  document.querySelector<HTMLElement>(".canvas-grid")?.classList.remove("panning");
+  const shouldPersist = canvasPanState.hasMoved;
+  canvasPanState = null;
+  if (shouldPersist) {
+    persistMap();
+    render();
+  }
+}
+
+function zoomCanvasFromWheel(event: WheelEvent): void {
+  const grid = event.currentTarget;
+  if (!(grid instanceof HTMLElement)) {
+    return;
+  }
+
+  event.preventDefault();
+  const rect = grid.getBoundingClientRect();
+  const deltaPixels = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? event.deltaY * rect.height : event.deltaY;
+  const delta = Math.max(-0.24, Math.min(0.24, -deltaPixels * 0.0015));
+  if (delta === 0) {
+    return;
+  }
+  zoomCanvas(delta, {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  });
+}
+
+function refreshCanvasViewportElement(): void {
+  const grid = document.querySelector<HTMLElement>(".canvas-grid");
+  if (!grid) {
+    return;
+  }
+  grid.dataset.panX = String(state.viewport.x);
+  grid.dataset.panY = String(state.viewport.y);
+  grid.dataset.zoom = String(state.viewport.zoom);
+  grid.style.setProperty("--canvas-pan-x", `${-state.viewport.x * state.viewport.zoom}px`);
+  grid.style.setProperty("--canvas-pan-y", `${-state.viewport.y * state.viewport.zoom}px`);
+  grid.style.setProperty("--canvas-zoom", String(state.viewport.zoom));
+}
+
 function render(): void {
   const app = byId<HTMLElement>("app");
   if (state.view === "files") {
@@ -1448,6 +1555,7 @@ function render(): void {
               <span>v${state.mapVersion}</span>
             </div>
             <p class="remote-status saved">Client ${escapeHtml(state.clientId.slice(-7))} · ${state.pendingOperations.length} pending ops</p>
+            <p class="remote-status online" data-current-map-id="${escapeHtml(state.mapId ?? "local")}">File ID ${escapeHtml(state.mapId ?? "local draft")}</p>
             <label class="toggle-row">
               <input id="auto-pull" aria-label="Auto sync changes" type="checkbox" ${state.autoPullEnabled ? "checked" : ""} />
               Auto sync
@@ -1527,7 +1635,7 @@ function render(): void {
               )
               .join("")}
           </div>
-          <div class="canvas-grid" aria-label="Idea map canvas" data-pan-x="${state.viewport.x}" data-pan-y="${state.viewport.y}" data-zoom="${state.viewport.zoom}" style="--canvas-width:${canvasWidth}px;--canvas-height:${canvasHeight}px;--canvas-pan-x:${-state.viewport.x}px;--canvas-pan-y:${-state.viewport.y}px;--canvas-zoom:${state.viewport.zoom}">
+          <div class="canvas-grid" aria-label="Idea map canvas" data-pan-x="${state.viewport.x}" data-pan-y="${state.viewport.y}" data-zoom="${state.viewport.zoom}" style="--canvas-width:${canvasWidth}px;--canvas-height:${canvasHeight}px;--canvas-pan-x:${-state.viewport.x * state.viewport.zoom}px;--canvas-pan-y:${-state.viewport.y * state.viewport.zoom}px;--canvas-zoom:${state.viewport.zoom}">
             <div class="canvas-surface">
               <canvas id="connector-canvas" class="connector-layer" aria-hidden="true" width="${canvasWidth}" height="${canvasHeight}" data-connector-count="${displayNodes.filter((item) => item.parentId && displayNodes.some((parent) => parent.id === item.parentId)).length}"></canvas>
               ${displayNodes
@@ -1697,6 +1805,9 @@ function render(): void {
   byId<HTMLButtonElement>("zoom-out").addEventListener("click", () => zoomCanvas(-0.1));
   byId<HTMLButtonElement>("zoom-in").addEventListener("click", () => zoomCanvas(0.1));
   byId<HTMLButtonElement>("reset-view").addEventListener("click", resetCanvasView);
+  const canvasGrid = document.querySelector<HTMLElement>(".canvas-grid");
+  canvasGrid?.addEventListener("pointerdown", beginCanvasPan);
+  canvasGrid?.addEventListener("wheel", zoomCanvasFromWheel, { passive: false });
   byId<HTMLButtonElement>("toggle-branch-collapse").addEventListener("click", toggleSelectedBranchCollapse);
   byId<HTMLButtonElement>("push-diff").addEventListener("click", () => {
     void syncCurrentRemoteDiff();
@@ -1774,8 +1885,11 @@ function render(): void {
 }
 
 document.addEventListener("pointermove", moveDraggedNode);
+document.addEventListener("pointermove", moveCanvasPan);
 document.addEventListener("pointerup", endNodeDrag);
+document.addEventListener("pointerup", endCanvasPan);
 document.addEventListener("pointercancel", endNodeDrag);
+document.addEventListener("pointercancel", endCanvasPan);
 
 document.addEventListener("keydown", (event) => {
   if (state.commandPaletteOpen) {

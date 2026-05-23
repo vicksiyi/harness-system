@@ -181,13 +181,15 @@ export interface MindMapOperationRecord {
 }
 
 export interface MindMapSyncInput {
-  id: string;
+  id?: string;
+  mapId?: string;
   clientId: string;
   sinceVersion: number;
   operations: MindMapOperationInput[];
 }
 
 export interface MindMapSyncResult {
+  mapId: string;
   document: MindMapFileDocument;
   operations: MindMapOperationRecord[];
 }

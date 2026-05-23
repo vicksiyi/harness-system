@@ -672,11 +672,23 @@ export function panCanvasViewport(viewport: CanvasViewport, delta: { x: number; 
   });
 }
 
-export function zoomCanvasViewport(viewport: CanvasViewport, delta: number): CanvasViewport {
+export function zoomCanvasViewport(viewport: CanvasViewport, delta: number, focalPoint?: { x: number; y: number }): CanvasViewport {
+  const current = createCanvasViewport(viewport);
+  const nextZoom = clampViewportZoom(current.zoom + delta);
+  if (!focalPoint || nextZoom === current.zoom) {
+    return createCanvasViewport({
+      x: current.x,
+      y: current.y,
+      zoom: nextZoom
+    });
+  }
+
+  const focalWorldX = current.x + focalPoint.x / current.zoom;
+  const focalWorldY = current.y + focalPoint.y / current.zoom;
   return createCanvasViewport({
-    x: viewport.x,
-    y: viewport.y,
-    zoom: viewport.zoom + delta
+    x: focalWorldX - focalPoint.x / nextZoom,
+    y: focalWorldY - focalPoint.y / nextZoom,
+    zoom: nextZoom
   });
 }
 
@@ -724,7 +736,7 @@ export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection
     command("add-child", "Add child idea", "Create a child branch under the selected idea", "C", "create", ["new", "child", "branch"], !input.hasSelection),
     command("undo-edit", "Undo map edit", "Roll back the latest map change", "Cmd+Z", "preserve", ["history", "undo", "rollback"], !input.canUndo),
     command("redo-edit", "Redo map edit", "Replay the latest reverted map change", "Shift+Cmd+Z", "preserve", ["history", "redo", "forward"], !input.canRedo),
-    command("save-snapshot", "Save snapshot", "Capture the current map state", "S", "preserve", ["checkpoint", "backup", "save"]),
+    command("save-snapshot", "Save snapshot", "Capture the current map state", "Cmd+S", "preserve", ["checkpoint", "backup", "save"]),
     command(
       "restore-latest",
       "Restore latest snapshot",
@@ -736,6 +748,9 @@ export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection
     ),
     command("focus-search", "Focus search", "Move cursor to idea search", "/", "navigate", ["find", "filter", "query"]),
     command("auto-layout", "Auto layout map", "Arrange ideas into readable hierarchy lanes", "L", "view", ["layout", "arrange", "map"]),
+    command("zoom-in", "Zoom in", "Increase canvas magnification", "Cmd+=", "view", ["canvas", "zoom", "magnify"]),
+    command("zoom-out", "Zoom out", "Decrease canvas magnification", "Cmd+-", "view", ["canvas", "zoom", "magnify"]),
+    command("reset-view", "Reset view", "Return canvas zoom and pan to the default view", "Cmd+0", "view", ["canvas", "zoom", "reset"]),
     command("export-markdown", "Copy markdown export", "Select the generated Markdown outline", "M", "view", ["markdown", "copy", "outline"]),
     command("export-json", "Refresh JSON export", "Regenerate the portable map JSON", "J", "view", ["json", "backup", "portable"]),
     command("focus-import", "Focus JSON import", "Move cursor to the import JSON field", "I", "navigate", ["json", "import", "restore"])
@@ -778,6 +793,9 @@ export function resolveEditorShortcut(input: EditorShortcutInput): EditorShortcu
   if (commandModifier && key === "k") {
     return "open-command-palette";
   }
+  if (input.targetIsTyping) {
+    return null;
+  }
   if (commandModifier && key === "z") {
     return input.shiftKey ? "redo-edit" : "undo-edit";
   }
@@ -796,7 +814,7 @@ export function resolveEditorShortcut(input: EditorShortcutInput): EditorShortcu
   if (commandModifier && key === "0") {
     return "reset-view";
   }
-  if (input.targetIsTyping) {
+  if (commandModifier) {
     return null;
   }
   if (key === "/") {
@@ -807,6 +825,9 @@ export function resolveEditorShortcut(input: EditorShortcutInput): EditorShortcu
   }
   if (key === "r") {
     return "add-root";
+  }
+  if (input.shiftKey) {
+    return null;
   }
   if (key === "c") {
     return "add-child";

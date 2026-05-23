@@ -191,7 +191,7 @@ describe("MindMapStore", () => {
   it("applies diff operations and returns changes since a client version", () => {
     const created = store.createMap({ title: "Collaborative", selectedId: "root", nodes });
     const result = store.syncMap({
-      id: created.id,
+      mapId: created.id,
       clientId: "client-a",
       sinceVersion: created.version,
       operations: [
@@ -216,16 +216,18 @@ describe("MindMapStore", () => {
       ]
     });
 
+    expect(result.mapId).toBe(created.id);
     expect(result.document.version).toBe(created.version + 2);
     expect(result.document.selectedId).toBe("new-node");
     expect(result.document.nodes.find((node) => node.id === "new-node")).toMatchObject({
       title: "Synced branch",
       parentId: "root"
     });
+    expect(result.operations.every((operation) => operation.mapId === created.id)).toBe(true);
     expect(result.operations.map((operation) => operation.type)).toEqual(["upsert-node", "select-node"]);
 
     const pulled = store.syncMap({
-      id: created.id,
+      mapId: created.id,
       clientId: "client-b",
       sinceVersion: created.version,
       operations: []
@@ -234,6 +236,31 @@ describe("MindMapStore", () => {
     expect(pulled.operations).toHaveLength(2);
     expect(pulled.operations[0]).toMatchObject({ clientId: "client-a", version: created.version + 1 });
     expect(pulled.document.nodes.find((node) => node.id === "new-node")?.title).toBe("Synced branch");
+  });
+
+  it("requires an existing map id for diff sync", () => {
+    expect(() =>
+      store.syncMap({
+        mapId: "missing-map",
+        clientId: "client-a",
+        sinceVersion: 1,
+        operations: []
+      })
+    ).toThrow(/missing-map/);
+  });
+
+  it("uses the explicit diff map id instead of a legacy id fallback", () => {
+    const created = store.createMap({ title: "Wrong map id", selectedId: "root", nodes });
+
+    expect(() =>
+      store.syncMap({
+        id: created.id,
+        mapId: "wrong-map",
+        clientId: "client-a",
+        sinceVersion: created.version,
+        operations: []
+      })
+    ).toThrow(/wrong-map/);
   });
 
   it("allows a manual file save after diff sync without stale version coupling", () => {
