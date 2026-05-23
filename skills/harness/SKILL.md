@@ -1,3 +1,10 @@
+---
+name: harness
+description: "当用户使用 $harness requirement、$harness bugfix、$harness polish，或要求 Codex 运行本地 Harness 研发闭环时使用；负责从需求/Bug/Polish 到分析、编码、测试、日志读取、自动修复、重测、MR Summary、Docker 部署和执行记录的一次调用闭环。"
+metadata:
+  short-description: "运行 Harness 研发闭环"
+---
+
 # Harness
 
 当用户使用 `$harness ...`，或要求 Codex 运行本地 Harness 研发闭环时，使用本 Skill。

@@ -1,3 +1,10 @@
+---
+name: harness-polish
+description: "当用户使用 $harness-polish 或 $harness polish 请求 UI、文案、交互、性能、DX、质量门或流程可观察性优化时使用；负责影响面评估、实现、构建校验、测试、浏览器截图验证、改进记录和 MR Summary。"
+metadata:
+  short-description: "运行 Harness Polish 闭环"
+---
+
 # Harness Polish
 
 当用户使用 `$harness-polish ...` 或 `$harness polish ...` 时，使用本 Skill。

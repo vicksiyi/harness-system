@@ -1,3 +1,10 @@
+---
+name: harness-bugfix
+description: "当用户使用 $harness-bugfix 或 $harness bugfix 描述 Bug、失败日志、服务异常、测试失败、保存失败、浏览器验证失败或部署失败时使用；负责复现、日志读取、根因分析、回归测试、修复、重测、MR Summary 和 Release Notes。"
+metadata:
+  short-description: "运行 Harness Bug 修复闭环"
+---
+
 # Harness Bugfix
 
 当用户使用 `$harness-bugfix ...` 或 `$harness bugfix ...` 时，使用本 Skill。

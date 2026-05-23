@@ -1,3 +1,10 @@
+---
+name: harness-requirement
+description: "当用户使用 $harness-requirement 或 $harness requirement 提出新需求时使用；负责通过 Harness 编排完成需求理解、验收标准、实现、测试、浏览器验证、MR Summary、部署记录和可审计执行日志。"
+metadata:
+  short-description: "运行 Harness 需求闭环"
+---
+
 # Harness Requirement
 
 当用户使用 `$harness-requirement ...` 或 `$harness requirement ...` 时，使用本 Skill。
