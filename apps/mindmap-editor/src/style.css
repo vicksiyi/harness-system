@@ -357,6 +357,22 @@ label {
   color: #b91c1c;
 }
 
+.toggle-row {
+  display: flex;
+  align-items: center;
+  grid-template-columns: none;
+  gap: 8px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 8px 10px;
+}
+
+.toggle-row input {
+  width: auto;
+  margin: 0;
+}
+
 .canvas-panel {
   display: grid;
   align-content: start;

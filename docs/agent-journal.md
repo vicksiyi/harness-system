@@ -367,3 +367,24 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphr45mq-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphr45mq-mobile-mindmap-editor.png`，确认下载按钮、文件输入和移动端三按钮布局正常。
 - 验证：`pnpm typecheck && pnpm target:test` 通过 23 条产品单测；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 58 条总测试、构建和浏览器门禁；workflow `run_mphr4zhb_i7lulh0f` 通过。
 - 下一步：继续增加产品复杂度，优先考虑自动拉取远端 diff、画布小地图或节点详情侧栏的关系洞察。
+
+## Run run_mphrayls_hesgb8f8
+
+- At: 2026-05-23T02:56:00.822Z
+- Type: requirement
+- Prompt: 给脑图协同增加自动同步开关并验证多端免手动拉取
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Auto Sync Collaboration Loop
+
+- At: 2026-05-23
+- 目标：让协同从手动 Pull diff 扩展为可开启的自动同步，并用双客户端浏览器证明 peer 能免手动拉取。
+- 已完成：Collaboration 面板新增 Auto sync 开关；开启后每 1.8 秒静默拉取远端 diff；本地有 pending ops 或正在保存/检查时暂停自动拉取，降低覆盖风险。
+- Harness 反哺：浏览器质量脚本在第二个浏览器上下文中勾选 Auto sync，主客户端 push rename diff 后不点击 Pull，等待 peer 标题自动更新并记录断言。
+- 视觉复核：已读取 `.harness/browser/browser_mphr9x45-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphr9x45-mobile-mindmap-editor.png`，确认 Auto sync 控件在桌面和移动端协同卡片中正常。
+- 验证：`pnpm typecheck`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphrayls_hesgb8f8` 全部通过。
+- 下一步：继续产品复杂度建设，优先考虑画布小地图、节点关系洞察或协同冲突预览。

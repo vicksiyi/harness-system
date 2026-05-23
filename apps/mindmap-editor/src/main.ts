@@ -61,6 +61,7 @@ interface EditorState {
   clientId: string;
   pendingOperations: MindMapOperationInput[];
   viewport: CanvasViewport;
+  autoPullEnabled: boolean;
   rpcStatus: "checking" | "online" | "saving" | "saved" | "offline" | "error";
   rpcMessage: string;
 }
@@ -68,7 +69,8 @@ interface EditorState {
 const storageKeys = {
   map: "mindmap-studio-state-v1",
   snapshots: "mindmap-studio-snapshots-v1",
-  clientId: "mindmap-studio-client-id-v1"
+  clientId: "mindmap-studio-client-id-v1",
+  autoPull: "mindmap-studio-auto-pull-v1"
 };
 
 const state: EditorState = initialState();
@@ -145,6 +147,7 @@ function initialState(): EditorState {
     clientId: loadClientId(),
     pendingOperations: [],
     viewport: saved?.viewport ?? createCanvasViewport(),
+    autoPullEnabled: loadAutoPullPreference(),
     rpcStatus: "checking",
     rpcMessage: "Connecting to sync service"
   };
@@ -335,21 +338,28 @@ async function syncCurrentRemoteDiff(successMessage?: string): Promise<void> {
   }
 }
 
-async function pullRemoteChanges(): Promise<void> {
-  if (!state.mapId) {
+async function pullRemoteChanges(options: { silent?: boolean } = {}): Promise<void> {
+  if (!state.mapId || (options.silent && state.pendingOperations.length > 0)) {
     return;
   }
   try {
-    state.rpcStatus = "checking";
-    state.rpcMessage = "Pulling remote diff operations";
-    render();
+    if (!options.silent) {
+      state.rpcStatus = "checking";
+      state.rpcMessage = "Pulling remote diff operations";
+      render();
+    }
     const result = await syncRemoteMap({
       id: state.mapId,
       clientId: state.clientId,
       sinceVersion: state.mapVersion,
       operations: []
     });
-    applyRemoteMap(result.document, result.operations.length ? `Pulled ${result.operations.length} remote operations` : "No remote changes");
+    const remoteOperations = result.operations.filter((operation) => operation.clientId !== state.clientId);
+    if (remoteOperations.length > 0) {
+      applyRemoteMap(result.document, options.silent ? `Auto synced ${remoteOperations.length} changes` : `Pulled ${remoteOperations.length} remote operations`);
+    } else if (!options.silent) {
+      applyRemoteMap(result.document, "No remote changes");
+    }
   } catch (error) {
     state.rpcStatus = "error";
     state.rpcMessage = error instanceof Error ? error.message : "Could not pull remote changes";
@@ -488,6 +498,19 @@ function resetCanvasView(): void {
   state.viewport = createCanvasViewport();
   persistMap();
   render();
+}
+
+function setAutoPullEnabled(enabled: boolean): void {
+  state.autoPullEnabled = enabled;
+  writeStorage(storageKeys.autoPull, enabled ? "1" : "0");
+  render();
+}
+
+function tickAutoPull(): void {
+  if (!state.autoPullEnabled || state.rpcStatus === "saving" || state.rpcStatus === "checking") {
+    return;
+  }
+  void pullRemoteChanges({ silent: true });
 }
 
 function upsertOperations(nodes: MindNode[]): MindMapOperationInput[] {
@@ -762,6 +785,10 @@ function loadClientId(): string {
   const id = `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   writeStorage(storageKeys.clientId, id);
   return id;
+}
+
+function loadAutoPullPreference(): boolean {
+  return readStorage(storageKeys.autoPull) === "1";
 }
 
 function loadSnapshots(): MindMapSnapshot[] {
@@ -1116,6 +1143,10 @@ function render(): void {
               <span>v${state.mapVersion}</span>
             </div>
             <p class="remote-status saved">Client ${escapeHtml(state.clientId.slice(-7))} · ${state.pendingOperations.length} pending ops</p>
+            <label class="toggle-row">
+              <input id="auto-pull" aria-label="Auto sync changes" type="checkbox" ${state.autoPullEnabled ? "checked" : ""} />
+              Auto sync
+            </label>
             <div class="file-actions">
               <button id="push-diff" aria-label="Push diff operations" ${state.mapId && state.pendingOperations.length ? "" : "disabled"}>Push diff</button>
               <button id="pull-diff" aria-label="Pull diff operations" ${state.mapId ? "" : "disabled"}>Pull diff</button>
@@ -1371,6 +1402,9 @@ function render(): void {
   byId<HTMLButtonElement>("pull-diff").addEventListener("click", () => {
     void pullRemoteChanges();
   });
+  byId<HTMLInputElement>("auto-pull").addEventListener("change", (event) => {
+    setAutoPullEnabled((event.target as HTMLInputElement).checked);
+  });
   byId<HTMLInputElement>("map-title-input").addEventListener("change", (event) => {
     updateMapTitle((event.target as HTMLInputElement).value);
   });
@@ -1557,3 +1591,4 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 render();
 void initializeRemoteLibrary();
+window.setInterval(tickAutoPull, 1800);

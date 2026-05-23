@@ -81,6 +81,16 @@ try {
     .then(() => true)
     .catch(() => false);
   record("peer client pulls remote diff", peerPulledRemoteTitle, peerPulledRemoteTitle ? "second client pulled the primary client rename diff" : "second client did not receive the remote rename diff");
+  await peerPage.getByLabel("Auto sync changes").check();
+  const autoSyncTitle = `Auto sync ${runId}`;
+  await page.getByLabel("Map file title").fill(autoSyncTitle);
+  await page.getByRole("button", { name: "Push diff operations" }).click();
+  await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "auto-sync source diff saves");
+  const peerAutoSyncedTitle = await peerPage
+    .waitForFunction((title) => document.querySelector("#map-title-input")?.value === title, autoSyncTitle, { timeout: 7000 })
+    .then(() => true)
+    .catch(() => false);
+  record("peer client auto syncs remote diff", peerAutoSyncedTitle, peerAutoSyncedTitle ? "second client received the rename diff without manual pull" : "second client did not auto sync the remote rename diff");
   await peerContext.close();
   await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
   await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");
