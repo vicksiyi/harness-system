@@ -192,6 +192,23 @@ export interface MindMapSyncResult {
   operations: MindMapOperationRecord[];
 }
 
+export interface MindMapNodeSearchInput {
+  query: string;
+  limit?: number;
+}
+
+export interface MindMapNodeSearchResult {
+  mapId: string;
+  mapTitle: string;
+  mapVersion: number;
+  nodeId: string;
+  nodeTitle: string;
+  status: StoredMindNode["status"];
+  tags: string[];
+  notesSnippet: string;
+  updatedAt: string;
+}
+
 export interface WorkflowRun {
   id: string;
   type: WorkflowType;

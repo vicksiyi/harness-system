@@ -33,6 +33,7 @@ pnpm target:browser
 - 需求、Bugfix、Polish 优先在本目录内完成；只有验证或编排能力不足时才修改 Harness。
 - 新增领域行为时先补 `src/domain.test.ts`，保持 TDD-like 节奏。
 - 多文件、数据库和协同能力走 `services/mindmap-rpc`，不要退回纯 localStorage 假实现。
+- Files 页面负责文件管理、导入导出和跨文件节点搜索；Editor 页面应继续专注节点编辑和画布操作。
 - 所有交互控件必须具备可访问名称，浏览器质量检查会验证。
 
 ## 下一级上下文

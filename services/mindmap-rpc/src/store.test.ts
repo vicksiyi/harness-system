@@ -88,6 +88,45 @@ describe("MindMapStore", () => {
     expect(store.getMap(created.id)?.nodes).toHaveLength(2);
   });
 
+  it("searches nodes across database files", () => {
+    const launch = store.createMap({
+      title: "Launch workspace",
+      selectedId: "child",
+      nodes: nodes.map((node) => (node.id === "child" ? { ...node, title: "Research backend slice" } : node))
+    });
+    const research = store.createMap({
+      title: "Research archive",
+      selectedId: "root",
+      nodes: [
+        {
+          ...nodes[0],
+          id: "root-2",
+          title: "Audience research",
+          tags: ["research"]
+        },
+        {
+          ...nodes[1],
+          id: "child-2",
+          parentId: "root-2",
+          title: "Interview synthesis",
+          notes: "Summarize buyer interview notes",
+          tags: ["research", "insight"]
+        }
+      ]
+    });
+
+    const results = store.searchNodes({ query: "research", limit: 10 });
+
+    expect(results.map((result) => result.mapId)).toContain(launch.id);
+    expect(results.map((result) => result.mapId)).toContain(research.id);
+    expect(results[0]).toMatchObject({
+      mapTitle: "Launch workspace",
+      nodeTitle: "Research backend slice",
+      status: "seed"
+    });
+    expect(results.some((result) => result.nodeTitle === "Interview synthesis" && result.tags.includes("insight"))).toBe(true);
+  });
+
   it("updates files with optimistic version checks", () => {
     const created = store.createMap({ title: "Versioned", selectedId: "root", nodes });
     const saved = store.saveMap({

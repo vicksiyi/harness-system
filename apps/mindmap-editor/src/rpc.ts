@@ -1,4 +1,13 @@
-import type { MindMapFileDocument, MindMapFileSummary, MindMapSaveInput, MindMapSyncInput, MindMapSyncResult, RpcResponse } from "@harness/shared";
+import type {
+  MindMapFileDocument,
+  MindMapFileSummary,
+  MindMapNodeSearchInput,
+  MindMapNodeSearchResult,
+  MindMapSaveInput,
+  MindMapSyncInput,
+  MindMapSyncResult,
+  RpcResponse
+} from "@harness/shared";
 
 const rpcBaseUrl = import.meta.env.VITE_MINDMAP_RPC_URL ?? "http://localhost:4105";
 
@@ -33,6 +42,10 @@ export function listRemoteMaps(): Promise<MindMapFileSummary[]> {
 
 export function getRemoteMap(id: string): Promise<MindMapFileDocument | null> {
   return mindMapRpc<MindMapFileDocument | null>("getMap", { id });
+}
+
+export function searchRemoteNodes(input: MindMapNodeSearchInput): Promise<MindMapNodeSearchResult[]> {
+  return mindMapRpc<MindMapNodeSearchResult[]>("searchNodes", input);
 }
 
 export function createRemoteMap(input: Omit<MindMapSaveInput, "id" | "baseVersion">): Promise<MindMapFileDocument> {

@@ -5,6 +5,8 @@ import {
   createId,
   type MindMapFileDocument,
   type MindMapFileSummary,
+  type MindMapNodeSearchInput,
+  type MindMapNodeSearchResult,
   type MindMapOperationInput,
   type MindMapOperationRecord,
   type MindMapSaveInput,
@@ -38,6 +40,18 @@ interface NodeRow {
   x: number;
   y: number;
   parent_id: string | null;
+  updated_at: string;
+}
+
+interface NodeSearchRow {
+  map_id: string;
+  map_title: string;
+  map_version: number;
+  node_id: string;
+  node_title: string;
+  notes: string;
+  tags_json: string;
+  status: StoredMindNode["status"];
   updated_at: string;
 }
 
@@ -118,6 +132,58 @@ export class MindMapStore {
       ...summaryFromRow(row),
       nodes: this.readNodes(id)
     };
+  }
+
+  searchNodes(input: MindMapNodeSearchInput): MindMapNodeSearchResult[] {
+    const query = input.query.trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+    const limit = Math.max(1, Math.min(50, Math.round(input.limit ?? 12)));
+    const pattern = `%${escapeLike(query)}%`;
+    const prefixPattern = `${escapeLike(query)}%`;
+    const rows = this.db
+      .prepare(
+        `SELECT maps.id AS map_id,
+                maps.title AS map_title,
+                maps.version AS map_version,
+                nodes.id AS node_id,
+                nodes.title AS node_title,
+                nodes.notes,
+                nodes.tags_json,
+                nodes.status,
+                nodes.updated_at
+           FROM nodes
+           JOIN maps ON maps.id = nodes.map_id
+          WHERE lower(nodes.title) LIKE ? ESCAPE '\\'
+             OR lower(nodes.notes) LIKE ? ESCAPE '\\'
+             OR lower(nodes.tags_json) LIKE ? ESCAPE '\\'
+             OR lower(maps.title) LIKE ? ESCAPE '\\'
+          ORDER BY
+            CASE
+              WHEN lower(nodes.title) = ? THEN 0
+              WHEN lower(nodes.title) LIKE ? ESCAPE '\\' THEN 1
+              WHEN lower(maps.title) LIKE ? ESCAPE '\\' THEN 2
+              ELSE 3
+            END,
+            maps.updated_at DESC,
+            nodes.updated_at DESC,
+            nodes.title ASC
+          LIMIT ?`
+      )
+      .all(pattern, pattern, pattern, pattern, query, prefixPattern, prefixPattern, limit) as unknown as NodeSearchRow[];
+
+    return rows.map((row) => ({
+      mapId: row.map_id,
+      mapTitle: row.map_title,
+      mapVersion: row.map_version,
+      nodeId: row.node_id,
+      nodeTitle: row.node_title,
+      status: normalizeStatus(row.status),
+      tags: readTags(row.tags_json),
+      notesSnippet: createSnippet(row.notes, query),
+      updatedAt: row.updated_at
+    }));
   }
 
   createMap(input: CreateMapInput): MindMapFileDocument {
@@ -465,6 +531,22 @@ function readOperationPayload(value: string): MindMapOperationInput {
     // Fall through to a harmless operation shape for corrupted historical rows.
   }
   return { type: "rename-map", title: "Unknown operation" };
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+function createSnippet(notes: string, query: string): string {
+  const normalized = notes.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return "";
+  }
+  const lower = normalized.toLowerCase();
+  const index = lower.indexOf(query);
+  const start = index > 24 ? index - 24 : 0;
+  const snippet = normalized.slice(start, start + 96);
+  return `${start > 0 ? "... " : ""}${snippet}${start + 96 < normalized.length ? " ..." : ""}`;
 }
 
 function findWorkspaceRoot(start: string): string {

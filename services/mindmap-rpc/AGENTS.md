@@ -14,9 +14,11 @@
 
 - `listMaps`
 - `getMap`
+- `searchNodes`
 - `createMap`
 - `saveMap`
 - `deleteMap`
+- `syncMap`
 
 ## 常用命令
 
@@ -30,6 +32,7 @@ pnpm test services/mindmap-rpc/src/store.test.ts
 - 本服务属于产品样例，不要引入 Harness workflow、Agent 或 Codex UI 概念。
 - 数据库默认路径是 `.harness/mindmap/mindmaps.sqlite`，测试必须使用临时路径。
 - `saveMap` 使用 `baseVersion` 做乐观并发检查；后续 DIFF 协同时应复用版本字段。
+- `searchNodes` 是跨文件节点检索入口，查询节点标题、备注、标签和文件标题；如果未来文件量很大，应优先在这里做索引和分页，而不是在前端遍历。
 - Schema 变更必须保持旧数据可迁移，并补存储层测试。
 
 ## 下一级上下文

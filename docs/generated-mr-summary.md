@@ -1,4 +1,4 @@
-# MR Summary: Implement: 给 Files 页面增加文件搜索和排序，并纳入浏览器质量门
+# MR Summary: Implement: 给 Files 页面增加跨文件节点搜索，使用 mindmap-rpc 查询数据库节点，并纳入浏览器质量门
 
 Type: requirement
 Target Project: apps/mindmap-editor
@@ -6,7 +6,7 @@ Status: passed
 Stage: completed
 
 ## Background
-给 Files 页面增加文件搜索和排序，并纳入浏览器质量门
+给 Files 页面增加跨文件节点搜索，使用 mindmap-rpc 查询数据库节点，并纳入浏览器质量门
 
 ## Scope
 - Modify the isolated target project at apps/mindmap-editor.
@@ -15,28 +15,34 @@ Stage: completed
 - Refresh generated MR summary, release notes, and execution records.
 
 ## Changes
-- Added file-library search on the isolated Files page so operators can filter database-backed mind map files without leaving file management.
-- Added file sorting by most recent update, title, and idea count through a typed `MapFileSortMode` domain model.
-- Kept the editor page focused on node editing; file discovery remains isolated from the canvas workspace.
-- Extended `browser-quality-check.mjs` to create a database-backed file, filter the file list, switch the sort mode, and then continue export/import and editor regression checks.
-- Added unit coverage for file filtering and sorting, including the TDD correction for title ordering.
+- Added `searchNodes` to the isolated `mindmap-rpc` JSON-RPC service.
+- Added shared request/result types for cross-file node search and exposed the method in service health metadata.
+- Implemented SQLite-backed search across node titles, notes, tags, and map titles, with result ranking and snippets.
+- Added a Files page Node Search panel that calls the product RPC service and lets users jump from a result into the editor.
+- Moved Node Search above the long file list after screenshot QA showed it was buried below many saved files.
+- Extended browser quality checks to verify cross-file node search against a freshly saved database file.
+- Updated product and RPC `AGENTS.md` context so future Agent runs understand the Files page / backend boundary.
 
 ## Validation
-- `pnpm target:test`: passed.
+- TDD red: `pnpm test services/mindmap-rpc/src/store.test.ts` first failed with `store.searchNodes is not a function`.
+- TDD correction: ranking expectation was adjusted after implementation correctly prioritized direct node-title matches over map-title matches.
+- `pnpm test services/mindmap-rpc/src/store.test.ts`: passed.
 - `pnpm typecheck`: passed.
+- `pnpm test`: passed with 66 tests.
 - `pnpm target:build`: passed.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed, including file search and sort checks.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed with 65 total tests.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给 Files 页面增加文件搜索和排序，并纳入浏览器质量门"`: workflow `run_mphvdk6q_6fklwl3i` passed.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed, including `cross-file node search finds saved node`.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed.
+- Workflow `run_mphvsld0_04f2is6q`: passed.
+- Screenshot QA reviewed `.harness/browser/files-node-search-review.png`; Node Search was repositioned above the file list after visual review.
 
 ## Risks
-- Search currently indexes title, node count, and version; future metadata such as owner or tags will need explicit inclusion.
-- Sorting runs client-side over the loaded file list. Very large file libraries should move sorting/filtering into the RPC query.
-- Browser validation depends on `mindmap-rpc` being reachable at `http://localhost:4105`.
+- Search uses simple SQLite `LIKE` matching. Large libraries may need FTS indexing and pagination.
+- Search result ranking is deterministic but basic; relevance scoring can become richer once node metadata grows.
+- Existing dev servers must be restarted after this change so `mindmap-rpc` exposes the new `searchNodes` method.
 
 ## Rollback
-- Revert this commit to remove the Files page filter/sort controls and the additional browser quality assertions.
+- Revert this commit to remove `searchNodes`, the Files page Node Search panel, and the browser quality assertion.
 
 ## Follow-ups
-- Add cross-file search across node titles once the backend supports indexed queries.
-- Add persisted user preferences for Files page sort mode.
+- Add FTS-backed search and tag/status filters for very large map libraries.
+- Add a result click browser assertion that opens the matching node in the editor.

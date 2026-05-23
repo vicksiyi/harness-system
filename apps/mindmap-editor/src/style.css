@@ -251,6 +251,7 @@ label,
 .snapshot-list,
 .relationship-list,
 .file-list,
+.node-search-panel,
 .file-actions,
 .transfer-actions {
   display: grid;
@@ -361,6 +362,12 @@ label {
 .snapshot-row strong,
 .relationship-row strong {
   font-weight: 850;
+}
+
+.node-search-row small {
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .node-row.selected,

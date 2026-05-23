@@ -1,4 +1,13 @@
-import { asRecord, createRpcServer, servicePort, type MindMapOperationInput, type MindMapSaveInput, type ServiceHealth, type StoredMindNode } from "@harness/shared";
+import {
+  asRecord,
+  createRpcServer,
+  servicePort,
+  type MindMapNodeSearchInput,
+  type MindMapOperationInput,
+  type MindMapSaveInput,
+  type ServiceHealth,
+  type StoredMindNode
+} from "@harness/shared";
 import { defaultMindMapDatabasePath, MindMapStore } from "./store.js";
 
 const databasePath = defaultMindMapDatabasePath();
@@ -12,6 +21,15 @@ function getMap(params: unknown) {
   const record = asRecord(params);
   const id = typeof record.id === "string" ? record.id : "";
   return id ? store.getMap(id) : null;
+}
+
+function searchNodes(params: unknown) {
+  const record = asRecord(params);
+  const input: MindMapNodeSearchInput = {
+    query: typeof record.query === "string" ? record.query : "",
+    limit: typeof record.limit === "number" ? record.limit : undefined
+  };
+  return store.searchNodes(input);
 }
 
 function createMap(params: unknown) {
@@ -57,6 +75,7 @@ createRpcServer({
   methods: {
     listMaps,
     getMap,
+    searchNodes,
     createMap,
     saveMap,
     deleteMap,
@@ -69,7 +88,7 @@ createRpcServer({
     details: {
       databasePath,
       mapCount: store.listMaps().length,
-      methods: ["listMaps", "getMap", "createMap", "saveMap", "deleteMap", "syncMap"]
+      methods: ["listMaps", "getMap", "searchNodes", "createMap", "saveMap", "deleteMap", "syncMap"]
     }
   })
 });

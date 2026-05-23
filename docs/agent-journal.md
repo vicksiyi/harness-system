@@ -500,3 +500,26 @@
 - Harness 反哺：浏览器质量脚本会在保存数据库文件后输入搜索词、断言文件行可见、切换排序模式，并继续执行导出、导入、协同和画布回归。
 - 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphvdk6q_6fklwl3i` 全部通过。
 - 下一步：继续自主迭代，优先考虑跨文件节点搜索、文件元数据筛选或编辑器快捷键帮助面板。
+
+## Run run_mphvsld0_04f2is6q
+
+- At: 2026-05-23T05:01:42.254Z
+- Type: requirement
+- Prompt: 给 Files 页面增加跨文件节点搜索，使用 mindmap-rpc 查询数据库节点，并纳入浏览器质量门
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Cross-File Node Search Loop
+
+- At: 2026-05-23
+- 目标：继续把产品样例推进到真实后端/RPC/数据库能力，支持在 Files 页面跨文件检索节点内容。
+- TDD 过程：先补 `MindMapStore.searchNodes` 单测并观察 `store.searchNodes is not a function`；实现后又发现排序期望需要让“节点标题直接匹配”优先于“文件名匹配”，修正测试后通过。
+- 产品变化：`mindmap-rpc` 新增 `searchNodes` JSON-RPC 方法；Files 页面新增 Node Search，可搜索标题、备注、标签、文件标题，并显示文件上下文、状态、标签和备注摘要。
+- 视觉修复：截图发现 Node Search 被长文件列表压到页面底部，已移到文件列表之前，第一屏即可看到。
+- Harness 反哺：浏览器质量脚本新增跨文件节点搜索断言；`AGENTS.md` 和架构文档补充产品后端边界。
+- 验证：`pnpm test services/mindmap-rpc/src/store.test.ts`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphvsld0_04f2is6q` 全部通过。
+- 视觉复核：已读取 `.harness/browser/files-node-search-review.png`，确认 Node Search 上移后可见、结果没有明显截断。
+- 下一步：继续自主迭代，优先考虑搜索结果点击回归、节点详情元数据或 FTS 搜索。

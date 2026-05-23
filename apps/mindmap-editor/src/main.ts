@@ -46,8 +46,8 @@ import {
   type MindMapSnapshot,
   type MindNode
 } from "./domain.js";
-import { createRemoteMap, getRemoteMap, listRemoteMaps, saveRemoteMap, syncRemoteMap } from "./rpc.js";
-import type { MindMapFileDocument, MindMapFileSummary, MindMapOperationInput, StoredMindNode } from "@harness/shared";
+import { createRemoteMap, getRemoteMap, listRemoteMaps, saveRemoteMap, searchRemoteNodes, syncRemoteMap } from "./rpc.js";
+import type { MindMapFileDocument, MindMapFileSummary, MindMapNodeSearchResult, MindMapOperationInput, StoredMindNode } from "@harness/shared";
 
 interface EditorState {
   nodes: MindNode[];
@@ -68,6 +68,10 @@ interface EditorState {
   mapTitle: string;
   mapVersion: number;
   mapFiles: MindMapFileSummary[];
+  nodeSearchQuery: string;
+  nodeSearchResults: MindMapNodeSearchResult[];
+  nodeSearchStatus: "idle" | "searching" | "ready" | "error";
+  nodeSearchMessage: string;
   clientId: string;
   pendingOperations: MindMapOperationInput[];
   viewport: CanvasViewport;
@@ -86,6 +90,7 @@ const storageKeys = {
 
 const state: EditorState = initialState();
 let remoteSaveTimer: number | null = null;
+let nodeSearchTimer: number | null = null;
 let applyingRemoteMap = false;
 let dragState:
   | {
@@ -158,6 +163,10 @@ function initialState(): EditorState {
     mapTitle: saved?.mapTitle ?? "Launch workspace",
     mapVersion: saved?.mapVersion ?? 0,
     mapFiles: [],
+    nodeSearchQuery: "",
+    nodeSearchResults: [],
+    nodeSearchStatus: "idle",
+    nodeSearchMessage: "Search node titles, notes, tags, or file names",
     clientId: loadClientId(),
     pendingOperations: [],
     viewport: saved?.viewport ?? createCanvasViewport(),
@@ -397,6 +406,65 @@ async function openRemoteMap(id: string): Promise<void> {
   } catch (error) {
     state.rpcStatus = "error";
     state.rpcMessage = error instanceof Error ? error.message : "Could not open map file";
+    render();
+  }
+}
+
+function scheduleNodeSearch(): void {
+  if (nodeSearchTimer !== null) {
+    window.clearTimeout(nodeSearchTimer);
+  }
+  nodeSearchTimer = window.setTimeout(() => {
+    void runNodeSearch();
+  }, 220);
+}
+
+async function runNodeSearch(): Promise<void> {
+  const query = state.nodeSearchQuery.trim();
+  if (!query) {
+    state.nodeSearchResults = [];
+    state.nodeSearchStatus = "idle";
+    state.nodeSearchMessage = "Search node titles, notes, tags, or file names";
+    render();
+    return;
+  }
+  try {
+    state.nodeSearchStatus = "searching";
+    state.nodeSearchMessage = `Searching for "${query}"`;
+    render();
+    const results = await searchRemoteNodes({ query, limit: 12 });
+    state.nodeSearchResults = results;
+    state.nodeSearchStatus = "ready";
+    state.nodeSearchMessage = results.length ? `${results.length} matching nodes` : "No matching nodes";
+    render();
+  } catch (error) {
+    state.nodeSearchResults = [];
+    state.nodeSearchStatus = "error";
+    state.nodeSearchMessage = error instanceof Error ? error.message : "Could not search nodes";
+    render();
+  }
+}
+
+async function openRemoteSearchResult(mapId: string, nodeId: string): Promise<void> {
+  try {
+    state.rpcStatus = "checking";
+    state.rpcMessage = "Opening search result";
+    render();
+    const document = await getRemoteMap(mapId);
+    if (!document) {
+      throw new Error("Mind map file was not found.");
+    }
+    const target = document.nodes.find((node) => node.id === nodeId);
+    applyRemoteMap(document, target ? `Opened ${target.title}` : `Opened ${document.title}`);
+    if (target) {
+      state.selectedId = target.id;
+    }
+    state.view = "editor";
+    persistMap();
+    render();
+  } catch (error) {
+    state.rpcStatus = "error";
+    state.rpcMessage = error instanceof Error ? error.message : "Could not open search result";
     render();
   }
 }
@@ -947,6 +1015,32 @@ function importPreviewMarkup(): string {
   `;
 }
 
+function nodeSearchMarkup(): string {
+  if (state.nodeSearchStatus === "idle" && !state.nodeSearchQuery.trim()) {
+    return `<p class="empty">Search across every saved file to jump directly into a node.</p>`;
+  }
+  if (state.nodeSearchStatus === "searching") {
+    return `<p class="empty">Searching saved maps...</p>`;
+  }
+  if (state.nodeSearchStatus === "error") {
+    return `<p class="import-error">${escapeHtml(state.nodeSearchMessage)}</p>`;
+  }
+  if (state.nodeSearchResults.length === 0) {
+    return `<p class="empty">No matching nodes.</p>`;
+  }
+  return state.nodeSearchResults
+    .map(
+      (result) => `
+        <button class="file-row node-search-row" data-node-search-map-id="${escapeHtml(result.mapId)}" data-node-search-node-id="${escapeHtml(result.nodeId)}" aria-label="Open ${escapeHtml(result.nodeTitle)} in ${escapeHtml(result.mapTitle)}">
+          <strong>${escapeHtml(result.nodeTitle)}</strong>
+          <span>${escapeHtml(result.mapTitle)} · ${escapeHtml(result.status)} · ${result.tags.map(escapeHtml).join(", ") || "no tags"}</span>
+          ${result.notesSnippet ? `<small>${escapeHtml(result.notesSnippet)}</small>` : ""}
+        </button>
+      `
+    )
+    .join("");
+}
+
 function renderFilesPage(app: HTMLElement): void {
   const markdown = exportMapAsMarkdown(state.nodes);
   const jsonExport = exportMapAsJson(state.nodes, state.selectedId);
@@ -1000,6 +1094,20 @@ function renderFilesPage(app: HTMLElement): void {
             <div><span>Roots</span><strong>${summary.roots}</strong></div>
             <div><span>Leaves</span><strong>${summary.leaves}</strong></div>
             <div><span>Done</span><strong>${summary.completion}</strong></div>
+          </div>
+          <div class="node-search-panel" aria-label="Cross-file node search">
+            <div class="section-head">
+              <h2>Node Search</h2>
+              <span>${escapeHtml(state.nodeSearchStatus)}</span>
+            </div>
+            <label>
+              Search all nodes
+              <input id="node-search-query" aria-label="Search nodes across files" value="${escapeHtml(state.nodeSearchQuery)}" placeholder="Search node content" />
+            </label>
+            <p class="remote-status ${state.nodeSearchStatus === "error" ? "error" : state.nodeSearchStatus === "ready" ? "online" : ""}">${escapeHtml(state.nodeSearchMessage)}</p>
+            <div class="file-list node-search-results">
+              ${nodeSearchMarkup()}
+            </div>
           </div>
           <div class="file-list">
             ${
@@ -1082,10 +1190,23 @@ function renderFilesPage(app: HTMLElement): void {
     state.fileSort = (event.target as HTMLSelectElement).value as MapFileSortMode;
     render();
   });
+  byId<HTMLInputElement>("node-search-query").addEventListener("input", (event) => {
+    state.nodeSearchQuery = (event.target as HTMLInputElement).value;
+    scheduleNodeSearch();
+  });
   document.querySelectorAll<HTMLButtonElement>("[data-map-file-id]").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.dataset.mapFileId) {
         void openRemoteMap(button.dataset.mapFileId);
+      }
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-node-search-map-id][data-node-search-node-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mapId = button.dataset.nodeSearchMapId;
+      const nodeId = button.dataset.nodeSearchNodeId;
+      if (mapId && nodeId) {
+        void openRemoteSearchResult(mapId, nodeId);
       }
     });
   });

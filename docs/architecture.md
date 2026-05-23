@@ -15,6 +15,7 @@ Harness System 是一个本地优先的 Codex / Agent 研发闭环验证系统�
 - `harness-worktree`：Skill 背后的流程执行入口。
 - `skills/*`：Codex Skill 包。
 - `apps/mindmap-editor`：与 Harness 控制面隔离的目标产品，需求默认作用于这里；产品 UI 不展示 Harness/Agent/编排概念。
+- `services/mindmap-rpc`：目标产品后端，提供多文件、DIFF 协同和跨文件节点搜索等 JSON-RPC 能力，数据落在本地 SQLite。
 
 ## 协议
 
