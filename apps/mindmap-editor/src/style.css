@@ -572,7 +572,7 @@ label {
 }
 
 .transfer-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .history-actions {
@@ -597,6 +597,10 @@ label {
   background: #2563eb;
   color: #fff;
   font-weight: 850;
+}
+
+.file-picker input {
+  background: #f8fafc;
 }
 
 .transfer-actions button:disabled,

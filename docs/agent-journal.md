@@ -345,3 +345,25 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphqukgh-desktop-viewport-mindmap-editor.png`、`.harness/browser/browser_mphqukgh-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphqukgh-mobile-mindmap-editor.png`，确认桌面平移缩放、连接线和移动端布局正常。
 - 验证：`pnpm typecheck && pnpm target:test` 通过 22 条产品单测；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 57 条总测试、构建和浏览器门禁；workflow `run_mphqvfcp_2441duqy` 通过。
 - 下一步：继续产品复杂度建设，优先考虑导入导出的文件级下载/上传体验、自动拉取远端 diff 或画布小地图。
+
+## Run run_mphr4zhb_i7lulh0f
+
+- At: 2026-05-23T02:51:20.939Z
+- Type: requirement
+- Prompt: 完善脑图编辑器文件级导入导出下载上传体验
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## File Transfer Loop
+
+- At: 2026-05-23
+- 目标：把导入导出从 textarea 预览升级为真实文件下载和 JSON 文件上传。
+- TDD scope：先在 `apps/mindmap-editor/src/domain.test.ts` 增加 export artifact 单测，锁定安全文件名、MIME 和内容，再接浏览器下载/上传。
+- 已完成：新增 `createExportArtifact`，支持 JSON/Markdown 下载；JSON Transfer 增加文件上传入口；上传后沿用现有预览和 Apply 流程。
+- Harness 反哺：浏览器质量脚本现在会等待 JSON/Markdown download 事件、检查建议文件名后缀，并通过 Playwright `setInputFiles` 上传 JSON 文件触发真实导入预览。
+- 视觉复核：已读取 `.harness/browser/browser_mphr45mq-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphr45mq-mobile-mindmap-editor.png`，确认下载按钮、文件输入和移动端三按钮布局正常。
+- 验证：`pnpm typecheck && pnpm target:test` 通过 23 条产品单测；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 58 条总测试、构建和浏览器门禁；workflow `run_mphr4zhb_i7lulh0f` 通过。
+- 下一步：继续增加产品复杂度，优先考虑自动拉取远端 diff、画布小地图或节点详情侧栏的关系洞察。

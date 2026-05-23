@@ -9,6 +9,7 @@ import {
   createCanvasViewport,
   createChildNode,
   createEmptyHistory,
+  createExportArtifact,
   createHistoryFrame,
   createNode,
   createSnapshot,
@@ -599,6 +600,40 @@ function applyImport(): void {
   ].slice(0, 6);
   persistSnapshots();
   commit(result.nodes, result.selectedId, "Apply JSON import");
+}
+
+async function importJsonFile(file: File | undefined): Promise<void> {
+  if (!file) {
+    return;
+  }
+  try {
+    const content = await file.text();
+    state.importJson = content;
+    state.importResult = parseMindMapJson(content);
+    render();
+  } catch {
+    state.importJson = "";
+    state.importResult = { ok: false, error: "Could not read JSON file." };
+    render();
+  }
+}
+
+function downloadExport(format: "json" | "markdown"): void {
+  const artifact = createExportArtifact({
+    format,
+    nodes: state.nodes,
+    selectedId: state.selectedId,
+    title: state.mapTitle
+  });
+  const blob = new Blob([artifact.content], { type: artifact.mimeType });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = artifact.fileName;
+  anchor.click();
+  window.setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+  }, 0);
 }
 
 function openCommandPalette(query = ""): void {
@@ -1274,6 +1309,7 @@ function render(): void {
               <span>${state.nodes.length} ideas</span>
             </div>
             <textarea id="markdown-export" aria-label="Markdown export preview" readonly rows="9">${escapeHtml(markdown)}</textarea>
+            <button id="download-markdown" class="wide-button" aria-label="Download markdown export">Download Markdown</button>
           </section>
 
           <section class="context-panel">
@@ -1289,8 +1325,13 @@ function render(): void {
               Import JSON
               <textarea id="json-import" aria-label="JSON import input" rows="6" placeholder="Paste a Mind Map Studio JSON export">${escapeHtml(state.importJson)}</textarea>
             </label>
+            <label class="file-picker">
+              Import JSON file
+              <input id="json-file-import" aria-label="Import JSON file" type="file" accept=".json,application/json" />
+            </label>
             ${importPreviewMarkup()}
             <div class="transfer-actions">
+              <button id="download-json" aria-label="Download JSON export">Download</button>
               <button id="preview-import" aria-label="Preview JSON import">Preview</button>
               <button id="apply-import" aria-label="Apply JSON import" ${state.importResult?.ok ? "" : "disabled"}>Apply</button>
             </div>
@@ -1336,8 +1377,14 @@ function render(): void {
   byId<HTMLInputElement>("map-title-input").addEventListener("input", (event) => {
     updateMapTitle((event.target as HTMLInputElement).value);
   });
+  byId<HTMLButtonElement>("download-markdown").addEventListener("click", () => downloadExport("markdown"));
+  byId<HTMLButtonElement>("download-json").addEventListener("click", () => downloadExport("json"));
   byId<HTMLButtonElement>("preview-import").addEventListener("click", () => previewImport());
   byId<HTMLButtonElement>("apply-import").addEventListener("click", applyImport);
+  byId<HTMLInputElement>("json-file-import").addEventListener("change", (event) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    void importJsonFile(file);
+  });
   byId<HTMLTextAreaElement>("json-import").addEventListener("input", (event) => {
     state.importJson = (event.target as HTMLTextAreaElement).value;
     state.importResult = parseMindMapJson(state.importJson);

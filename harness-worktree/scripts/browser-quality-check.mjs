@@ -85,6 +85,16 @@ try {
   await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
   await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");
   await visible(page.getByRole("heading", { name: "Markdown Export" }), "markdown export section");
+  const [jsonDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download JSON export" }).click()
+  ]);
+  record("json file export download", /\.json$/.test(jsonDownload.suggestedFilename()), `downloaded ${jsonDownload.suggestedFilename()}`);
+  const [markdownDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download markdown export" }).click()
+  ]);
+  record("markdown file export download", /\.md$/.test(markdownDownload.suggestedFilename()), `downloaded ${markdownDownload.suggestedFilename()}`);
 
   await page.getByLabel("Search ideas").fill("Narrative");
   await visible(page.getByRole("button", { name: /Narrative options/ }).first(), "search filters idea rows");
@@ -312,8 +322,10 @@ try {
       }
     ]
   });
-  await page.getByLabel("JSON import input").fill(importPayload);
-  await visible(page.getByText("1 ideas · 1 roots"), "json import preview appears");
+  const importFilePath = join(artifactDir, `${runId}-import.json`);
+  await writeFile(importFilePath, importPayload, "utf8");
+  await page.getByLabel("Import JSON file").setInputFiles(importFilePath);
+  await visible(page.getByText("1 ideas · 1 roots"), "json file import preview appears");
   await page.getByRole("button", { name: "Apply JSON import" }).click();
   await visible(page.getByRole("button", { name: /Imported from browser/ }).first(), "json import applies to map");
   await page.getByRole("button", { name: "Push diff operations" }).click();

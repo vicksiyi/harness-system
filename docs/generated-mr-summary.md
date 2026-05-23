@@ -1,47 +1,45 @@
-# MR Summary: Infinite Canvas Viewport for Mind Map Studio
+# MR Summary: File-Level Import and Export
 
 Type: requirement
 Target Project: apps/mindmap-editor
 Status: passed
-Workflow Run: run_mphqvfcp_2441duqy
+Workflow Run: run_mphr4zhb_i7lulh0f
 
 ## Background
 
-Mind Map Studio needed to move beyond a fixed visible board so larger maps can be explored without compressing the information architecture. The feature also needed to prove that Canvas connectors, node dragging, sync flows, and mobile layout remain stable.
+Mind Map Studio already had JSON and Markdown text previews, but a real editor workflow needs file-level transfer: download portable exports and upload JSON files without manual copy/paste.
 
 ## Scope
 
-- Added a persistent `CanvasViewport` domain model with pan and zoom clamping.
-- Increased node coordinate range for large-map authoring.
-- Added canvas pan, zoom, and reset controls to the product UI.
-- Rendered the map on a transformed large canvas surface while keeping Canvas connector drawing in map coordinates.
-- Made desktop drag math zoom-aware.
-- Preserved a static mobile layout so narrow screens remain readable.
-- Extended browser quality checks with viewport control, transform, reset, and screenshot assertions.
+- Added export artifact generation for JSON and Markdown.
+- Added safe export filenames based on the current map title and export date.
+- Added Download Markdown and Download JSON controls.
+- Added Import JSON file control that reads a local file into the existing import preview/apply flow.
+- Extended browser quality checks to verify real downloads and real file upload.
 
 ## Architecture Notes
 
-The product keeps node coordinates in document space and applies the viewport only at the rendered surface level. Connectors are still drawn in document coordinates, so lines and nodes transform together and avoid the previous class of drift bugs.
+The import/export logic remains in the isolated target product domain layer. The UI only handles browser-specific Blob download and File upload plumbing. Existing parsing, preview, snapshot-before-import, and diff-sync behavior remain shared with textarea imports.
 
 ## Validation
 
-- `pnpm typecheck && pnpm target:test`: passed, 22 target tests.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed with desktop, viewport, connector, and mobile screenshots.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed, 57 total tests plus build and browser quality.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图编辑器增加无限画布平移缩放视口"`: passed with run `run_mphqvfcp_2441duqy`.
+- `pnpm target:test`: passed, 23 target tests.
+- `pnpm typecheck && pnpm target:test && HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed, 58 total tests plus build and browser quality.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "完善脑图编辑器文件级导入导出下载上传体验"`: passed with run `run_mphr4zhb_i7lulh0f`.
 
 ## Risks
 
-- Current pan and zoom controls are button-based; trackpad wheel zoom and drag-to-pan are not implemented yet.
-- The canvas is very large but still bounded by the product coordinate clamp of 100000.
-- Viewport state is local to the browser session and not yet shared through the database-backed map file.
+- Browser download behavior may vary in non-Chromium browsers, although the feature uses standard Blob URLs and anchor downloads.
+- Imported files are JSON-only; Markdown import is not implemented.
+- Uploaded file contents are read client-side and are not stored until the user applies and syncs the map.
 
 ## Rollback
 
-Revert the commit adding the viewport model, toolbar, surface transform, and browser-quality assertions. Existing map documents remain compatible because `viewport` is an optional local storage field.
+Revert the export artifact helper, the download/upload controls, and browser-quality additions. Existing maps and database documents are unchanged.
 
 ## Follow-ups
 
-- Add drag-to-pan and wheel or keyboard zoom.
-- Add a mini-map or viewport overview for very large maps.
-- Decide whether viewport should sync per file or remain per-user local state.
+- Add Markdown import or structured outline import.
+- Add export buttons for the active branch only.
+- Add import conflict preview before replacing the current map.

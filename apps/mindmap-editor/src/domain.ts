@@ -75,6 +75,14 @@ export interface CanvasViewport {
   zoom: number;
 }
 
+export type ExportFormat = "json" | "markdown";
+
+export interface ExportArtifact {
+  content: string;
+  fileName: string;
+  mimeType: string;
+}
+
 export interface MindMapImportPreview {
   total: number;
   roots: number;
@@ -322,6 +330,32 @@ export function exportMapAsJson(nodes: MindNode[], selectedId: string, exportedA
     null,
     2
   );
+}
+
+export function createExportArtifact(input: {
+  format: ExportFormat;
+  nodes: MindNode[];
+  selectedId: string;
+  title?: string;
+  exportedAt?: string;
+}): ExportArtifact {
+  const exportedAt = input.exportedAt ?? new Date().toISOString();
+  const date = /^\d{4}-\d{2}-\d{2}/.exec(exportedAt)?.[0] ?? "export";
+  const baseName = fileNameSlug(input.title ?? "mind-map");
+
+  if (input.format === "markdown") {
+    return {
+      content: exportMapAsMarkdown(input.nodes),
+      fileName: `${baseName}-${date}.md`,
+      mimeType: "text/markdown;charset=utf-8"
+    };
+  }
+
+  return {
+    content: exportMapAsJson(input.nodes, input.selectedId, exportedAt),
+    fileName: `${baseName}-${date}.json`,
+    mimeType: "application/json;charset=utf-8"
+  };
 }
 
 export function parseMindMapJson(value: string): MindMapImportResult {
@@ -602,6 +636,15 @@ function normalizeTitle(title: string): string {
 
 function normalizeTags(tags: string[]): string[] {
   return [...new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function fileNameSlug(value: string): string {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || "mind-map";
 }
 
 function clampCoordinate(value: number): number {

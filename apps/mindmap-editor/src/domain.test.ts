@@ -4,6 +4,7 @@ import {
   buildCommandPalette,
   autoLayoutNodes,
   collectTags,
+  createExportArtifact,
   createCanvasViewport,
   createSnapshot,
   completionScore,
@@ -183,6 +184,30 @@ describe("mind map domain", () => {
     expect(parsed.selectedId).toBe("story");
     expect(parsed.nodes).toHaveLength(3);
     expect(json).toContain('"exportedAt": "2026-05-23T06:00:00.000Z"');
+  });
+
+  it("creates downloadable export artifacts with safe file names", () => {
+    const json = createExportArtifact({
+      format: "json",
+      nodes,
+      selectedId: "story",
+      title: "Launch / Research Map!",
+      exportedAt: "2026-05-23T06:00:00.000Z"
+    });
+    const markdown = createExportArtifact({
+      format: "markdown",
+      nodes,
+      selectedId: "story",
+      title: "  ",
+      exportedAt: "not-a-date"
+    });
+
+    expect(json.fileName).toBe("launch-research-map-2026-05-23.json");
+    expect(json.mimeType).toBe("application/json;charset=utf-8");
+    expect(JSON.parse(json.content)).toMatchObject({ selectedId: "story" });
+    expect(markdown.fileName).toBe("mind-map-export.md");
+    expect(markdown.mimeType).toBe("text/markdown;charset=utf-8");
+    expect(markdown.content).toContain("# Mind Map Export");
   });
 
   it("parses imported JSON with a preview and normalized nodes", () => {

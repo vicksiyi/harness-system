@@ -1,29 +1,28 @@
-# Release Notes: Infinite Canvas Viewport
+# Release Notes: File-Level Import and Export
 
 Date: 2026-05-23
 Target Project: apps/mindmap-editor
-Workflow Run: run_mphqvfcp_2441duqy
+Workflow Run: run_mphr4zhb_i7lulh0f
 
 ## Added
 
-- Large canvas viewport with pan, zoom, and reset controls.
-- Persistent local viewport state for the current browser.
-- Zoom-aware desktop node dragging.
-- Browser quality checks for infinite canvas state and screenshots.
+- Download Markdown export.
+- Download JSON export.
+- Import JSON file upload.
+- Browser validation for download events and JSON file upload.
 
 ## Changed
 
-- Node coordinates now support large-map authoring up to 100000 in each axis.
-- Canvas rendering now uses a transformed surface so nodes and connector pixels move together.
-- Mobile keeps a readable stacked layout instead of attempting transformed canvas interactions.
+- Export filenames now use safe map-title slugs and the export date.
+- JSON file upload feeds the existing preview and apply flow instead of replacing it.
 
 ## Validation
 
-- 57 total tests passed through `pnpm verify`.
-- Browser quality passed on `http://localhost:5175`.
-- Workflow `run_mphqvfcp_2441duqy` completed successfully.
+- 58 total tests passed through `pnpm verify`.
+- Browser quality passed on `http://localhost:5175` with file transfer checks.
+- Workflow `run_mphr4zhb_i7lulh0f` completed successfully.
 
 ## Known Limits
 
-- Button controls are implemented first; direct canvas panning and wheel zoom are pending.
-- Viewport is local browser state and is not part of multi-client diff sync yet.
+- Markdown export is download-only; Markdown import is not implemented yet.
+- File upload applies only after the user confirms the import.
