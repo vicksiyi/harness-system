@@ -229,6 +229,7 @@ label,
 .outline-list,
 .activity-list,
 .snapshot-list,
+.relationship-list,
 .file-list,
 .file-actions,
 .transfer-actions {
@@ -263,6 +264,7 @@ label {
 }
 
 .summary-grid div,
+.insight-grid div,
 .activity-panel,
 .file-panel,
 .context-panel,
@@ -279,9 +281,30 @@ label {
   font-size: 22px;
 }
 
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.insight-grid span,
+.relationship-row span {
+  color: #607086;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.insight-grid strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 18px;
+}
+
 .node-row,
 .file-row,
 .snapshot-row,
+.relationship-row,
 .wide-button {
   display: grid;
   gap: 4px;
@@ -294,6 +317,7 @@ label {
 }
 
 .snapshot-row,
+.relationship-row,
 .wide-button {
   width: 100%;
 }
@@ -307,7 +331,8 @@ label {
 
 .node-row span,
 .file-row strong,
-.snapshot-row strong {
+.snapshot-row strong,
+.relationship-row strong {
   font-weight: 850;
 }
 

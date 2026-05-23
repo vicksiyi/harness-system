@@ -102,6 +102,29 @@ export interface MiniMapModel {
   };
 }
 
+export interface RelationshipInsight {
+  selectedId: string;
+  title: string;
+  depth: number;
+  parentTitle: string;
+  ancestorTrail: Array<{
+    id: string;
+    title: string;
+    status: IdeaStatus;
+  }>;
+  childCount: number;
+  descendantCount: number;
+  siblingCount: number;
+  leafCount: number;
+  statusMix: Record<IdeaStatus, number>;
+  relatedByTag: Array<{
+    id: string;
+    title: string;
+    sharedTags: string[];
+  }>;
+  recommendation: string;
+}
+
 export interface MindMapImportPreview {
   total: number;
   roots: number;
@@ -235,6 +258,51 @@ export function getAncestors(nodes: MindNode[], nodeId: string): MindNode[] {
   }
 
   return ancestors;
+}
+
+export function buildRelationshipInsight(nodes: MindNode[], selectedId: string): RelationshipInsight {
+  const selected = nodes.find((node) => node.id === selectedId) ?? nodes[0];
+  if (!selected) {
+    return emptyRelationshipInsight();
+  }
+
+  const ancestors = getAncestors(nodes, selected.id);
+  const descendants = collectDescendants(nodes, selected.id);
+  const branchNodes = [selected, ...descendants];
+  const excludedIds = new Set([...branchNodes.map((node) => node.id), ...ancestors.map((node) => node.id)]);
+  const childCount = getChildren(nodes, selected.id).length;
+  const siblingCount = selected.parentId
+    ? getChildren(nodes, selected.parentId).filter((node) => node.id !== selected.id).length
+    : nodes.filter((node) => !node.parentId && node.id !== selected.id).length;
+  const selectedTags = new Set(selected.tags);
+
+  return {
+    selectedId: selected.id,
+    title: selected.title,
+    depth: ancestors.length,
+    parentTitle: ancestors.at(-1)?.title ?? "Root idea",
+    ancestorTrail: ancestors.map((node) => ({ id: node.id, title: node.title, status: node.status })),
+    childCount,
+    descendantCount: descendants.length,
+    siblingCount,
+    leafCount: branchNodes.filter((node) => getChildren(nodes, node.id).length === 0).length,
+    statusMix: {
+      seed: branchNodes.filter((node) => node.status === "seed").length,
+      exploring: branchNodes.filter((node) => node.status === "exploring").length,
+      committed: branchNodes.filter((node) => node.status === "committed").length
+    },
+    relatedByTag: nodes
+      .filter((node) => !excludedIds.has(node.id))
+      .map((node) => ({
+        id: node.id,
+        title: node.title,
+        sharedTags: node.tags.filter((tag) => selectedTags.has(tag)).sort((a, b) => a.localeCompare(b))
+      }))
+      .filter((item) => item.sharedTags.length > 0)
+      .sort((a, b) => b.sharedTags.length - a.sharedTags.length || a.title.localeCompare(b.title))
+      .slice(0, 4),
+    recommendation: relationshipRecommendation(selected, childCount, descendants.length)
+  };
 }
 
 export function summarizeMap(nodes: MindNode[]): MapSummary {
@@ -812,4 +880,42 @@ function commandScore(commandDefinition: CommandDefinition, query: string): numb
     .toLowerCase();
 
   return haystack.includes(query) ? 120 : 0;
+}
+
+function collectDescendants(nodes: MindNode[], nodeId: string, visited = new Set<string>()): MindNode[] {
+  if (visited.has(nodeId)) {
+    return [];
+  }
+  visited.add(nodeId);
+  return getChildren(nodes, nodeId).flatMap((child) => [child, ...collectDescendants(nodes, child.id, visited)]);
+}
+
+function relationshipRecommendation(selected: MindNode, childCount: number, descendantCount: number): string {
+  if (childCount === 0) {
+    return "Create the first child idea";
+  }
+  if (childCount < 2 || selected.status === "seed") {
+    return "Expand this branch with clearer child ideas";
+  }
+  if (descendantCount >= 5 && selected.status !== "committed") {
+    return "Review this branch for convergence";
+  }
+  return "Keep connecting related ideas";
+}
+
+function emptyRelationshipInsight(): RelationshipInsight {
+  return {
+    selectedId: "",
+    title: "",
+    depth: 0,
+    parentTitle: "Root idea",
+    ancestorTrail: [],
+    childCount: 0,
+    descendantCount: 0,
+    siblingCount: 0,
+    leafCount: 0,
+    statusMix: { seed: 0, exploring: 0, committed: 0 },
+    relatedByTag: [],
+    recommendation: "Create the first child idea"
+  };
 }

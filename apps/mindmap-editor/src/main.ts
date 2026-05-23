@@ -6,6 +6,7 @@ import {
   autoLayoutNodes,
   buildCommandPalette,
   buildMiniMap,
+  buildRelationshipInsight,
   collectTags,
   createCanvasViewport,
   createChildNode,
@@ -1031,6 +1032,7 @@ function render(): void {
   const activity = recentActivity(state.nodes);
   const ancestors = getAncestors(state.nodes, node.id);
   const children = getChildren(state.nodes, node.id);
+  const relationshipInsight = buildRelationshipInsight(state.nodes, node.id);
   const markdown = exportMapAsMarkdown(state.nodes);
   const jsonExport = exportMapAsJson(state.nodes, state.selectedId);
   const latestSnapshot = state.snapshots[0];
@@ -1295,6 +1297,41 @@ function render(): void {
             <h2>Branch Context</h2>
             <p>${ancestors.map((item) => escapeHtml(item.title)).join(" / ") || "Root idea"}</p>
             <div class="pill-row">${children.map((child) => `<span>${escapeHtml(child.title)}</span>`).join("") || "<span>No children yet</span>"}</div>
+          </section>
+
+          <section class="context-panel relationship-panel" aria-label="Relationship insight">
+            <div class="section-head">
+              <h2>Relationship Insight</h2>
+              <span>depth ${relationshipInsight.depth}</span>
+            </div>
+            <div class="insight-grid">
+              <div><span>Children</span><strong>${relationshipInsight.childCount}</strong></div>
+              <div><span>Descendants</span><strong>${relationshipInsight.descendantCount}</strong></div>
+              <div><span>Siblings</span><strong>${relationshipInsight.siblingCount}</strong></div>
+              <div><span>Leaves</span><strong>${relationshipInsight.leafCount}</strong></div>
+            </div>
+            <p>${escapeHtml(relationshipInsight.recommendation)}</p>
+            <div class="pill-row">
+              <span>seed ${relationshipInsight.statusMix.seed}</span>
+              <span>exploring ${relationshipInsight.statusMix.exploring}</span>
+              <span>committed ${relationshipInsight.statusMix.committed}</span>
+            </div>
+            <div class="relationship-list">
+              ${
+                relationshipInsight.relatedByTag.length
+                  ? relationshipInsight.relatedByTag
+                      .map(
+                        (item) => `
+                          <button class="relationship-row" data-node-id="${item.id}">
+                            <strong>${escapeHtml(item.title)}</strong>
+                            <span>${item.sharedTags.map(escapeHtml).join(", ")}</span>
+                          </button>
+                        `
+                      )
+                      .join("")
+                  : `<p class="empty">No same-tag branches outside this path.</p>`
+              }
+            </div>
           </section>
 
           <section class="context-panel">

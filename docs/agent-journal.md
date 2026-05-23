@@ -432,3 +432,26 @@
 - 当前页面复核：在 in-app browser 实际修改标题、点击 Save file、Push diff、Pull diff，均返回成功。
 - 验证：`pnpm test services/mindmap-rpc/src/store.test.ts` 通过 8 条 store 测试；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 61 条总测试、构建和浏览器门禁；workflow `run_mphtxsaa_cufupw37` 通过。
 - 下一步：继续自主产品复杂度建设，进入节点关系洞察或分支折叠。
+
+## Run run_mphu8nqs_hr9q0hsz
+
+- At: 2026-05-23T04:18:12.763Z
+- Type: requirement
+- Prompt: 给脑图产品增加关系洞察面板，并让浏览器验证覆盖该面板
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Relationship Insight Loop
+
+- At: 2026-05-23
+- 目标：继续自主增加产品复杂度，给选中脑图分支提供结构洞察，并把新增面板纳入 Harness 浏览器质量门。
+- 已完成：新增 `buildRelationshipInsight` 领域模型，覆盖祖先路径、层级深度、子节点、子孙、兄弟、叶子、状态分布、同标签关联和下一步建议。
+- TDD 过程：先补产品单测并看到 `buildRelationshipInsight is not a function` 失败，再实现领域逻辑并重跑通过。
+- 产品变化：Inspector 新增 Relationship Insight 面板；同标签相关分支可点击并复用现有选中逻辑；桌面和移动端都保持工具型密度。
+- Harness 反哺：`browser-quality-check.mjs` 新增 Relationship Insight heading 和 metrics 断言，避免以后只靠人工截图发现面板缺失。
+- 视觉复核：已读取 `.harness/browser/browser_mphu7ral-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphu7ral-mobile-mindmap-editor.png`，确认面板可见、无明显截断或横向溢出。
+- 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphu8nqs_hr9q0hsz` 全部通过。
+- 下一步：继续自主产品复杂度建设，优先考虑分支折叠、跨文件关系搜索或协同冲突预览。

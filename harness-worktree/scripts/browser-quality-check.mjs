@@ -121,6 +121,16 @@ try {
   await visible(page.getByRole("button", { name: /^New branch/ }).first(), "undo restores previous node title");
   await page.getByRole("button", { name: "Redo latest map edit" }).click();
   await visible(page.getByRole("button", { name: /Browser verified branch/ }).first(), "redo restores edited node title");
+  await visible(page.getByRole("heading", { name: "Relationship Insight" }), "relationship insight section");
+  const relationshipInsightTracksSelection = await page.locator(".relationship-panel").evaluate((panel) => {
+    const text = panel.textContent ?? "";
+    return text.includes("Children") && text.includes("Descendants") && text.includes("Siblings") && text.includes("Leaves");
+  });
+  record(
+    "relationship insight metrics",
+    relationshipInsightTracksSelection,
+    relationshipInsightTracksSelection ? "selected branch relationship metrics are rendered" : "relationship metrics were missing from the inspector"
+  );
 
   await page.getByRole("button", { name: "Save snapshot" }).click();
   await visible(page.getByRole("heading", { name: "Snapshots" }), "snapshots section");

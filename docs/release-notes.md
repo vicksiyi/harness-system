@@ -1,27 +1,26 @@
-# Release Notes: Mind Map Sync Service Startup Fix
+# Release Notes: Relationship Insight Panel
 
 ## Product Impact
 
-- Save file, Push diff, and Pull diff now have the expected local backend when developers start the product with `pnpm target:dev`.
-- The Mind Map Studio frontend remains at `http://localhost:5175`; the product sync service remains at `http://localhost:4105`.
-- Infinite-canvas node positions are now preserved by persistence instead of being clamped back to the old fixed-canvas range.
+- The inspector now includes Relationship Insight for the selected branch.
+- Users can quickly see children, descendants, siblings, leaves, branch status mix, same-tag related branches, and the recommended next action.
+- Same-tag related branch rows are clickable and reuse the existing node selection behavior.
 
-## Operator Notes
+## Harness Impact
 
-- Use `pnpm target:dev` for normal local development.
-- Use `pnpm target:web` only when intentionally testing the frontend without persistence.
-- If sync actions fail, first run `curl http://localhost:4105/health`.
-- The active SQLite file should resolve to `.harness/mindmap/mindmaps.sqlite` at the repository root unless `MINDMAP_DB_PATH` is set.
+- Browser quality now verifies the Relationship Insight section and metric labels.
+- The full verify loop continues to cover persistence, Save file, Push diff, Pull diff, multi-client sync, canvas connectors, infinite canvas, mini map, import/export, accessibility names, and desktop/mobile overflow.
 
 ## Verification
 
-- Store unit regression tests passed.
-- Full typecheck passed.
-- Harness verify loop passed with the local browser target.
-- Harness bugfix workflow passed.
-- Manual browser check confirmed Save, Pull, and Push success states.
+- Product domain tests: 25 passed.
+- Full repo tests: 62 passed.
+- Target build: passed.
+- Browser quality: passed with Relationship Insight checks.
+- Workflow: `run_mphu8nqs_hr9q0hsz` passed.
 
 ## Known Limits
 
-- The UI still needs a more graceful degraded/offline sync state.
-- Browser automation should be expanded to click Save, Push, and Pull as part of the standard target check.
+- Related branches are ranked by shared selected-node tags and capped at four results.
+- The current insight panel analyzes the active file only.
+- Recommendation text is intentionally lightweight until deeper scoring is introduced.

@@ -3,6 +3,7 @@ import {
   buildOutline,
   buildCommandPalette,
   buildMiniMap,
+  buildRelationshipInsight,
   autoLayoutNodes,
   collectTags,
   createExportArtifact,
@@ -139,6 +140,48 @@ describe("mind map domain", () => {
   it("finds children and ancestors", () => {
     expect(getChildren(nodes, "root").map((node) => node.id)).toEqual(["research", "story"]);
     expect(getAncestors(nodes, "story").map((node) => node.id)).toEqual(["root"]);
+  });
+
+  it("builds relationship insight for the selected branch", () => {
+    const insight = buildRelationshipInsight(
+      [
+        ...nodes,
+        createNode({
+          id: "draft",
+          title: "Launch draft",
+          notes: "Shares launch context",
+          tags: ["launch", "writing"],
+          parentId: "story",
+          status: "exploring",
+          x: 520,
+          y: 260
+        }),
+        createNode({
+          id: "metrics",
+          title: "Launch metrics",
+          tags: ["launch", "analytics"],
+          status: "committed",
+          x: 120,
+          y: 360
+        })
+      ],
+      "story"
+    );
+
+    expect(insight).toMatchObject({
+      selectedId: "story",
+      depth: 1,
+      parentTitle: "Launch plan",
+      childCount: 1,
+      descendantCount: 1,
+      siblingCount: 1,
+      leafCount: 1,
+      recommendation: "Expand this branch with clearer child ideas"
+    });
+    expect(insight.ancestorTrail.map((item) => item.title)).toEqual(["Launch plan"]);
+    expect(insight.statusMix).toEqual({ seed: 1, exploring: 1, committed: 0 });
+    expect(insight.relatedByTag.map((item) => item.id)).toEqual(["metrics"]);
+    expect(insight.relatedByTag[0].sharedTags).toEqual(["launch"]);
   });
 
   it("builds a depth ordered outline", () => {
