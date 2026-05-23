@@ -1,26 +1,30 @@
-# Release Notes: Relationship Insight Panel
+# Release Notes: Focused Mind Map Editor Workspace
 
 ## Product Impact
 
-- The inspector now includes Relationship Insight for the selected branch.
-- Users can quickly see children, descendants, siblings, leaves, branch status mix, same-tag related branches, and the recommended next action.
-- Same-tag related branch rows are clickable and reuse the existing node selection behavior.
+- File management now lives on a separate Files page.
+- The Editor page is focused on searching nodes, navigating the canvas, collaboration status, and editing the selected node.
+- Direct toolbar buttons for create node, undo, redo, snapshot save, layout, and reset map were removed from the editor header.
+- Creation, undo/redo, layout, snapshots, search, and zoom are supported through keyboard shortcuts and command palette flow.
+- Auto sync now defaults on and pulls immediately when enabled.
+- Branch collapse/expand is available from Relationship Insight.
 
 ## Harness Impact
 
-- Browser quality now verifies the Relationship Insight section and metric labels.
-- The full verify loop continues to cover persistence, Save file, Push diff, Pull diff, multi-client sync, canvas connectors, infinite canvas, mini map, import/export, accessibility names, and desktop/mobile overflow.
+- Browser quality now exercises the Files page before returning to the Editor page.
+- Browser quality verifies shortcut-driven node creation, undo/redo, keyboard zoom, branch collapse/expand, file export/import, manual pull, and automatic peer sync.
+- Visual QA now includes an additional Files page screenshot.
 
 ## Verification
 
-- Product domain tests: 25 passed.
-- Full repo tests: 62 passed.
+- Product domain tests: 27 passed.
+- Full repo tests: 64 passed.
 - Target build: passed.
-- Browser quality: passed with Relationship Insight checks.
-- Workflow: `run_mphu8nqs_hr9q0hsz` passed.
+- Browser quality: passed.
+- Workflow: `run_mphuzbxm_8v7ws9id` passed.
 
 ## Known Limits
 
-- Related branches are ranked by shared selected-node tags and capped at four results.
-- The current insight panel analyzes the active file only.
-- Recommendation text is intentionally lightweight until deeper scoring is introduced.
+- File library sorting and search are not yet implemented.
+- Auto sync is still interval polling, not push-based realtime transport.
+- Files page import/export is functional but can be further compressed for very small screens.

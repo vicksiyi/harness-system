@@ -145,6 +145,19 @@ export type MindMapImportResult =
     };
 
 export type CommandCategory = "create" | "navigate" | "preserve" | "view";
+export type EditorShortcutIntent =
+  | "add-root"
+  | "add-child"
+  | "undo-edit"
+  | "redo-edit"
+  | "save-snapshot"
+  | "focus-search"
+  | "open-command-palette"
+  | "restore-latest"
+  | "auto-layout"
+  | "zoom-in"
+  | "zoom-out"
+  | "reset-view";
 
 export interface CommandDefinition {
   id: string;
@@ -154,6 +167,14 @@ export interface CommandDefinition {
   category: CommandCategory;
   keywords: string[];
   disabled?: boolean;
+}
+
+export interface EditorShortcutInput {
+  key: string;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+  shiftKey?: boolean;
+  targetIsTyping?: boolean;
 }
 
 export function createNode(input: {
@@ -303,6 +324,24 @@ export function buildRelationshipInsight(nodes: MindNode[], selectedId: string):
       .slice(0, 4),
     recommendation: relationshipRecommendation(selected, childCount, descendants.length)
   };
+}
+
+export function visibleNodesByCollapse(nodes: MindNode[], collapsedIds: string[]): MindNode[] {
+  const ids = new Set(nodes.map((node) => node.id));
+  const hiddenIds = new Set<string>();
+
+  for (const id of collapsedIds) {
+    if (!ids.has(id)) {
+      continue;
+    }
+    collectDescendants(nodes, id).forEach((node) => hiddenIds.add(node.id));
+  }
+
+  return nodes.filter((node) => !hiddenIds.has(node.id));
+}
+
+export function collapsedDescendantCount(nodes: MindNode[], nodeId: string): number {
+  return collectDescendants(nodes, nodeId).length;
 }
 
 export function summarizeMap(nodes: MindNode[]): MapSummary {
@@ -706,6 +745,53 @@ export function filterCommands(commands: CommandDefinition[], query: string): Co
     .sort((a, b) => b.score - a.score || Number(a.item.disabled) - Number(b.item.disabled) || a.index - b.index);
 
   return scored.map((entry) => entry.item);
+}
+
+export function resolveEditorShortcut(input: EditorShortcutInput): EditorShortcutIntent | null {
+  const key = input.key.toLowerCase();
+  const commandModifier = Boolean(input.metaKey || input.ctrlKey);
+
+  if (commandModifier && key === "k") {
+    return "open-command-palette";
+  }
+  if (commandModifier && key === "z") {
+    return input.shiftKey ? "redo-edit" : "undo-edit";
+  }
+  if (commandModifier && key === "y") {
+    return "redo-edit";
+  }
+  if (commandModifier && key === "s") {
+    return "save-snapshot";
+  }
+  if (commandModifier && (key === "+" || key === "=")) {
+    return "zoom-in";
+  }
+  if (commandModifier && key === "-") {
+    return "zoom-out";
+  }
+  if (commandModifier && key === "0") {
+    return "reset-view";
+  }
+  if (input.targetIsTyping) {
+    return null;
+  }
+  if (key === "/") {
+    return "focus-search";
+  }
+  if (input.shiftKey && key === "r") {
+    return "restore-latest";
+  }
+  if (key === "r") {
+    return "add-root";
+  }
+  if (key === "c") {
+    return "add-child";
+  }
+  if (key === "l") {
+    return "auto-layout";
+  }
+
+  return null;
 }
 
 function outlineBranch(nodes: MindNode[], node: MindNode, depth: number): OutlineItem[] {

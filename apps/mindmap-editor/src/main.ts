@@ -7,6 +7,7 @@ import {
   buildCommandPalette,
   buildMiniMap,
   buildRelationshipInsight,
+  collapsedDescendantCount,
   collectTags,
   createCanvasViewport,
   createChildNode,
@@ -27,11 +28,13 @@ import {
   parseMindMapJson,
   panCanvasViewport,
   redoHistory,
+  resolveEditorShortcut,
   restoreSnapshot,
   suggestFocusQueue,
   summarizeMap,
   undoHistory,
   updateNode,
+  visibleNodesByCollapse,
   zoomCanvasViewport,
   type CanvasViewport,
   type IdeaStatus,
@@ -50,6 +53,7 @@ interface EditorState {
   query: string;
   tag: string;
   status: IdeaStatus | "all";
+  view: "editor" | "files";
   snapshots: MindMapSnapshot[];
   commandPaletteOpen: boolean;
   commandQuery: string;
@@ -63,6 +67,7 @@ interface EditorState {
   clientId: string;
   pendingOperations: MindMapOperationInput[];
   viewport: CanvasViewport;
+  collapsedIds: string[];
   autoPullEnabled: boolean;
   rpcStatus: "checking" | "online" | "saving" | "saved" | "offline" | "error";
   rpcMessage: string;
@@ -136,6 +141,7 @@ function initialState(): EditorState {
     query: "",
     tag: "all",
     status: "all",
+    view: "editor",
     snapshots: loadSnapshots(),
     commandPaletteOpen: false,
     commandQuery: "",
@@ -149,6 +155,7 @@ function initialState(): EditorState {
     clientId: loadClientId(),
     pendingOperations: [],
     viewport: saved?.viewport ?? createCanvasViewport(),
+    collapsedIds: saved?.collapsedIds ?? [],
     autoPullEnabled: loadAutoPullPreference(),
     rpcStatus: "checking",
     rpcMessage: "Connecting to sync service"
@@ -167,6 +174,7 @@ function commit(
 ): void {
   rememberHistory(label);
   state.nodes = nodes;
+  state.collapsedIds = state.collapsedIds.filter((id) => nodes.some((node) => node.id === id));
   state.selectedId = nodes.some((node) => node.id === selectedId) ? selectedId : nodes[0]?.id ?? "";
   queueOperations(operations);
   persistMap();
@@ -203,6 +211,7 @@ function editLabel(patch: Partial<Omit<MindNode, "id">>): string {
 
 function applyHistoryFrame(frame: { nodes: MindNode[]; selectedId: string }): void {
   state.nodes = frame.nodes;
+  state.collapsedIds = state.collapsedIds.filter((id) => state.nodes.some((node) => node.id === id));
   state.selectedId = state.nodes.some((node) => node.id === frame.selectedId) ? frame.selectedId : state.nodes[0]?.id ?? "";
   persistMap();
   render();
@@ -425,6 +434,7 @@ function applyRemoteMap(document: MindMapFileDocument, message: string, preserve
   state.mapTitle = document.title;
   state.mapVersion = document.version;
   state.nodes = normalizeStoredNodes(document.nodes);
+  state.collapsedIds = state.collapsedIds.filter((id) => state.nodes.some((node) => node.id === id));
   state.selectedId = state.nodes.some((node) => node.id === document.selectedId) ? document.selectedId : state.nodes[0]?.id ?? "";
   state.history = createEmptyHistory();
   state.pendingOperations = pendingOperations;
@@ -502,10 +512,33 @@ function resetCanvasView(): void {
   render();
 }
 
+function showFilesPage(): void {
+  state.view = "files";
+  render();
+}
+
+function showEditorPage(): void {
+  state.view = "editor";
+  render();
+}
+
+function toggleSelectedBranchCollapse(): void {
+  const node = selectedNode();
+  if (collapsedDescendantCount(state.nodes, node.id) === 0) {
+    return;
+  }
+  state.collapsedIds = state.collapsedIds.includes(node.id) ? state.collapsedIds.filter((id) => id !== node.id) : [...state.collapsedIds, node.id];
+  persistMap();
+  render();
+}
+
 function setAutoPullEnabled(enabled: boolean): void {
   state.autoPullEnabled = enabled;
   writeStorage(storageKeys.autoPull, enabled ? "1" : "0");
   render();
+  if (enabled) {
+    void pullRemoteChanges({ silent: true });
+  }
 }
 
 function tickAutoPull(): void {
@@ -592,10 +625,6 @@ function restoreSnapshotById(id: string): void {
   }
   const restored = restoreSnapshot(snapshot);
   commit(restored.nodes, restored.selectedId, `Restore ${snapshot.label}`);
-}
-
-function resetMap(): void {
-  commit(seedNodes(), "idea-launch", "Reset map");
 }
 
 function autoLayoutMap(): void {
@@ -747,7 +776,7 @@ function commandCatalog(): CommandDefinition[] {
   });
 }
 
-function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "mapTitle" | "mapVersion" | "viewport"> | null {
+function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "mapTitle" | "mapVersion" | "viewport" | "collapsedIds"> | null {
   const raw = readStorage(storageKeys.map);
   if (!raw) {
     return null;
@@ -761,6 +790,7 @@ function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "m
       mapTitle?: string;
       mapVersion?: number;
       viewport?: Partial<CanvasViewport>;
+      collapsedIds?: string[];
     };
     const nodes = normalizeStoredNodes(parsed.nodes);
     if (nodes.length === 0) {
@@ -772,7 +802,8 @@ function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "m
       mapId: typeof parsed.mapId === "string" ? parsed.mapId : null,
       mapTitle: typeof parsed.mapTitle === "string" ? parsed.mapTitle : "Launch workspace",
       mapVersion: typeof parsed.mapVersion === "number" ? parsed.mapVersion : 0,
-      viewport: createCanvasViewport(parsed.viewport ?? {})
+      viewport: createCanvasViewport(parsed.viewport ?? {}),
+      collapsedIds: Array.isArray(parsed.collapsedIds) ? parsed.collapsedIds.filter((id): id is string => typeof id === "string" && nodes.some((node) => node.id === id)) : []
     };
   } catch {
     return null;
@@ -790,7 +821,8 @@ function loadClientId(): string {
 }
 
 function loadAutoPullPreference(): boolean {
-  return readStorage(storageKeys.autoPull) === "1";
+  const saved = readStorage(storageKeys.autoPull);
+  return saved === null ? true : saved === "1";
 }
 
 function loadSnapshots(): MindMapSnapshot[] {
@@ -850,7 +882,8 @@ function persistMap(): void {
       mapId: state.mapId,
       mapTitle: state.mapTitle,
       mapVersion: state.mapVersion,
-      viewport: state.viewport
+      viewport: state.viewport,
+      collapsedIds: state.collapsedIds
     })
   );
 }
@@ -908,6 +941,140 @@ function importPreviewMarkup(): string {
   `;
 }
 
+function renderFilesPage(app: HTMLElement): void {
+  const markdown = exportMapAsMarkdown(state.nodes);
+  const jsonExport = exportMapAsJson(state.nodes, state.selectedId);
+  const summary = summarizeMap(state.nodes);
+  const rpcLabel = state.rpcStatus === "saved" || state.rpcStatus === "online" ? "Sync online" : state.rpcStatus === "offline" ? "Sync offline" : state.rpcStatus;
+
+  app.innerHTML = `
+    <section class="studio">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">File workspace</p>
+          <h1>Mind Map Studio</h1>
+        </div>
+        <div class="actions compact-actions">
+          <button id="open-editor-page" aria-label="Open editor page">Editor</button>
+        </div>
+      </header>
+
+      <main class="files-workspace">
+        <section class="file-manager-panel" aria-label="Map files">
+          <div class="section-head">
+            <h2>Map Files</h2>
+            <span>${escapeHtml(rpcLabel)}</span>
+          </div>
+          <label>
+            File title
+            <input id="map-title-input" aria-label="Map file title" value="${escapeHtml(state.mapTitle)}" />
+          </label>
+          <div class="file-actions">
+            <button id="create-map-file" aria-label="Create map file">New file</button>
+            <button id="save-map-file" aria-label="Save map file" ${state.mapId ? "" : "disabled"}>Save file</button>
+          </div>
+          <p class="remote-status ${state.rpcStatus}">${escapeHtml(state.rpcMessage)}</p>
+          <div class="summary-grid" aria-label="Current file summary">
+            <div><span>Ideas</span><strong>${summary.total}</strong></div>
+            <div><span>Roots</span><strong>${summary.roots}</strong></div>
+            <div><span>Leaves</span><strong>${summary.leaves}</strong></div>
+            <div><span>Done</span><strong>${summary.completion}</strong></div>
+          </div>
+          <div class="file-list">
+            ${
+              state.mapFiles.length
+                ? state.mapFiles
+                    .map(
+                      (file) => `
+                        <button class="file-row ${file.id === state.mapId ? "selected" : ""}" data-map-file-id="${file.id}">
+                          <strong>${escapeHtml(file.title)}</strong>
+                          <span>${file.nodeCount} ideas · v${file.version}</span>
+                        </button>
+                      `
+                    )
+                    .join("")
+                : `<p class="empty">No database files loaded.</p>`
+            }
+          </div>
+        </section>
+
+        <section class="file-manager-panel">
+          <div class="section-head">
+            <h2>Export</h2>
+            <span>${state.nodes.length} ideas</span>
+          </div>
+          <label>
+            Markdown
+            <textarea id="markdown-export" aria-label="Markdown export preview" readonly rows="11">${escapeHtml(markdown)}</textarea>
+          </label>
+          <label>
+            JSON
+            <textarea id="json-export" aria-label="JSON export preview" readonly rows="11">${escapeHtml(jsonExport)}</textarea>
+          </label>
+          <div class="file-actions">
+            <button id="download-markdown" aria-label="Download markdown export">Markdown</button>
+            <button id="download-json" aria-label="Download JSON export">JSON</button>
+          </div>
+        </section>
+
+        <section class="file-manager-panel">
+          <div class="section-head">
+            <h2>Import</h2>
+            <span>${state.importResult?.ok ? "ready" : "local"}</span>
+          </div>
+          <label>
+            Import JSON
+            <textarea id="json-import" aria-label="JSON import input" rows="12" placeholder="Paste a Mind Map Studio JSON export">${escapeHtml(state.importJson)}</textarea>
+          </label>
+          <label class="file-picker">
+            Import JSON file
+            <input id="json-file-import" aria-label="Import JSON file" type="file" accept=".json,application/json" />
+          </label>
+          ${importPreviewMarkup()}
+          <div class="transfer-actions">
+            <button id="preview-import" aria-label="Preview JSON import">Preview</button>
+            <button id="apply-import" aria-label="Apply JSON import" ${state.importResult?.ok ? "" : "disabled"}>Apply</button>
+          </div>
+        </section>
+      </main>
+    </section>
+  `;
+
+  byId<HTMLButtonElement>("open-editor-page").addEventListener("click", showEditorPage);
+  byId<HTMLButtonElement>("create-map-file").addEventListener("click", () => {
+    void createMapFile();
+  });
+  byId<HTMLButtonElement>("save-map-file").addEventListener("click", () => {
+    void saveCurrentRemoteMap();
+  });
+  byId<HTMLInputElement>("map-title-input").addEventListener("change", (event) => {
+    updateMapTitle((event.target as HTMLInputElement).value);
+  });
+  byId<HTMLInputElement>("map-title-input").addEventListener("input", (event) => {
+    updateMapTitle((event.target as HTMLInputElement).value);
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-map-file-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.mapFileId) {
+        void openRemoteMap(button.dataset.mapFileId);
+      }
+    });
+  });
+  byId<HTMLButtonElement>("download-markdown").addEventListener("click", () => downloadExport("markdown"));
+  byId<HTMLButtonElement>("download-json").addEventListener("click", () => downloadExport("json"));
+  byId<HTMLButtonElement>("preview-import").addEventListener("click", () => previewImport());
+  byId<HTMLButtonElement>("apply-import").addEventListener("click", applyImport);
+  byId<HTMLInputElement>("json-file-import").addEventListener("change", (event) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    void importJsonFile(file);
+  });
+  byId<HTMLTextAreaElement>("json-import").addEventListener("input", (event) => {
+    state.importJson = (event.target as HTMLTextAreaElement).value;
+    state.importResult = parseMindMapJson(state.importJson);
+    render();
+  });
+}
+
 function drawConnectors(): void {
   const canvas = document.getElementById("connector-canvas");
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -923,8 +1090,11 @@ function drawConnectors(): void {
   context.lineWidth = 2;
   context.lineCap = "round";
 
-  state.nodes.forEach((child) => {
-    const parent = child.parentId ? state.nodes.find((item) => item.id === child.parentId) : undefined;
+  const visibleNodes = visibleNodesByCollapse(state.nodes, state.collapsedIds);
+  const visibleNodeIds = new Set(visibleNodes.map((item) => item.id));
+
+  visibleNodes.forEach((child) => {
+    const parent = child.parentId ? state.nodes.find((item) => item.id === child.parentId && visibleNodeIds.has(item.id)) : undefined;
     if (!parent) {
       return;
     }
@@ -1019,28 +1189,32 @@ function endNodeDrag(event: PointerEvent): void {
 
 function render(): void {
   const app = byId<HTMLElement>("app");
+  if (state.view === "files") {
+    renderFilesPage(app);
+    return;
+  }
   const node = selectedNode();
-  const visible = filterNodes(state.nodes, {
+  const displayNodes = visibleNodesByCollapse(state.nodes, state.collapsedIds);
+  const visibleFilteredNodes = filterNodes(displayNodes, {
     query: state.query,
     tag: state.tag,
     status: state.status
   });
   const tags = collectTags(state.nodes);
   const summary = summarizeMap(state.nodes);
-  const outline = buildOutline(state.nodes);
+  const outline = buildOutline(displayNodes);
   const focusQueue = suggestFocusQueue(state.nodes);
   const activity = recentActivity(state.nodes);
   const ancestors = getAncestors(state.nodes, node.id);
   const children = getChildren(state.nodes, node.id);
   const relationshipInsight = buildRelationshipInsight(state.nodes, node.id);
-  const markdown = exportMapAsMarkdown(state.nodes);
-  const jsonExport = exportMapAsJson(state.nodes, state.selectedId);
+  const selectedCollapsed = state.collapsedIds.includes(node.id);
+  const selectedHiddenCount = collapsedDescendantCount(state.nodes, node.id);
   const latestSnapshot = state.snapshots[0];
   const commands = filterCommands(commandCatalog(), state.commandQuery);
-  const canvasWidth = Math.max(3200, ...state.nodes.map((item) => item.x + 640));
-  const canvasHeight = Math.max(2200, ...state.nodes.map((item) => item.y + 520));
-  const miniMap = buildMiniMap(state.nodes, state.selectedId, state.viewport);
-  const rpcLabel = state.rpcStatus === "saved" || state.rpcStatus === "online" ? "Sync online" : state.rpcStatus === "offline" ? "Sync offline" : state.rpcStatus;
+  const canvasWidth = Math.max(3200, ...displayNodes.map((item) => item.x + 640));
+  const canvasHeight = Math.max(2200, ...displayNodes.map((item) => item.y + 520));
+  const miniMap = buildMiniMap(displayNodes, state.selectedId, state.viewport);
   const viewportLabel = `${Math.round(state.viewport.zoom * 100)}% · ${state.viewport.x}, ${state.viewport.y}`;
 
   app.innerHTML = `
@@ -1049,16 +1223,11 @@ function render(): void {
         <div>
           <p class="eyebrow">Thinking workspace</p>
           <h1>Mind Map Studio</h1>
+          <p class="map-title-line" data-current-map-title="${escapeHtml(state.mapTitle)}">${escapeHtml(state.mapTitle)} · ${escapeHtml(state.rpcMessage)}</p>
         </div>
-        <div class="actions">
-          <button id="add-root" aria-label="Add root idea">Root</button>
-          <button id="add-child" aria-label="Add child idea">Child</button>
-          <button id="undo-edit" aria-label="Undo map edit" ${state.history.past.length ? "" : "disabled"}>Undo</button>
-          <button id="redo-edit" aria-label="Redo map edit" ${state.history.future.length ? "" : "disabled"}>Redo</button>
-          <button id="save-snapshot" aria-label="Save snapshot">Save</button>
-          <button id="auto-layout" aria-label="Auto layout map">Layout</button>
+        <div class="actions compact-actions">
+          <button id="open-files-page" aria-label="Open files page">Files</button>
           <button id="open-commands" aria-label="Open command palette">Commands</button>
-          <button id="reset-map" aria-label="Reset map">Reset</button>
         </div>
       </header>
 
@@ -1109,38 +1278,6 @@ function render(): void {
             </select>
           </div>
 
-          <section class="file-panel" aria-label="Map files">
-            <div class="section-head">
-              <h2>Map Files</h2>
-              <span>${escapeHtml(rpcLabel)}</span>
-            </div>
-            <label>
-              File title
-              <input id="map-title-input" aria-label="Map file title" value="${escapeHtml(state.mapTitle)}" />
-            </label>
-            <div class="file-actions">
-              <button id="create-map-file" aria-label="Create map file">New file</button>
-              <button id="save-map-file" aria-label="Save map file" ${state.mapId ? "" : "disabled"}>Save file</button>
-            </div>
-            <p class="remote-status ${state.rpcStatus}">${escapeHtml(state.rpcMessage)}</p>
-            <div class="file-list">
-              ${
-                state.mapFiles.length
-                  ? state.mapFiles
-                      .map(
-                        (file) => `
-                          <button class="file-row ${file.id === state.mapId ? "selected" : ""}" data-map-file-id="${file.id}">
-                            <strong>${escapeHtml(file.title)}</strong>
-                            <span>${file.nodeCount} ideas · v${file.version}</span>
-                          </button>
-                        `
-                      )
-                      .join("")
-                  : `<p class="empty">No database files loaded.</p>`
-              }
-            </div>
-          </section>
-
           <section class="file-panel collaboration-panel" aria-label="Collaboration sync">
             <div class="section-head">
               <h2>Collaboration</h2>
@@ -1185,8 +1322,8 @@ function render(): void {
 
           <div class="node-list">
             ${
-              visible.length
-                ? visible
+              visibleFilteredNodes.length
+                ? visibleFilteredNodes
                     .map(
                       (item) => `
                         <button class="node-row ${item.id === state.selectedId ? "selected" : ""}" data-node-id="${item.id}">
@@ -1228,8 +1365,8 @@ function render(): void {
           </div>
           <div class="canvas-grid" aria-label="Idea map canvas" data-pan-x="${state.viewport.x}" data-pan-y="${state.viewport.y}" data-zoom="${state.viewport.zoom}" style="--canvas-width:${canvasWidth}px;--canvas-height:${canvasHeight}px;--canvas-pan-x:${-state.viewport.x}px;--canvas-pan-y:${-state.viewport.y}px;--canvas-zoom:${state.viewport.zoom}">
             <div class="canvas-surface">
-              <canvas id="connector-canvas" class="connector-layer" aria-hidden="true" width="${canvasWidth}" height="${canvasHeight}" data-connector-count="${state.nodes.filter((item) => item.parentId && state.nodes.some((parent) => parent.id === item.parentId)).length}"></canvas>
-              ${state.nodes
+              <canvas id="connector-canvas" class="connector-layer" aria-hidden="true" width="${canvasWidth}" height="${canvasHeight}" data-connector-count="${displayNodes.filter((item) => item.parentId && displayNodes.some((parent) => parent.id === item.parentId)).length}"></canvas>
+              ${displayNodes
                 .map(
                   (item) => `
                     <button class="map-node ${item.status} ${item.id === state.selectedId ? "selected" : ""}" style="left:${item.x}px;top:${item.y}px" data-node-id="${item.id}" data-parent-id="${item.parentId ?? ""}">
@@ -1304,6 +1441,9 @@ function render(): void {
               <h2>Relationship Insight</h2>
               <span>depth ${relationshipInsight.depth}</span>
             </div>
+            <button id="toggle-branch-collapse" class="wide-button collapse-button" aria-label="${selectedCollapsed ? "Expand selected branch" : "Collapse selected branch"}" ${selectedHiddenCount ? "" : "disabled"}>
+              ${selectedCollapsed ? `Expand ${selectedHiddenCount} hidden` : `Collapse ${selectedHiddenCount} descendants`}
+            </button>
             <div class="insight-grid">
               <div><span>Children</span><strong>${relationshipInsight.childCount}</strong></div>
               <div><span>Descendants</span><strong>${relationshipInsight.descendantCount}</strong></div>
@@ -1365,10 +1505,6 @@ function render(): void {
             </div>
             <p>${state.history.past[0] ? `Undo: ${escapeHtml(state.history.past[0].label)}` : "No undo steps yet."}</p>
             <p>${state.history.future[0] ? `Redo: ${escapeHtml(state.history.future[0].label)}` : "No redo steps queued."}</p>
-            <div class="history-actions">
-              <button id="history-undo" aria-label="Undo latest map edit" ${state.history.past.length ? "" : "disabled"}>Undo</button>
-              <button id="history-redo" aria-label="Redo latest map edit" ${state.history.future.length ? "" : "disabled"}>Redo</button>
-            </div>
           </section>
 
           <section class="context-panel">
@@ -1382,54 +1518,14 @@ function render(): void {
                 .join("")}
             </ol>
           </section>
-
-          <section class="context-panel">
-            <div class="section-head">
-              <h2>Markdown Export</h2>
-              <span>${state.nodes.length} ideas</span>
-            </div>
-            <textarea id="markdown-export" aria-label="Markdown export preview" readonly rows="9">${escapeHtml(markdown)}</textarea>
-            <button id="download-markdown" class="wide-button" aria-label="Download markdown export">Download Markdown</button>
-          </section>
-
-          <section class="context-panel">
-            <div class="section-head">
-              <h2>JSON Transfer</h2>
-              <span>${state.importResult?.ok ? "ready" : "local"}</span>
-            </div>
-            <label>
-              Export JSON
-              <textarea id="json-export" aria-label="JSON export preview" readonly rows="7">${escapeHtml(jsonExport)}</textarea>
-            </label>
-            <label>
-              Import JSON
-              <textarea id="json-import" aria-label="JSON import input" rows="6" placeholder="Paste a Mind Map Studio JSON export">${escapeHtml(state.importJson)}</textarea>
-            </label>
-            <label class="file-picker">
-              Import JSON file
-              <input id="json-file-import" aria-label="Import JSON file" type="file" accept=".json,application/json" />
-            </label>
-            ${importPreviewMarkup()}
-            <div class="transfer-actions">
-              <button id="download-json" aria-label="Download JSON export">Download</button>
-              <button id="preview-import" aria-label="Preview JSON import">Preview</button>
-              <button id="apply-import" aria-label="Apply JSON import" ${state.importResult?.ok ? "" : "disabled"}>Apply</button>
-            </div>
-          </section>
         </aside>
       </section>
     </section>
   `;
 
   drawConnectors();
-  byId<HTMLButtonElement>("add-root").addEventListener("click", addRootIdea);
-  byId<HTMLButtonElement>("add-child").addEventListener("click", addChildIdea);
-  byId<HTMLButtonElement>("undo-edit").addEventListener("click", undoMapEdit);
-  byId<HTMLButtonElement>("redo-edit").addEventListener("click", redoMapEdit);
-  byId<HTMLButtonElement>("save-snapshot").addEventListener("click", saveSnapshot);
-  byId<HTMLButtonElement>("auto-layout").addEventListener("click", autoLayoutMap);
+  byId<HTMLButtonElement>("open-files-page").addEventListener("click", showFilesPage);
   byId<HTMLButtonElement>("open-commands").addEventListener("click", () => openCommandPalette());
-  byId<HTMLButtonElement>("reset-map").addEventListener("click", resetMap);
   byId<HTMLButtonElement>("pan-left").addEventListener("click", () => panCanvas({ x: -180, y: 0 }));
   byId<HTMLButtonElement>("pan-up").addEventListener("click", () => panCanvas({ x: 0, y: -140 }));
   byId<HTMLButtonElement>("pan-down").addEventListener("click", () => panCanvas({ x: 0, y: 140 }));
@@ -1437,14 +1533,7 @@ function render(): void {
   byId<HTMLButtonElement>("zoom-out").addEventListener("click", () => zoomCanvas(-0.1));
   byId<HTMLButtonElement>("zoom-in").addEventListener("click", () => zoomCanvas(0.1));
   byId<HTMLButtonElement>("reset-view").addEventListener("click", resetCanvasView);
-  byId<HTMLButtonElement>("history-undo").addEventListener("click", undoMapEdit);
-  byId<HTMLButtonElement>("history-redo").addEventListener("click", redoMapEdit);
-  byId<HTMLButtonElement>("create-map-file").addEventListener("click", () => {
-    void createMapFile();
-  });
-  byId<HTMLButtonElement>("save-map-file").addEventListener("click", () => {
-    void saveCurrentRemoteMap();
-  });
+  byId<HTMLButtonElement>("toggle-branch-collapse").addEventListener("click", toggleSelectedBranchCollapse);
   byId<HTMLButtonElement>("push-diff").addEventListener("click", () => {
     void syncCurrentRemoteDiff();
   });
@@ -1453,25 +1542,6 @@ function render(): void {
   });
   byId<HTMLInputElement>("auto-pull").addEventListener("change", (event) => {
     setAutoPullEnabled((event.target as HTMLInputElement).checked);
-  });
-  byId<HTMLInputElement>("map-title-input").addEventListener("change", (event) => {
-    updateMapTitle((event.target as HTMLInputElement).value);
-  });
-  byId<HTMLInputElement>("map-title-input").addEventListener("input", (event) => {
-    updateMapTitle((event.target as HTMLInputElement).value);
-  });
-  byId<HTMLButtonElement>("download-markdown").addEventListener("click", () => downloadExport("markdown"));
-  byId<HTMLButtonElement>("download-json").addEventListener("click", () => downloadExport("json"));
-  byId<HTMLButtonElement>("preview-import").addEventListener("click", () => previewImport());
-  byId<HTMLButtonElement>("apply-import").addEventListener("click", applyImport);
-  byId<HTMLInputElement>("json-file-import").addEventListener("change", (event) => {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    void importJsonFile(file);
-  });
-  byId<HTMLTextAreaElement>("json-import").addEventListener("input", (event) => {
-    state.importJson = (event.target as HTMLTextAreaElement).value;
-    state.importResult = parseMindMapJson(state.importJson);
-    render();
   });
   document.querySelectorAll<HTMLButtonElement>("[data-command-id]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1488,13 +1558,6 @@ function render(): void {
     if (state.snapshots[0]) {
       restoreSnapshotById(state.snapshots[0].id);
     }
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-map-file-id]").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (button.dataset.mapFileId) {
-        void openRemoteMap(button.dataset.mapFileId);
-      }
-    });
   });
   byId<HTMLInputElement>("query").addEventListener("input", (event) => {
     state.query = (event.target as HTMLInputElement).value;
@@ -1520,12 +1583,14 @@ function render(): void {
   byId<HTMLSelectElement>("status-input").addEventListener("change", (event) => {
     patchSelected({ status: (event.target as HTMLSelectElement).value as IdeaStatus });
   });
-  document.querySelectorAll<HTMLButtonElement>("[data-node-id]").forEach((button) => {
+  document.querySelectorAll<HTMLButtonElement>(".map-node[data-node-id]").forEach((button) => {
     button.addEventListener("pointerdown", (event) => {
       if (button.dataset.nodeId) {
         beginNodeDrag(event, button.dataset.nodeId);
       }
     });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-node-id]").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.dataset.nodeId) {
         setSelected(button.dataset.nodeId);
@@ -1549,15 +1614,6 @@ document.addEventListener("pointerup", endNodeDrag);
 document.addEventListener("pointercancel", endNodeDrag);
 
 document.addEventListener("keydown", (event) => {
-  const key = event.key.toLowerCase();
-  const commandModifier = event.metaKey || event.ctrlKey;
-
-  if (commandModifier && key === "k") {
-    event.preventDefault();
-    openCommandPalette();
-    return;
-  }
-
   if (state.commandPaletteOpen) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -1574,59 +1630,60 @@ document.addEventListener("keydown", (event) => {
     }
   }
 
-  if (commandModifier && key === "s") {
-    event.preventDefault();
-    saveSnapshot();
+  const shortcut = resolveEditorShortcut({
+    key: event.key,
+    metaKey: event.metaKey,
+    ctrlKey: event.ctrlKey,
+    shiftKey: event.shiftKey,
+    targetIsTyping: isTypingTarget(event.target)
+  });
+  if (!shortcut) {
+    return;
+  }
+  if (state.view === "files") {
     return;
   }
 
-  if (isTypingTarget(event.target)) {
-    return;
-  }
-
-  if (commandModifier && key === "z") {
-    event.preventDefault();
-    if (event.shiftKey) {
-      redoMapEdit();
-    } else {
+  event.preventDefault();
+  switch (shortcut) {
+    case "open-command-palette":
+      openCommandPalette();
+      break;
+    case "save-snapshot":
+      saveSnapshot();
+      break;
+    case "undo-edit":
       undoMapEdit();
-    }
-    return;
-  }
-
-  if (commandModifier && key === "y") {
-    event.preventDefault();
-    redoMapEdit();
-    return;
-  }
-
-  if (key === "/") {
-    event.preventDefault();
-    runCommand("focus-search");
-    return;
-  }
-
-  if (event.shiftKey && key === "r") {
-    event.preventDefault();
-    runCommand("restore-latest");
-    return;
-  }
-
-  if (key === "r") {
-    event.preventDefault();
-    addRootIdea();
-    return;
-  }
-
-  if (key === "c") {
-    event.preventDefault();
-    addChildIdea();
-    return;
-  }
-
-  if (key === "l") {
-    event.preventDefault();
-    autoLayoutMap();
+      break;
+    case "redo-edit":
+      redoMapEdit();
+      break;
+    case "focus-search":
+      runCommand("focus-search");
+      break;
+    case "restore-latest":
+      runCommand("restore-latest");
+      break;
+    case "add-root":
+      addRootIdea();
+      break;
+    case "add-child":
+      addChildIdea();
+      break;
+    case "auto-layout":
+      autoLayoutMap();
+      break;
+    case "zoom-in":
+      zoomCanvas(0.1);
+      break;
+    case "zoom-out":
+      zoomCanvas(-0.1);
+      break;
+    case "reset-view":
+      resetCanvasView();
+      break;
+    default:
+      break;
   }
 });
 

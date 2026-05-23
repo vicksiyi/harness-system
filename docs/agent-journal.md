@@ -455,3 +455,27 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphu7ral-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphu7ral-mobile-mindmap-editor.png`，确认面板可见、无明显截断或横向溢出。
 - 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphu8nqs_hr9q0hsz` 全部通过。
 - 下一步：继续自主产品复杂度建设，优先考虑分支折叠、跨文件关系搜索或协同冲突预览。
+
+## Run run_mphuzbxm_8v7ws9id
+
+- At: 2026-05-23T04:38:56.689Z
+- Type: requirement
+- Prompt: 重构脑图编辑页：文件管理独立页面，修复自动同步拉取，增加快捷键缩放和节点编辑快捷键，编辑页聚焦节点编辑
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Focused Editor Workspace Loop
+
+- At: 2026-05-23
+- 目标：完成用户提出的五点编辑体验改造，并继续把产品复杂度建设纳入 Harness 闭环。
+- 已完成：新增 Files 页面承载文件列表、文件标题、保存、导出和导入；Editor 页面移除文件管理和导入导出，聚焦导航、协同、画布和节点 Inspector。
+- 快捷键：新增 `resolveEditorShortcut` 领域模型和单测，覆盖创建根节点/子节点、undo/redo、保存快照、搜索、命令面板、自动布局、缩放和重置视图。
+- 自动同步修复：Auto sync 默认开启，用户启用时会立即执行一次静默拉取；浏览器质量继续用第二客户端验证自动收到远端标题变更。
+- 自主补强：完成分支折叠/展开能力，Relationship Insight 中可折叠当前分支，画布/大纲/小地图按折叠状态过滤。
+- Harness 反哺：`browser-quality-check.mjs` 改为先进入 Files 页面验证保存、导出、导入，再回到 Editor 页面验证快捷键创建、快捷键 undo/redo、键盘缩放、自动同步和折叠。
+- 视觉复核：已读取 `.harness/browser/browser_mphux9dv-desktop-mindmap-editor.png`、`.harness/browser/browser_mphux9dv-mobile-mindmap-editor.png` 和 `.harness/browser/files-page-review.png`。
+- 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphuzbxm_8v7ws9id` 全部通过。
+- 下一步：继续自主迭代，优先考虑文件库搜索/排序、快捷键面板或跨文件关系搜索。

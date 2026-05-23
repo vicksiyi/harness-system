@@ -1,30 +1,35 @@
-# MR Summary: Relationship Insight Panel
+# MR Summary: Focused Mind Map Editor Workspace
 
 Type: requirement
 Target Project: apps/mindmap-editor
-Workflow Run: run_mphu8nqs_hr9q0hsz
+Workflow Run: run_mphuzbxm_8v7ws9id
 Status: passed
 Stage: completed
 
 ## Background
 
-Mind Map Studio needed richer branch-level understanding as maps become larger. The editor already had outline, focus queue, snapshots, import/export, collaboration, and infinite canvas controls, but it did not summarize how the selected branch relates to its parent path, siblings, descendants, and same-tag branches.
+The editor had grown into a mixed file manager and editing surface. File selection, save controls, import/export, collaboration status, canvas tools, and node editing all competed on the same page. The latest request split file management into its own page, fixed auto sync expectations, added keyboard zoom, removed direct create/undo/redo button entry points, and made the editor more focused on node editing.
 
 ## Scope
 
-- Add pure domain logic for selected-branch relationship analysis.
-- Surface relationship insight in the product inspector without exposing Harness concepts.
-- Keep the target product isolated in `apps/mindmap-editor`.
-- Upgrade Harness browser quality checks so the new panel is validated automatically.
-- Record the TDD-style failure, fix, screenshot review, and workflow result.
+- Keep `apps/mindmap-editor` isolated as the product sample.
+- Move file management, save file, and import/export controls to a dedicated Files page.
+- Keep the Editor page focused on navigator, canvas, collaboration status, and node inspector.
+- Fix auto sync behavior so it defaults on and immediately pulls after being enabled.
+- Add keyboard shortcut modeling for create node, undo/redo, snapshot, layout, search, command palette, zoom, and reset view.
+- Preserve and finish the branch collapse/expand work started in the autonomous loop.
+- Expand browser quality checks to cover the new page split and shortcut-driven workflows.
 
 ## Changes
 
-- Added `RelationshipInsight` and `buildRelationshipInsight`.
-- The insight model reports depth, parent title, ancestor trail, child count, descendant count, sibling count, leaf count, status mix, same-tag related branches, and a next-step recommendation.
-- Added TDD regression coverage in `apps/mindmap-editor/src/domain.test.ts`; the test failed first because the function did not exist, then passed after implementation.
-- Added a new `Relationship Insight` inspector panel with compact metric tiles, status pills, recommendation text, and same-tag branch navigation.
-- Updated `harness-worktree/scripts/browser-quality-check.mjs` to assert the Relationship Insight heading and metrics in the browser flow.
+- Added a `view` state with `editor` and `files` modes.
+- Added a Files page with map list, file title editing, save, current-file summary, Markdown/JSON export, and JSON import.
+- Removed Map Files, Markdown Export, and JSON Transfer panels from the Editor page.
+- Removed direct toolbar buttons for root creation, child creation, undo, redo, snapshot save, layout, and reset map.
+- Added `resolveEditorShortcut` and unit tests for node creation, undo/redo, keyboard zoom, reset view, and typing-target suppression.
+- Auto sync now defaults to enabled and triggers an immediate silent pull when turned on.
+- Added collapsed branch state, visible-node filtering, descendant counts, and Collapse/Expand controls in Relationship Insight.
+- Browser quality now verifies Files page workflows, shortcut-created children, shortcut undo/redo, keyboard zoom, branch collapse/expand, multi-client pull, and auto sync.
 
 ## Validation
 
@@ -33,30 +38,31 @@ Mind Map Studio needed richer branch-level understanding as maps become larger. 
 - `pnpm target:build`
 - `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`
 - `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图产品增加关系洞察面板，并让浏览器验证覆盖该面板"`
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "重构脑图编辑页：文件管理独立页面，修复自动同步拉取，增加快捷键缩放和节点编辑快捷键，编辑页聚焦节点编辑"`
 
-Result: 62 total tests passed, target build passed, browser quality passed, and workflow `run_mphu8nqs_hr9q0hsz` completed successfully.
+Result: 64 total tests passed, target build passed, browser quality passed, and workflow `run_mphuzbxm_8v7ws9id` completed successfully.
 
 ## Visual QA
 
-- Desktop screenshot reviewed: `.harness/browser/browser_mphu7ral-desktop-mindmap-editor.png`
-- Mobile screenshot reviewed: `.harness/browser/browser_mphu7ral-mobile-mindmap-editor.png`
-- Relationship Insight is visible in the inspector on desktop and mobile.
-- No horizontal overflow, obvious truncation, or panel overlap was observed.
+- Editor desktop screenshot reviewed: `.harness/browser/browser_mphux9dv-desktop-mindmap-editor.png`
+- Editor mobile screenshot reviewed: `.harness/browser/browser_mphux9dv-mobile-mindmap-editor.png`
+- Files page screenshot reviewed: `.harness/browser/files-page-review.png`
+- The editor is now visually focused on node editing, with Files and Commands as the only header actions.
+- The Files page cleanly hosts file list, save, export, and import without horizontal overflow.
 
 ## Risks
 
-- Very dense same-tag maps currently show only the top four related branches.
-- The relationship model is local to the loaded map; it does not yet search across different saved map files.
-- Recommendations are heuristic and should become more nuanced as branch scoring grows.
+- The Files page currently has a dense list when many local test maps exist.
+- Keyboard-only creation assumes the user has left text inputs before pressing single-letter shortcuts.
+- Auto sync is polling-based and should eventually expose richer sync diagnostics.
 
 ## Rollback
 
-- Revert the domain function, inspector panel markup/styles, and browser-quality assertions.
-- The rest of the editor remains compatible because Relationship Insight does not alter persisted map data.
+- Revert the view split and browser-quality script changes.
+- Existing saved map data remains compatible because the change only adds local UI state for collapsed branches and page mode.
 
 ## Follow-Ups
 
-- Add branch collapse/expand so relationship-heavy maps can stay readable.
-- Add cross-file related branch search through `mindmap-rpc`.
-- Add a conflict preview panel for collaborative edits that touch related branches.
+- Add a searchable/sortable file library.
+- Add a keyboard shortcut palette view that can be opened without visible toolbar clutter.
+- Add cross-file relationship search from the Files page.

@@ -50,6 +50,13 @@ h1 {
   font-size: 28px;
 }
 
+.map-title-line {
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 750;
+}
+
 h2 {
   margin-bottom: 0;
   font-size: 16px;
@@ -76,6 +83,10 @@ label,
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.compact-actions {
+  justify-content: flex-end;
 }
 
 .actions button {
@@ -208,14 +219,23 @@ label,
   background: #d8e0eb;
 }
 
+.files-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr) minmax(280px, 1fr);
+  gap: 16px;
+  padding: 18px;
+}
+
 .navigator,
 .canvas-panel,
-.inspector {
+.inspector,
+.file-manager-panel {
   background: #f8fafc;
 }
 
 .navigator,
-.inspector {
+.inspector,
+.file-manager-panel {
   display: grid;
   align-content: start;
   gap: 14px;
@@ -267,6 +287,7 @@ label {
 .insight-grid div,
 .activity-panel,
 .file-panel,
+.file-manager-panel,
 .context-panel,
 .outline-panel {
   border: 1px solid #dce4ef;
@@ -327,6 +348,12 @@ label {
   background: #ecfdf5;
   color: #0f766e;
   font-weight: 850;
+}
+
+.wide-button:disabled {
+  cursor: not-allowed;
+  background: #e2e8f0;
+  color: #64748b;
 }
 
 .node-row span,
@@ -693,7 +720,8 @@ label {
 }
 
 @media (max-width: 1120px) {
-  .workspace {
+  .workspace,
+  .files-workspace {
     grid-template-columns: 280px minmax(0, 1fr);
   }
 
@@ -720,6 +748,7 @@ label {
   }
 
   .workspace,
+  .files-workspace,
   .field-grid {
     grid-template-columns: 1fr;
   }

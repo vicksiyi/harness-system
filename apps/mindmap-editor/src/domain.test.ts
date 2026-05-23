@@ -4,6 +4,7 @@ import {
   buildCommandPalette,
   buildMiniMap,
   buildRelationshipInsight,
+  collapsedDescendantCount,
   autoLayoutNodes,
   collectTags,
   createExportArtifact,
@@ -20,6 +21,7 @@ import {
   filterNodes,
   getAncestors,
   getChildren,
+  visibleNodesByCollapse,
   moveNode,
   panCanvasViewport,
   pushHistory,
@@ -27,6 +29,7 @@ import {
   parseMindMapJson,
   redoHistory,
   restoreSnapshot,
+  resolveEditorShortcut,
   summarizeMap,
   suggestFocusQueue,
   undoHistory,
@@ -182,6 +185,26 @@ describe("mind map domain", () => {
     expect(insight.statusMix).toEqual({ seed: 1, exploring: 1, committed: 0 });
     expect(insight.relatedByTag.map((item) => item.id)).toEqual(["metrics"]);
     expect(insight.relatedByTag[0].sharedTags).toEqual(["launch"]);
+  });
+
+  it("filters collapsed branch descendants while keeping the collapsed node visible", () => {
+    const nestedNodes = [
+      ...nodes,
+      createNode({
+        id: "draft",
+        title: "Launch draft",
+        parentId: "story",
+        tags: ["writing"],
+        x: 540,
+        y: 220
+      })
+    ];
+
+    expect(visibleNodesByCollapse(nestedNodes, ["story"]).map((node) => node.id)).toEqual(["root", "research", "story"]);
+    expect(visibleNodesByCollapse(nestedNodes, ["root"]).map((node) => node.id)).toEqual(["root"]);
+    expect(visibleNodesByCollapse(nestedNodes, ["missing"]).map((node) => node.id)).toEqual(["root", "research", "story", "draft"]);
+    expect(collapsedDescendantCount(nestedNodes, "root")).toBe(3);
+    expect(collapsedDescendantCount(nestedNodes, "research")).toBe(0);
   });
 
   it("builds a depth ordered outline", () => {
@@ -421,5 +444,16 @@ describe("mind map domain", () => {
     expect(filterCommands(commands, "layout").map((command) => command.id)).toEqual(["auto-layout"]);
     expect(filterCommands(commands, "json").map((command) => command.id)).toEqual(["export-json", "focus-import"]);
     expect(filterCommands(commands, "undo").map((command) => command.id)).toEqual(["undo-edit"]);
+  });
+
+  it("resolves editor keyboard shortcuts for node editing and canvas zoom", () => {
+    expect(resolveEditorShortcut({ key: "r" })).toBe("add-root");
+    expect(resolveEditorShortcut({ key: "c" })).toBe("add-child");
+    expect(resolveEditorShortcut({ key: "z", metaKey: true })).toBe("undo-edit");
+    expect(resolveEditorShortcut({ key: "z", ctrlKey: true, shiftKey: true })).toBe("redo-edit");
+    expect(resolveEditorShortcut({ key: "=", metaKey: true })).toBe("zoom-in");
+    expect(resolveEditorShortcut({ key: "-", ctrlKey: true })).toBe("zoom-out");
+    expect(resolveEditorShortcut({ key: "0", metaKey: true })).toBe("reset-view");
+    expect(resolveEditorShortcut({ key: "r", targetIsTyping: true })).toBeNull();
   });
 });

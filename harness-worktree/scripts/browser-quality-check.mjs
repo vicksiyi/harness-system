@@ -45,56 +45,20 @@ try {
   await page.reload({ waitUntil: "networkidle" });
   await visible(page.getByRole("heading", { name: "Mind Map Studio" }), "main product heading");
   await visible(page.getByRole("heading", { name: "Map Canvas" }), "map canvas section");
+  await visible(page.getByRole("heading", { name: "Collaboration" }), "collaboration sync section");
+  await page.getByRole("button", { name: "Open files page" }).click();
   await visible(page.getByRole("heading", { name: "Map Files" }), "map files section");
   await visible(page.getByText(/Sync online|database|sync service/i).first(), "mind map sync status");
   await page.getByRole("button", { name: "Create map file" }).click();
   await page.waitForFunction(() => document.querySelectorAll("[data-map-file-id]").length > 0);
   record("database map file creation", true, "front-end created a database-backed map through the sync service");
-  await visible(page.getByRole("heading", { name: "Collaboration" }), "collaboration sync section");
   await page.getByLabel("Map file title").fill(`Browser save ${runId}`);
   await page.getByRole("button", { name: "Save map file" }).click();
-  await visible(page.getByText(/Saved file to database/).first(), "manual save file succeeds");
+  await visible(page.getByText(/Saved file to database|Saved \d+ changes/).first(), "manual save file succeeds");
   await page.getByLabel("Map file title").fill(`Browser diff ${runId}`);
-  await page.keyboard.press("Tab");
-  await page.getByRole("button", { name: "Push diff operations" }).click();
+  await page.getByRole("button", { name: "Save map file" }).click();
   await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "diff sync saves through service");
-  const peerContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  const peerPage = await peerContext.newPage();
-  await peerPage.goto(targetUrl, { waitUntil: "networkidle" });
-  await peerPage.evaluate(() => {
-    window.localStorage.clear();
-  });
-  await peerPage.reload({ waitUntil: "networkidle" });
-  await visible(peerPage.getByRole("heading", { name: "Mind Map Studio" }), "peer client product heading");
-  const peerOpenedSharedMap = await peerPage
-    .waitForFunction((title) => document.querySelector("#map-title-input")?.value === title, `Browser diff ${runId}`, { timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-  record("peer client opens shared map", peerOpenedSharedMap, peerOpenedSharedMap ? "second client opened the latest synced database file" : "second client did not open the expected shared file");
-  const multiClientTitle = `Multi client ${runId}`;
-  await page.getByLabel("Map file title").fill(multiClientTitle);
-  await page.getByRole("button", { name: "Push diff operations" }).click();
-  await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "multi-client diff push saves");
-  await peerPage.getByRole("button", { name: "Pull diff operations" }).click();
-  const peerPulledRemoteTitle = await peerPage
-    .waitForFunction((title) => document.querySelector("#map-title-input")?.value === title, multiClientTitle, { timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-  record("peer client pulls remote diff", peerPulledRemoteTitle, peerPulledRemoteTitle ? "second client pulled the primary client rename diff" : "second client did not receive the remote rename diff");
-  await peerPage.getByLabel("Auto sync changes").check();
-  const autoSyncTitle = `Auto sync ${runId}`;
-  await page.getByLabel("Map file title").fill(autoSyncTitle);
-  await page.getByRole("button", { name: "Push diff operations" }).click();
-  await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "auto-sync source diff saves");
-  const peerAutoSyncedTitle = await peerPage
-    .waitForFunction((title) => document.querySelector("#map-title-input")?.value === title, autoSyncTitle, { timeout: 7000 })
-    .then(() => true)
-    .catch(() => false);
-  record("peer client auto syncs remote diff", peerAutoSyncedTitle, peerAutoSyncedTitle ? "second client received the rename diff without manual pull" : "second client did not auto sync the remote rename diff");
-  await peerContext.close();
-  await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
-  await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");
-  await visible(page.getByRole("heading", { name: "Markdown Export" }), "markdown export section");
+  await visible(page.getByRole("heading", { name: "Export" }), "file export section");
   const [jsonDownload] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Download JSON export" }).click()
@@ -105,21 +69,62 @@ try {
     page.getByRole("button", { name: "Download markdown export" }).click()
   ]);
   record("markdown file export download", /\.md$/.test(markdownDownload.suggestedFilename()), `downloaded ${markdownDownload.suggestedFilename()}`);
+  await page.getByRole("button", { name: "Open editor page" }).click();
+  const peerContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const peerPage = await peerContext.newPage();
+  await peerPage.goto(targetUrl, { waitUntil: "networkidle" });
+  await peerPage.evaluate(() => {
+    window.localStorage.clear();
+  });
+  await peerPage.reload({ waitUntil: "networkidle" });
+  await visible(peerPage.getByRole("heading", { name: "Mind Map Studio" }), "peer client product heading");
+  const peerOpenedSharedMap = await peerPage
+    .waitForFunction((title) => document.querySelector("[data-current-map-title]")?.textContent?.includes(title), `Browser diff ${runId}`, { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  record("peer client opens shared map", peerOpenedSharedMap, peerOpenedSharedMap ? "second client opened the latest synced database file" : "second client did not open the expected shared file");
+  const multiClientTitle = `Multi client ${runId}`;
+  await page.getByRole("button", { name: "Open files page" }).click();
+  await page.getByLabel("Map file title").fill(multiClientTitle);
+  await page.getByRole("button", { name: "Save map file" }).click();
+  await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "multi-client diff push saves");
+  await page.getByRole("button", { name: "Open editor page" }).click();
+  await peerPage.getByRole("button", { name: "Pull diff operations" }).click();
+  const peerPulledRemoteTitle = await peerPage
+    .waitForFunction((title) => document.querySelector("[data-current-map-title]")?.textContent?.includes(title), multiClientTitle, { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  record("peer client pulls remote diff", peerPulledRemoteTitle, peerPulledRemoteTitle ? "second client pulled the primary client rename diff" : "second client did not receive the remote rename diff");
+  await peerPage.getByLabel("Auto sync changes").check();
+  const autoSyncTitle = `Auto sync ${runId}`;
+  await page.getByRole("button", { name: "Open files page" }).click();
+  await page.getByLabel("Map file title").fill(autoSyncTitle);
+  await page.getByRole("button", { name: "Save map file" }).click();
+  await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "auto-sync source diff saves");
+  await page.getByRole("button", { name: "Open editor page" }).click();
+  const peerAutoSyncedTitle = await peerPage
+    .waitForFunction((title) => document.querySelector("[data-current-map-title]")?.textContent?.includes(title), autoSyncTitle, { timeout: 7000 })
+    .then(() => true)
+    .catch(() => false);
+  record("peer client auto syncs remote diff", peerAutoSyncedTitle, peerAutoSyncedTitle ? "second client received the rename diff without manual pull" : "second client did not auto sync the remote rename diff");
+  await peerContext.close();
+  await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
+  await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");
 
   await page.getByLabel("Search ideas").fill("Narrative");
   await visible(page.getByRole("button", { name: /Narrative options/ }).first(), "search filters idea rows");
   await page.getByLabel("Search ideas").fill("");
 
   await page.getByRole("button", { name: /Launch plan/ }).first().click();
-  await page.getByRole("button", { name: "Add child idea" }).click();
+  await page.keyboard.press("c");
   await visible(page.getByRole("button", { name: /New branch/ }).first(), "new child idea appears");
 
   await page.getByLabel("Idea title").fill("Browser verified branch");
   await visible(page.getByRole("button", { name: /Browser verified branch/ }).first(), "title edit updates live UI");
   await visible(page.getByRole("heading", { name: "Edit History" }), "edit history section");
-  await page.getByRole("button", { name: "Undo latest map edit" }).click();
+  await page.keyboard.press("Control+Z");
   await visible(page.getByRole("button", { name: /^New branch/ }).first(), "undo restores previous node title");
-  await page.getByRole("button", { name: "Redo latest map edit" }).click();
+  await page.keyboard.press("Control+Shift+Z");
   await visible(page.getByRole("button", { name: /Browser verified branch/ }).first(), "redo restores edited node title");
   await visible(page.getByRole("heading", { name: "Relationship Insight" }), "relationship insight section");
   const relationshipInsightTracksSelection = await page.locator(".relationship-panel").evaluate((panel) => {
@@ -132,7 +137,7 @@ try {
     relationshipInsightTracksSelection ? "selected branch relationship metrics are rendered" : "relationship metrics were missing from the inspector"
   );
 
-  await page.getByRole("button", { name: "Save snapshot" }).click();
+  await page.keyboard.press("Control+S");
   await visible(page.getByRole("heading", { name: "Snapshots" }), "snapshots section");
   await visible(page.getByRole("button", { name: "Restore latest snapshot" }), "snapshot restore action appears");
   await page.getByLabel("Idea title").fill("Temporary browser title");
@@ -220,7 +225,8 @@ try {
     record("node drag updates position", dragApplied, `dragging canvas node ${beforeDrag.id} updates persisted node coordinates`);
   }
 
-  await page.getByRole("button", { name: "Auto layout map" }).click();
+  await page.locator(".canvas-grid").click({ position: { x: 24, y: 24 } });
+  await page.keyboard.press("l");
   const layoutApplied = await page.evaluate(() => {
     const root = document.querySelector('.map-node[data-node-id="idea-launch"]');
     const research = document.querySelector('.map-node[data-node-id="idea-research"]');
@@ -232,6 +238,33 @@ try {
     );
   });
   record("auto layout action", layoutApplied, "layout action positions hierarchy lanes");
+
+  await visible(page.getByRole("button", { name: "Collapse selected branch" }), "branch collapse action");
+  const beforeCollapseNodeCount = await page.locator(".canvas-grid .map-node").count();
+  await page.getByRole("button", { name: "Collapse selected branch" }).click();
+  const branchCollapsed = await page
+    .waitForFunction(
+      (beforeCount) => {
+        const nodeCount = document.querySelectorAll(".canvas-grid .map-node").length;
+        const expandButton = Array.from(document.querySelectorAll("button")).find((button) => button.getAttribute("aria-label") === "Expand selected branch");
+        return nodeCount < beforeCount && Boolean(expandButton);
+      },
+      beforeCollapseNodeCount,
+      { timeout: 3000 }
+    )
+    .then(() => true)
+    .catch(() => false);
+  record("branch collapse hides descendants", branchCollapsed, branchCollapsed ? "collapse action hides descendant canvas nodes" : "collapse action did not hide descendants");
+  await page.getByRole("button", { name: "Expand selected branch" }).click();
+  const branchExpanded = await page
+    .waitForFunction(
+      (beforeCount) => document.querySelectorAll(".canvas-grid .map-node").length === beforeCount,
+      beforeCollapseNodeCount,
+      { timeout: 3000 }
+    )
+    .then(() => true)
+    .catch(() => false);
+  record("branch expand restores descendants", branchExpanded, branchExpanded ? "expand action restores descendant canvas nodes" : "expand action did not restore descendants");
 
   const desktopMapNodesVisible = await page.evaluate(() => {
     const canvas = document.querySelector(".canvas-grid");
@@ -318,7 +351,8 @@ try {
   record("canvas mini map renders model", miniMapRendered, "mini map shows selected node marker and viewport frame");
   await page.getByRole("button", { name: "Pan canvas right" }).click();
   await page.getByRole("button", { name: "Pan canvas down" }).click();
-  await page.getByRole("button", { name: "Zoom canvas in" }).click();
+  await page.locator(".canvas-grid").click({ position: { x: 24, y: 24 } });
+  await page.keyboard.press("Control+=");
   const viewportChanged = await page.evaluate(() => {
     const canvas = document.querySelector(".canvas-grid");
     return (
@@ -327,11 +361,11 @@ try {
       Number(canvas?.getAttribute("data-zoom")) > 1
     );
   });
-  record("infinite canvas viewport transform", viewportChanged, "pan and zoom controls update canvas viewport state");
+  record("infinite canvas viewport transform", viewportChanged, "pan controls and keyboard zoom update canvas viewport state");
   const viewportScreenshotPath = join(artifactDir, `${runId}-desktop-viewport-mindmap-editor.png`);
   await page.screenshot({ path: viewportScreenshotPath, fullPage: true });
   record("desktop viewport screenshot", true, viewportScreenshotPath);
-  await page.getByRole("button", { name: "Reset canvas view" }).click();
+  await page.keyboard.press("Control+0");
   const viewportReset = await page.evaluate(() => {
     const canvas = document.querySelector(".canvas-grid");
     return canvas?.getAttribute("data-pan-x") === "0" && canvas?.getAttribute("data-pan-y") === "0" && canvas?.getAttribute("data-zoom") === "1";
@@ -355,9 +389,11 @@ try {
   });
   const importFilePath = join(artifactDir, `${runId}-import.json`);
   await writeFile(importFilePath, importPayload, "utf8");
+  await page.getByRole("button", { name: "Open files page" }).click();
   await page.getByLabel("Import JSON file").setInputFiles(importFilePath);
   await visible(page.getByText("1 ideas · 1 roots"), "json file import preview appears");
   await page.getByRole("button", { name: "Apply JSON import" }).click();
+  await page.getByRole("button", { name: "Open editor page" }).click();
   await visible(page.getByRole("button", { name: /Imported from browser/ }).first(), "json import applies to map");
   await page.getByRole("button", { name: "Push diff operations" }).click();
   await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "import diff sync saves through service");
