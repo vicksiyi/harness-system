@@ -18,11 +18,14 @@ Harness 只能把本文件作为产品上下文读取，用来理解产品边界
 
 ```bash
 pnpm target:dev
+pnpm target:web
 pnpm target:rpc
 pnpm target:test
 pnpm target:build
 pnpm target:browser
 ```
+
+`pnpm target:dev` 必须作为本地产品开发默认入口，它会同时启动前端和 `mindmap-rpc`。如果只启动 `pnpm target:web`，页面能打开，但保存文件、Push diff、Pull diff 会因为同步服务离线而失败。
 
 ## 修改注意事项
 
@@ -44,3 +47,4 @@ pnpm target:browser
 - 浏览器检查找不到标题：确认页面主标题仍是 `Mind Map Studio`。
 - 移动端横向溢出：检查 `.workspace`、`.canvas-grid`、`.inspector` 的响应式布局。
 - 单测失败：优先修复 `src/domain.ts` 的纯逻辑，不要在 UI 层硬编码补丁。
+- 保存、Push、Pull 失败：先检查 `curl http://localhost:4105/health`；如果前端在 5175 但 4105 不通，使用 `pnpm target:dev` 重新启动产品。

@@ -410,3 +410,25 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphrgcdm-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphrgcdm-mobile-mindmap-editor.png`，确认小地图在桌面和移动端显示正常。
 - 验证：`pnpm target:test` 通过 24 条产品单测；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 59 条总测试、构建和浏览器门禁；workflow `run_mphrha29_grrcdp7u` 通过。
 - 下一步：继续产品复杂度建设，优先考虑节点关系洞察、分支折叠或冲突预览。
+
+## Run run_mphtxsaa_cufupw37
+
+- At: 2026-05-23T04:09:45.052Z
+- Type: bugfix
+- Prompt: 修复只启动前端时保存 Push Pull 同步服务离线失败
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Sync Service Startup Bugfix Loop
+
+- At: 2026-05-23
+- 目标：修复当前页面保存文件、Push diff、Pull diff 失败的问题，并让后续本地启动不容易只启动前端。
+- 根因：`http://localhost:5175` 的 Vite 前端仍在运行，但 `mindmap-rpc` 的 `http://localhost:4105` 已停止；页面可打开，保存/协同接口会连接失败。之前 `target:browser` 会临时拉起后端并在测试结束后关闭，导致用户继续看着一个没有后端的前端。
+- 隐藏问题：`mindmap-rpc` 由 `pnpm --filter` 启动时工作目录在服务包内，SQLite 默认路径可能落到 `services/mindmap-rpc/.harness`，和仓库根目录 `.harness` 不一致。
+- 已完成：将 `pnpm target:dev` 改为同时启动 `target:rpc` 和 `target:web`；新增 `target:web` 单独前端入口；`defaultMindMapDatabasePath` 会向上寻找 `pnpm-workspace.yaml` 并固定到仓库根 `.harness/mindmap/mindmaps.sqlite`；服务端坐标保存上限同步到 100000。
+- 当前页面复核：在 in-app browser 实际修改标题、点击 Save file、Push diff、Pull diff，均返回成功。
+- 验证：`pnpm test services/mindmap-rpc/src/store.test.ts` 通过 8 条 store 测试；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 61 条总测试、构建和浏览器门禁；workflow `run_mphtxsaa_cufupw37` 通过。
+- 下一步：继续自主产品复杂度建设，进入节点关系洞察或分支折叠。

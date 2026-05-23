@@ -18,6 +18,8 @@ pnpm target:dev
 - Mind Map Studio Target: `http://localhost:5175`
 - Orchestrator: `http://localhost:4100`
 
+`pnpm target:dev` 会同时启动 Mind Map Studio 前端和产品同步服务。只启动 `pnpm target:web` 会导致页面可打开但保存文件、Push diff、Pull diff 失败，因为 `http://localhost:4105` 不在线。
+
 ## Skill 调用
 
 ```txt

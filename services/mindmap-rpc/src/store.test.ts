@@ -1,9 +1,9 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { StoredMindNode } from "@harness/shared";
-import { MindMapStore } from "./store.js";
+import { defaultMindMapDatabasePath, MindMapStore } from "./store.js";
 
 const nodes: StoredMindNode[] = [
   {
@@ -41,6 +41,28 @@ afterEach(() => {
 });
 
 describe("MindMapStore", () => {
+  it("resolves the database path from the workspace root when launched from a package directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "mindmap-root-"));
+    const packageDir = join(root, "services", "mindmap-rpc");
+    const previousDbPath = process.env.MINDMAP_DB_PATH;
+    await mkdir(packageDir, { recursive: true });
+    await writeFile(join(root, "pnpm-workspace.yaml"), "packages: []\n", "utf8");
+
+    try {
+      delete process.env.MINDMAP_DB_PATH;
+      expect(defaultMindMapDatabasePath(packageDir)).toBe(join(root, ".harness", "mindmap", "mindmaps.sqlite"));
+
+      process.env.MINDMAP_DB_PATH = "tmp/custom.sqlite";
+      expect(defaultMindMapDatabasePath(packageDir)).toBe(join(root, "tmp", "custom.sqlite"));
+    } finally {
+      if (previousDbPath === undefined) {
+        delete process.env.MINDMAP_DB_PATH;
+      } else {
+        process.env.MINDMAP_DB_PATH = previousDbPath;
+      }
+    }
+  });
+
   it("creates lists and reads SQLite-backed mind map files", () => {
     const created = store.createMap({
       title: "  Launch workspace  ",
@@ -98,6 +120,22 @@ describe("MindMapStore", () => {
         nodes
       })
     ).toThrow(/version conflict/i);
+  });
+
+  it("keeps large canvas coordinates when saving files", () => {
+    const created = store.createMap({
+      title: "Large canvas",
+      selectedId: "root",
+      nodes: [
+        {
+          ...nodes[0],
+          x: 25_000,
+          y: 18_000
+        }
+      ]
+    });
+
+    expect(created.nodes[0]).toMatchObject({ x: 25000, y: 18000 });
   });
 
   it("applies diff operations and returns changes since a client version", () => {

@@ -6,7 +6,8 @@
   "packageManager": "pnpm@10.6.5",
   "scripts": {
     "dev": "pnpm dev:services",
-    "target:dev": "pnpm --filter @target/mindmap-editor dev",
+    "target:dev": "concurrently -n mindmap-rpc,mindmap-web -c white,green \"pnpm target:rpc\" \"pnpm target:web\"",
+    "target:web": "pnpm --filter @target/mindmap-editor dev",
     "target:rpc": "pnpm --filter @target/mindmap-rpc dev",
     "target:build": "pnpm --filter @target/mindmap-editor build",
     "target:test": "vitest run apps/mindmap-editor/src",

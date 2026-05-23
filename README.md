@@ -26,7 +26,6 @@ pnpm workflow:polish "优化前端任务状态展示"
 pnpm install
 pnpm dev:services
 pnpm target:dev
-pnpm target:rpc
 ```
 
 Target product: http://localhost:5175
@@ -43,8 +42,9 @@ RPC services:
 Target app commands:
 
 ```bash
-pnpm target:dev
-pnpm target:rpc
+pnpm target:dev     # starts both mindmap-rpc and the Vite app
+pnpm target:web     # starts only the Vite app
+pnpm target:rpc     # starts only the product sync service
 pnpm target:test
 pnpm target:build
 pnpm target:browser

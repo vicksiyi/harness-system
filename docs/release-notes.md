@@ -1,27 +1,27 @@
-# Release Notes: Canvas Mini Map
+# Release Notes: Mind Map Sync Service Startup Fix
 
-Date: 2026-05-23
-Target Project: apps/mindmap-editor
-Workflow Run: run_mphrha29_grrcdp7u
+## Product Impact
 
-## Added
+- Save file, Push diff, and Pull diff now have the expected local backend when developers start the product with `pnpm target:dev`.
+- The Mind Map Studio frontend remains at `http://localhost:5175`; the product sync service remains at `http://localhost:4105`.
+- Infinite-canvas node positions are now preserved by persistence instead of being clamped back to the old fixed-canvas range.
 
-- Mini map in the canvas panel.
-- Selected node marker.
-- Current viewport frame.
-- Browser quality checks for mini map visibility and rendered dimensions.
+## Operator Notes
 
-## Changed
+- Use `pnpm target:dev` for normal local development.
+- Use `pnpm target:web` only when intentionally testing the frontend without persistence.
+- If sync actions fail, first run `curl http://localhost:4105/health`.
+- The active SQLite file should resolve to `.harness/mindmap/mindmaps.sqlite` at the repository root unless `MINDMAP_DB_PATH` is set.
 
-- Domain tests now cover mini map model generation.
-- Infinite canvas verification now includes overview rendering.
+## Verification
 
-## Validation
-
-- 59 total tests passed through `pnpm verify`.
-- Browser quality passed on `http://localhost:5175` with mini map checks.
-- Workflow `run_mphrha29_grrcdp7u` completed successfully.
+- Store unit regression tests passed.
+- Full typecheck passed.
+- Harness verify loop passed with the local browser target.
+- Harness bugfix workflow passed.
+- Manual browser check confirmed Save, Pull, and Push success states.
 
 ## Known Limits
 
-- Mini map is visual-only; click-to-pan is a future enhancement.
+- The UI still needs a more graceful degraded/offline sync state.
+- Browser automation should be expanded to click Save, Push, and Pull as part of the standard target check.

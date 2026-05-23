@@ -1,5 +1,5 @@
-import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname, isAbsolute, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   createId,
@@ -52,7 +52,11 @@ interface OperationRow {
 }
 
 export function defaultMindMapDatabasePath(root = process.env.HARNESS_ROOT ?? process.cwd()): string {
-  return process.env.MINDMAP_DB_PATH ?? join(root, ".harness", "mindmap", "mindmaps.sqlite");
+  const workspaceRoot = findWorkspaceRoot(root);
+  if (process.env.MINDMAP_DB_PATH) {
+    return isAbsolute(process.env.MINDMAP_DB_PATH) ? process.env.MINDMAP_DB_PATH : join(workspaceRoot, process.env.MINDMAP_DB_PATH);
+  }
+  return join(workspaceRoot, ".harness", "mindmap", "mindmaps.sqlite");
 }
 
 export class MindMapStore {
@@ -439,7 +443,7 @@ function normalizeStatus(status: unknown): StoredMindNode["status"] {
 }
 
 function clampCoordinate(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, Math.min(1400, Math.round(value))) : 0;
+  return Number.isFinite(value) ? Math.max(0, Math.min(100000, Math.round(value))) : 0;
 }
 
 function readTags(value: string): string[] {
@@ -461,4 +465,19 @@ function readOperationPayload(value: string): MindMapOperationInput {
     // Fall through to a harmless operation shape for corrupted historical rows.
   }
   return { type: "rename-map", title: "Unknown operation" };
+}
+
+function findWorkspaceRoot(start: string): string {
+  let current = start;
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (existsSync(join(current, "pnpm-workspace.yaml"))) {
+      return current;
+    }
+    const parent = dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return start;
 }
