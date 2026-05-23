@@ -60,3 +60,10 @@
 - 原因：RPC 是传输/调度形式，不应成为用户理解保存文件或协同状态的接口名称。
 - 取舍：内部包名和服务目录仍保留 `*-rpc`，方便 Harness 识别服务边界；浏览器质量报告面向产品行为时使用“sync service”检查名。
 - 质量要求：浏览器门禁必须验证真实点击、保存结果、diff 队列清空、Canvas 像素和截图；发现失败后记录根因并修复，不只放宽选择器。
+
+## 0011 Viewport Transform Over Coordinate Mutation
+
+- 决策：无限画布使用本地 `CanvasViewport` 对整个 canvas surface 做 transform，不直接重写节点坐标。
+- 原因：节点和连接线继续共享文档坐标系，平移/缩放时可以一起移动，降低连接线漂移风险。
+- 取舍：视口暂时是本地状态，没有进入数据库 diff 协同；后续可按用户偏好决定是 per-user viewport 还是 per-file viewport。
+- 质量要求：浏览器门禁必须验证 toolbar、pan/zoom、reset 和截图，而不只验证领域函数。

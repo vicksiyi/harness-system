@@ -4,6 +4,7 @@ import {
   buildCommandPalette,
   autoLayoutNodes,
   collectTags,
+  createCanvasViewport,
   createSnapshot,
   completionScore,
   createChildNode,
@@ -17,6 +18,7 @@ import {
   getAncestors,
   getChildren,
   moveNode,
+  panCanvasViewport,
   pushHistory,
   recentActivity,
   parseMindMapJson,
@@ -25,7 +27,8 @@ import {
   summarizeMap,
   suggestFocusQueue,
   undoHistory,
-  updateNode
+  updateNode,
+  zoomCanvasViewport
 } from "./domain.js";
 
 const nodes = [
@@ -85,7 +88,7 @@ describe("mind map domain", () => {
     expect(updated.title).toBe("Refined launch plan");
     expect(updated.notes).toBe("concise notes");
     expect(updated.tags).toEqual(["go-to-market", "launch"]);
-    expect(updated.x).toBe(1400);
+    expect(updated.x).toBe(1500);
     expect(updated.y).toBe(0);
   });
 
@@ -96,6 +99,14 @@ describe("mind map domain", () => {
 
     expect(root).toMatchObject({ x: 180, y: 0, updatedAt: "2026-05-23T07:00:00.000Z" });
     expect(sibling).toMatchObject({ x: 320, y: 40, updatedAt: "2026-05-23T01:00:00.000Z" });
+  });
+
+  it("keeps node coordinates usable on a large canvas", () => {
+    const farNode = createNode({ id: "far", title: "Far branch", x: 25_500, y: 18_200 });
+    const clampedNode = createNode({ id: "edge", title: "Edge branch", x: 200_000, y: 200_000 });
+
+    expect(farNode).toMatchObject({ x: 25500, y: 18200 });
+    expect(clampedNode).toMatchObject({ x: 100000, y: 100000 });
   });
 
   it("creates child nodes from parent context", () => {
@@ -277,6 +288,16 @@ describe("mind map domain", () => {
     const redone = undone ? redoHistory(undone.history, undone.frame) : null;
     expect(redone?.frame.nodes.find((node) => node.id === "root")).toMatchObject({ x: 200, y: 140 });
     expect(redone?.history.past[0].nodes.find((node) => node.id === "root")).toMatchObject({ x: 100, y: 100 });
+  });
+
+  it("clamps and updates infinite canvas viewport state", () => {
+    const viewport = createCanvasViewport({ x: -20, y: Number.NaN, zoom: 8 });
+    const panned = panCanvasViewport(viewport, { x: 320, y: 180 });
+    const zoomed = zoomCanvasViewport(panned, -1.6);
+
+    expect(viewport).toEqual({ x: 0, y: 0, zoom: 1.8 });
+    expect(panned).toEqual({ x: 320, y: 180, zoom: 1.8 });
+    expect(zoomed).toEqual({ x: 320, y: 180, zoom: 0.5 });
   });
 
   it("builds command palette items with contextual disabled states", () => {

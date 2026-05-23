@@ -6,6 +6,7 @@ import {
   autoLayoutNodes,
   buildCommandPalette,
   collectTags,
+  createCanvasViewport,
   createChildNode,
   createEmptyHistory,
   createHistoryFrame,
@@ -21,12 +22,15 @@ import {
   pushHistory,
   recentActivity,
   parseMindMapJson,
+  panCanvasViewport,
   redoHistory,
   restoreSnapshot,
   suggestFocusQueue,
   summarizeMap,
   undoHistory,
   updateNode,
+  zoomCanvasViewport,
+  type CanvasViewport,
   type IdeaStatus,
   type CommandDefinition,
   type MindMapHistory,
@@ -55,6 +59,7 @@ interface EditorState {
   mapFiles: MindMapFileSummary[];
   clientId: string;
   pendingOperations: MindMapOperationInput[];
+  viewport: CanvasViewport;
   rpcStatus: "checking" | "online" | "saving" | "saved" | "offline" | "error";
   rpcMessage: string;
 }
@@ -138,6 +143,7 @@ function initialState(): EditorState {
     mapFiles: [],
     clientId: loadClientId(),
     pendingOperations: [],
+    viewport: saved?.viewport ?? createCanvasViewport(),
     rpcStatus: "checking",
     rpcMessage: "Connecting to sync service"
   };
@@ -465,6 +471,24 @@ function refreshCollaborationControls(): void {
   }
 }
 
+function panCanvas(delta: { x: number; y: number }): void {
+  state.viewport = panCanvasViewport(state.viewport, delta);
+  persistMap();
+  render();
+}
+
+function zoomCanvas(delta: number): void {
+  state.viewport = zoomCanvasViewport(state.viewport, delta);
+  persistMap();
+  render();
+}
+
+function resetCanvasView(): void {
+  state.viewport = createCanvasViewport();
+  persistMap();
+  render();
+}
+
 function upsertOperations(nodes: MindNode[]): MindMapOperationInput[] {
   return nodes.map((node) => ({ type: "upsert-node", node: toStoredNode(node) }));
 }
@@ -663,14 +687,21 @@ function commandCatalog(): CommandDefinition[] {
   });
 }
 
-function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "mapTitle" | "mapVersion"> | null {
+function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "mapTitle" | "mapVersion" | "viewport"> | null {
   const raw = readStorage(storageKeys.map);
   if (!raw) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(raw) as { nodes?: MindNode[]; selectedId?: string; mapId?: string | null; mapTitle?: string; mapVersion?: number };
+    const parsed = JSON.parse(raw) as {
+      nodes?: MindNode[];
+      selectedId?: string;
+      mapId?: string | null;
+      mapTitle?: string;
+      mapVersion?: number;
+      viewport?: Partial<CanvasViewport>;
+    };
     const nodes = normalizeStoredNodes(parsed.nodes);
     if (nodes.length === 0) {
       return null;
@@ -680,7 +711,8 @@ function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "m
       selectedId: typeof parsed.selectedId === "string" && nodes.some((node) => node.id === parsed.selectedId) ? parsed.selectedId : nodes[0].id,
       mapId: typeof parsed.mapId === "string" ? parsed.mapId : null,
       mapTitle: typeof parsed.mapTitle === "string" ? parsed.mapTitle : "Launch workspace",
-      mapVersion: typeof parsed.mapVersion === "number" ? parsed.mapVersion : 0
+      mapVersion: typeof parsed.mapVersion === "number" ? parsed.mapVersion : 0,
+      viewport: createCanvasViewport(parsed.viewport ?? {})
     };
   } catch {
     return null;
@@ -753,7 +785,8 @@ function persistMap(): void {
       selectedId: state.selectedId,
       mapId: state.mapId,
       mapTitle: state.mapTitle,
-      mapVersion: state.mapVersion
+      mapVersion: state.mapVersion,
+      viewport: state.viewport
     })
   );
 }
@@ -871,8 +904,8 @@ function moveDraggedNode(event: PointerEvent): void {
   }
 
   const delta = {
-    x: event.clientX - dragState.originPointerX,
-    y: event.clientY - dragState.originPointerY
+    x: (event.clientX - dragState.originPointerX) / state.viewport.zoom,
+    y: (event.clientY - dragState.originPointerY) / state.viewport.zoom
   };
   if (Math.abs(delta.x) > 1 || Math.abs(delta.y) > 1) {
     dragState.hasMoved = true;
@@ -939,9 +972,10 @@ function render(): void {
   const jsonExport = exportMapAsJson(state.nodes, state.selectedId);
   const latestSnapshot = state.snapshots[0];
   const commands = filterCommands(commandCatalog(), state.commandQuery);
-  const canvasWidth = Math.max(1040, ...state.nodes.map((item) => item.x + 230));
-  const canvasHeight = Math.max(520, ...state.nodes.map((item) => item.y + 120));
+  const canvasWidth = Math.max(3200, ...state.nodes.map((item) => item.x + 640));
+  const canvasHeight = Math.max(2200, ...state.nodes.map((item) => item.y + 520));
   const rpcLabel = state.rpcStatus === "saved" || state.rpcStatus === "online" ? "Sync online" : state.rpcStatus === "offline" ? "Sync offline" : state.rpcStatus;
+  const viewportLabel = `${Math.round(state.viewport.zoom * 100)}% · ${state.viewport.x}, ${state.viewport.y}`;
 
   app.innerHTML = `
     <section class="studio">
@@ -1102,18 +1136,30 @@ function render(): void {
             <h2>Map Canvas</h2>
             <span>${outline.length} visible branches</span>
           </div>
-          <div class="canvas-grid" aria-label="Idea map canvas" style="--canvas-width:${canvasWidth}px;--canvas-height:${canvasHeight}px">
-            <canvas id="connector-canvas" class="connector-layer" aria-hidden="true" width="${canvasWidth}" height="${canvasHeight}" data-connector-count="${state.nodes.filter((item) => item.parentId && state.nodes.some((parent) => parent.id === item.parentId)).length}"></canvas>
-            ${state.nodes
-              .map(
-                (item) => `
-                  <button class="map-node ${item.status} ${item.id === state.selectedId ? "selected" : ""}" style="left:${item.x}px;top:${item.y}px" data-node-id="${item.id}" data-parent-id="${item.parentId ?? ""}">
-                    <strong>${escapeHtml(item.title)}</strong>
-                    <span>${item.status}</span>
-                  </button>
-                `
-              )
-              .join("")}
+          <div class="canvas-toolbar" role="toolbar" aria-label="Canvas viewport">
+            <button id="pan-left" aria-label="Pan canvas left">←</button>
+            <button id="pan-up" aria-label="Pan canvas up">↑</button>
+            <button id="pan-down" aria-label="Pan canvas down">↓</button>
+            <button id="pan-right" aria-label="Pan canvas right">→</button>
+            <button id="zoom-out" aria-label="Zoom canvas out">−</button>
+            <span>${escapeHtml(viewportLabel)}</span>
+            <button id="zoom-in" aria-label="Zoom canvas in">+</button>
+            <button id="reset-view" aria-label="Reset canvas view">Reset</button>
+          </div>
+          <div class="canvas-grid" aria-label="Idea map canvas" data-pan-x="${state.viewport.x}" data-pan-y="${state.viewport.y}" data-zoom="${state.viewport.zoom}" style="--canvas-width:${canvasWidth}px;--canvas-height:${canvasHeight}px;--canvas-pan-x:${-state.viewport.x}px;--canvas-pan-y:${-state.viewport.y}px;--canvas-zoom:${state.viewport.zoom}">
+            <div class="canvas-surface">
+              <canvas id="connector-canvas" class="connector-layer" aria-hidden="true" width="${canvasWidth}" height="${canvasHeight}" data-connector-count="${state.nodes.filter((item) => item.parentId && state.nodes.some((parent) => parent.id === item.parentId)).length}"></canvas>
+              ${state.nodes
+                .map(
+                  (item) => `
+                    <button class="map-node ${item.status} ${item.id === state.selectedId ? "selected" : ""}" style="left:${item.x}px;top:${item.y}px" data-node-id="${item.id}" data-parent-id="${item.parentId ?? ""}">
+                      <strong>${escapeHtml(item.title)}</strong>
+                      <span>${item.status}</span>
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>
           </div>
 
           <section class="outline-panel">
@@ -1263,6 +1309,13 @@ function render(): void {
   byId<HTMLButtonElement>("auto-layout").addEventListener("click", autoLayoutMap);
   byId<HTMLButtonElement>("open-commands").addEventListener("click", () => openCommandPalette());
   byId<HTMLButtonElement>("reset-map").addEventListener("click", resetMap);
+  byId<HTMLButtonElement>("pan-left").addEventListener("click", () => panCanvas({ x: -180, y: 0 }));
+  byId<HTMLButtonElement>("pan-up").addEventListener("click", () => panCanvas({ x: 0, y: -140 }));
+  byId<HTMLButtonElement>("pan-down").addEventListener("click", () => panCanvas({ x: 0, y: 140 }));
+  byId<HTMLButtonElement>("pan-right").addEventListener("click", () => panCanvas({ x: 180, y: 0 }));
+  byId<HTMLButtonElement>("zoom-out").addEventListener("click", () => zoomCanvas(-0.1));
+  byId<HTMLButtonElement>("zoom-in").addEventListener("click", () => zoomCanvas(0.1));
+  byId<HTMLButtonElement>("reset-view").addEventListener("click", resetCanvasView);
   byId<HTMLButtonElement>("history-undo").addEventListener("click", undoMapEdit);
   byId<HTMLButtonElement>("history-redo").addEventListener("click", redoMapEdit);
   byId<HTMLButtonElement>("create-map-file").addEventListener("click", () => {

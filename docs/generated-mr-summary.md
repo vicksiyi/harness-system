@@ -1,29 +1,47 @@
-# MR Summary: Verify Multi-Client Diff Sync
+# MR Summary: Infinite Canvas Viewport for Mind Map Studio
+
+Type: requirement
+Target Project: apps/mindmap-editor
+Status: passed
+Workflow Run: run_mphqvfcp_2441duqy
 
 ## Background
-The mind map editor already had operation-log based diff sync. This change makes the collaboration path prove itself across two browser clients instead of only a single local queue.
 
-## Change Scope
-- Added backend store coverage for stale-base operations from two clients.
-- Extended browser quality to launch a second isolated browser context.
-- Verified peer client opens the same database-backed map, primary client pushes a rename diff, and peer client pulls the remote diff.
-- Kept product-facing language on sync/database concepts rather than transport names.
+Mind Map Studio needed to move beyond a fixed visible board so larger maps can be explored without compressing the information architecture. The feature also needed to prove that Canvas connectors, node dragging, sync flows, and mobile layout remain stable.
+
+## Scope
+
+- Added a persistent `CanvasViewport` domain model with pan and zoom clamping.
+- Increased node coordinate range for large-map authoring.
+- Added canvas pan, zoom, and reset controls to the product UI.
+- Rendered the map on a transformed large canvas surface while keeping Canvas connector drawing in map coordinates.
+- Made desktop drag math zoom-aware.
+- Preserved a static mobile layout so narrow screens remain readable.
+- Extended browser quality checks with viewport control, transform, reset, and screenshot assertions.
+
+## Architecture Notes
+
+The product keeps node coordinates in document space and applies the viewport only at the rendered surface level. Connectors are still drawn in document coordinates, so lines and nodes transform together and avoid the previous class of drift bugs.
 
 ## Validation
-- `pnpm test services/mindmap-rpc/src/store.test.ts`
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "验证脑图文件 DIFF 协同的双客户端拉取闭环"`
 
-Final result: 55 tests passed, browser quality passed with peer-client checks, workflow `run_mphqhqh7_rlkz5xut` passed.
+- `pnpm typecheck && pnpm target:test`: passed, 22 target tests.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed with desktop, viewport, connector, and mobile screenshots.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed, 57 total tests plus build and browser quality.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给脑图编辑器增加无限画布平移缩放视口"`: passed with run `run_mphqvfcp_2441duqy`.
 
-## Risk
-- This still validates pull-based collaboration; automatic live subscription is not implemented yet.
-- The sync algorithm is operation-log based and not a full CRDT.
+## Risks
+
+- Current pan and zoom controls are button-based; trackpad wheel zoom and drag-to-pan are not implemented yet.
+- The canvas is very large but still bounded by the product coordinate clamp of 100000.
+- Viewport state is local to the browser session and not yet shared through the database-backed map file.
 
 ## Rollback
-Revert the browser quality and store-test changes; existing product sync behavior remains available from the previous commit.
+
+Revert the commit adding the viewport model, toolbar, surface transform, and browser-quality assertions. Existing map documents remain compatible because `viewport` is an optional local storage field.
 
 ## Follow-ups
-- Add automatic polling or push subscription for remote operations.
-- Continue with infinite canvas pan/zoom and viewport persistence.
+
+- Add drag-to-pan and wheel or keyboard zoom.
+- Add a mini-map or viewport overview for very large maps.
+- Decide whether viewport should sync per file or remain per-user local state.

@@ -274,6 +274,29 @@ try {
   await page.screenshot({ path: connectorScreenshotPath, fullPage: true });
   record("desktop connector screenshot", true, connectorScreenshotPath);
 
+  await visible(page.getByRole("toolbar", { name: "Canvas viewport" }), "infinite canvas viewport controls");
+  await page.getByRole("button", { name: "Pan canvas right" }).click();
+  await page.getByRole("button", { name: "Pan canvas down" }).click();
+  await page.getByRole("button", { name: "Zoom canvas in" }).click();
+  const viewportChanged = await page.evaluate(() => {
+    const canvas = document.querySelector(".canvas-grid");
+    return (
+      canvas?.getAttribute("data-pan-x") === "180" &&
+      canvas?.getAttribute("data-pan-y") === "140" &&
+      Number(canvas?.getAttribute("data-zoom")) > 1
+    );
+  });
+  record("infinite canvas viewport transform", viewportChanged, "pan and zoom controls update canvas viewport state");
+  const viewportScreenshotPath = join(artifactDir, `${runId}-desktop-viewport-mindmap-editor.png`);
+  await page.screenshot({ path: viewportScreenshotPath, fullPage: true });
+  record("desktop viewport screenshot", true, viewportScreenshotPath);
+  await page.getByRole("button", { name: "Reset canvas view" }).click();
+  const viewportReset = await page.evaluate(() => {
+    const canvas = document.querySelector(".canvas-grid");
+    return canvas?.getAttribute("data-pan-x") === "0" && canvas?.getAttribute("data-pan-y") === "0" && canvas?.getAttribute("data-zoom") === "1";
+  });
+  record("infinite canvas reset", viewportReset, "reset restores origin pan and 100% zoom");
+
   const importPayload = JSON.stringify({
     selectedId: "import-browser-root",
     nodes: [

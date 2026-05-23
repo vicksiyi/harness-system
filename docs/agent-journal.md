@@ -323,3 +323,25 @@
 - 验证：`pnpm test services/mindmap-rpc/src/store.test.ts` 通过 6 条 store 测试；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 55 条总测试、构建和浏览器门禁；workflow `run_mphqhqh7_rlkz5xut` 通过。
 - 视觉复核：已读取 `.harness/browser/browser_mphqgosf-desktop-connectors-mindmap-editor.png`、`.harness/browser/browser_mphqgosf-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphqgosf-mobile-mindmap-editor.png`，确认双客户端验证后主界面、Canvas 连线和移动端仍正常。
 - 下一步：继续到用户路线里的无限画布，让脑图可平移/缩放并把浏览器截图质量门禁覆盖到 viewport transform。
+
+## Run run_mphqvfcp_2441duqy
+
+- At: 2026-05-23T02:43:54.736Z
+- Type: requirement
+- Prompt: 给脑图编辑器增加无限画布平移缩放视口
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Infinite Canvas Loop
+
+- At: 2026-05-23
+- 目标：把 Mind Map Studio 从固定画布推进到可平移、可缩放的大画布视口，并保持 Canvas 连线、拖拽和移动端降级稳定。
+- TDD scope：先在 `apps/mindmap-editor/src/domain.test.ts` 增加视口状态和大坐标节点单测，覆盖平移、缩放、重置边界和 100000 坐标上限，再接 UI。
+- 已完成：新增 `CanvasViewport` 领域模型、视口持久化、平移/缩放/重置工具条、大画布 surface transform、缩放感知节点拖拽、移动端静态列表降级，以及更宽的节点坐标范围。
+- Harness 反哺：浏览器质量脚本新增无限画布 toolbar 可见性、pan/zoom DOM 状态、reset 状态和 viewport 截图校验，避免只靠单测漏掉实际显示问题。
+- 视觉复核：已读取 `.harness/browser/browser_mphqukgh-desktop-viewport-mindmap-editor.png`、`.harness/browser/browser_mphqukgh-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphqukgh-mobile-mindmap-editor.png`，确认桌面平移缩放、连接线和移动端布局正常。
+- 验证：`pnpm typecheck && pnpm target:test` 通过 22 条产品单测；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 57 条总测试、构建和浏览器门禁；workflow `run_mphqvfcp_2441duqy` 通过。
+- 下一步：继续产品复杂度建设，优先考虑导入导出的文件级下载/上传体验、自动拉取远端 diff 或画布小地图。

@@ -69,6 +69,12 @@ export interface ActivityItem {
   summary: string;
 }
 
+export interface CanvasViewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 export interface MindMapImportPreview {
   total: number;
   roots: number;
@@ -481,6 +487,30 @@ export function redoHistory(history: MindMapHistory, current: MindMapHistoryFram
   };
 }
 
+export function createCanvasViewport(input: Partial<CanvasViewport> = {}): CanvasViewport {
+  return {
+    x: clampViewportOffset(input.x ?? 0),
+    y: clampViewportOffset(input.y ?? 0),
+    zoom: clampViewportZoom(input.zoom ?? 1)
+  };
+}
+
+export function panCanvasViewport(viewport: CanvasViewport, delta: { x: number; y: number }): CanvasViewport {
+  return createCanvasViewport({
+    x: viewport.x + delta.x,
+    y: viewport.y + delta.y,
+    zoom: viewport.zoom
+  });
+}
+
+export function zoomCanvasViewport(viewport: CanvasViewport, delta: number): CanvasViewport {
+  return createCanvasViewport({
+    x: viewport.x,
+    y: viewport.y,
+    zoom: viewport.zoom + delta
+  });
+}
+
 export function buildCommandPalette(input: { hasSnapshots: boolean; hasSelection: boolean; canUndo?: boolean; canRedo?: boolean }): CommandDefinition[] {
   return [
     command("add-root", "Add root idea", "Create a new top-level idea", "R", "create", ["new", "root", "idea"]),
@@ -578,7 +608,21 @@ function clampCoordinate(value: number): number {
   if (Number.isNaN(value)) {
     return 0;
   }
-  return Math.max(0, Math.min(1400, Math.round(value)));
+  return Math.max(0, Math.min(100000, Math.round(value)));
+}
+
+function clampViewportOffset(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100000, Math.round(value)));
+}
+
+function clampViewportZoom(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.max(0.5, Math.min(1.8, Math.round(value * 100) / 100));
 }
 
 function readRecordArray(value: unknown[]): Record<string, unknown>[] {

@@ -372,12 +372,63 @@ label {
   gap: 12px;
 }
 
+.canvas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.canvas-toolbar button {
+  min-width: 38px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: #0f766e;
+  color: #fff;
+  font-weight: 850;
+}
+
+.canvas-toolbar button:nth-of-type(5),
+.canvas-toolbar button:nth-of-type(6) {
+  background: #2563eb;
+}
+
+.canvas-toolbar button:last-child {
+  min-width: 58px;
+  background: #475569;
+}
+
+.canvas-toolbar span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 850;
+  padding: 0 6px;
+}
+
 .canvas-grid {
   position: relative;
   min-height: 520px;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid #dce4ef;
   border-radius: 8px;
+  background: #fff;
+}
+
+.canvas-grid::before {
+  display: none;
+}
+
+.canvas-surface {
+  position: relative;
+  width: var(--canvas-width);
+  height: var(--canvas-height);
+  transform: translate(var(--canvas-pan-x), var(--canvas-pan-y)) scale(var(--canvas-zoom));
+  transform-origin: 0 0;
   background:
     linear-gradient(#e7edf5 1px, transparent 1px),
     linear-gradient(90deg, #e7edf5 1px, transparent 1px),
@@ -385,16 +436,11 @@ label {
   background-size: 28px 28px;
 }
 
-.canvas-grid::before {
-  content: "";
-  display: block;
-  width: var(--canvas-width);
-  height: var(--canvas-height);
-}
-
 .connector-layer {
   position: absolute;
   inset: 0;
+  width: var(--canvas-width);
+  height: var(--canvas-height);
   pointer-events: none;
 }
 
@@ -598,16 +644,36 @@ label {
     grid-template-columns: 1fr;
   }
 
+  .canvas-toolbar {
+    align-items: stretch;
+  }
+
+  .canvas-toolbar button {
+    flex: 1 1 44px;
+    min-width: 0;
+  }
+
+  .canvas-toolbar span {
+    display: flex;
+    flex: 1 1 100%;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+  }
+
   .canvas-grid {
-    display: grid;
-    gap: 10px;
     min-height: auto;
     overflow: visible;
     padding: 12px;
   }
 
-  .canvas-grid::before {
-    display: none;
+  .canvas-surface {
+    display: grid;
+    gap: 10px;
+    width: auto;
+    height: auto;
+    transform: none;
+    background: transparent;
   }
 
   .map-node {
