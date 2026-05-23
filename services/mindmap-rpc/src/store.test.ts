@@ -102,7 +102,8 @@ describe("MindMapStore", () => {
           ...nodes[0],
           id: "root-2",
           title: "Audience research",
-          tags: ["research"]
+          tags: ["research"],
+          status: "committed"
         },
         {
           ...nodes[1],
@@ -125,6 +126,16 @@ describe("MindMapStore", () => {
       status: "seed"
     });
     expect(results.some((result) => result.nodeTitle === "Interview synthesis" && result.tags.includes("insight"))).toBe(true);
+
+    const committedResults = store.searchNodes({ query: "research", status: "committed", limit: 10 });
+
+    expect(committedResults).toEqual([
+      expect.objectContaining({
+        mapTitle: "Research archive",
+        nodeTitle: "Audience research",
+        status: "committed"
+      })
+    ]);
   });
 
   it("updates files with optimistic version checks", () => {

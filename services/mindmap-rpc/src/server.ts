@@ -27,6 +27,8 @@ function searchNodes(params: unknown) {
   const record = asRecord(params);
   const input: MindMapNodeSearchInput = {
     query: typeof record.query === "string" ? record.query : "",
+    status:
+      record.status === "seed" || record.status === "exploring" || record.status === "committed" || record.status === "all" ? record.status : undefined,
     limit: typeof record.limit === "number" ? record.limit : undefined
   };
   return store.searchNodes(input);

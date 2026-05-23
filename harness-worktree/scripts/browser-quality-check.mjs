@@ -64,6 +64,10 @@ try {
   const fileSortApplied = await page.getByLabel("Sort map files").evaluate((element) => element instanceof HTMLSelectElement && element.value === "nodes-desc");
   record("file sort changes map library order", fileSortApplied, fileSortApplied ? "file library accepted the ideas sort mode" : "file sort mode did not update");
   await page.getByLabel("Search map files").fill("");
+  await page.getByLabel("Search nodes across files").fill("research");
+  await page.getByLabel("Filter node search by status").selectOption("committed");
+  await visible(page.getByRole("button", { name: /Open Research signals in Browser diff/ }).first(), "cross-file node search filters by status");
+  await page.getByLabel("Filter node search by status").selectOption("all");
   await page.getByLabel("Search nodes across files").fill("launch");
   const launchSearchResult = page.getByRole("button", { name: /Open Launch plan in Browser diff/ }).first();
   await visible(launchSearchResult, "cross-file node search finds saved node");

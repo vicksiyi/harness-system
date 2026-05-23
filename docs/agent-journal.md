@@ -542,3 +542,25 @@
 - 改动：`browser-quality-check.mjs` 点击 `Launch plan` 搜索结果，等待 Editor Inspector，读取 `Idea title`，并记录 `cross-file node search selects result`。
 - 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphvwqy2_tu52uhwl` 全部通过。
 - 下一步：继续自主迭代，优先考虑节点元数据、搜索筛选或 FTS 搜索。
+
+## Run run_mphw9qox_t7loz6ea
+
+- At: 2026-05-23T05:15:02.660Z
+- Type: requirement
+- Prompt: 给跨文件节点搜索增加状态筛选，贯穿 mindmap-rpc、Files 页面和浏览器质量门
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Node Search Status Filter Loop
+
+- At: 2026-05-23
+- 目标：继续增强跨文件节点搜索，让 Files 页面可以按节点状态缩小结果，并保持 RPC/数据库侧过滤。
+- TDD 过程：先补 `store.searchNodes({ status: "committed" })` 单测，观察返回 seed/committed 混合结果；实现后重跑通过。
+- 产品变化：Files 页面 Node Search 新增 Result status 选择器；`MindMapNodeSearchInput`、`server.ts` 和 SQLite 查询支持 `all/seed/exploring/committed`。
+- 修复细节：SQL 文本匹配 OR 条件已加括号，避免状态谓词只作用于最后一个 OR 分支。
+- Harness 反哺：浏览器质量新增 `cross-file node search filters by status`，先验证 committed-only 搜索，再验证结果点击进入编辑器。
+- 验证：`pnpm test services/mindmap-rpc/src/store.test.ts`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphw9qox_t7loz6ea` 全部通过。
+- 下一步：继续自主迭代，优先考虑标签筛选或 SQLite FTS。

@@ -1,12 +1,12 @@
-# MR Summary: Polish: 增强浏览器质量门：跨文件节点搜索结果需要实际打开编辑器并选中对应节点
+# MR Summary: Implement: 给跨文件节点搜索增加状态筛选，贯穿 mindmap-rpc、Files 页面和浏览器质量门
 
-Type: polish
+Type: requirement
 Target Project: apps/mindmap-editor
 Status: passed
 Stage: completed
 
 ## Background
-增强浏览器质量门：跨文件节点搜索结果需要实际打开编辑器并选中对应节点
+给跨文件节点搜索增加状态筛选，贯穿 mindmap-rpc、Files 页面和浏览器质量门
 
 ## Scope
 - Modify the isolated target project at apps/mindmap-editor.
@@ -15,21 +15,25 @@ Stage: completed
 - Refresh generated MR summary, release notes, and execution records.
 
 ## Changes
-- Strengthened `browser-quality-check.mjs` so cross-file node search is validated as a full navigation flow.
-- The browser check now finds the saved `Launch plan` search result, clicks it, waits for the editor Inspector, and asserts the selected idea title.
-- This closes the previous gap where the quality gate only confirmed a result was visible but not that it could open the correct node.
+- Added optional `status` filtering to `MindMapNodeSearchInput`.
+- Updated `MindMapStore.searchNodes` to filter SQLite results by `seed`, `exploring`, or `committed`.
+- Added a Files page `Result status` selector for cross-file node search.
+- Extended browser quality checks to verify a committed-only search finds `Research signals` before validating search-result navigation.
+- Added TDD coverage for status-filtered search results.
 
 ## Validation
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed with `cross-file node search opens editor` and `cross-file node search selects result`.
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed with 66 tests, build, and browser quality checks.
-- Workflow `run_mphvwqy2_tu52uhwl`: passed.
+- TDD red: `pnpm test services/mindmap-rpc/src/store.test.ts` failed because `searchNodes` ignored `status`.
+- Fix: threaded `status` through shared types, RPC server params, SQLite query, Files page state, and browser quality.
+- `pnpm test services/mindmap-rpc/src/store.test.ts`: passed.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed with 66 tests, build, and browser quality.
+- Workflow `run_mphw9qox_t7loz6ea`: passed.
 
 ## Risks
-- This check depends on the seeded map containing `Launch plan`; if seed data changes, update the assertion with the new expected node.
-- Browser quality is more end-to-end and can uncover slower local RPC responses; keep timeouts realistic.
+- SQLite `LIKE` search is still basic; status filtering narrows results but does not replace indexed full-text search.
+- The search query uses an OR text match group plus a status predicate; future filter additions should keep SQL precedence covered by tests.
 
 ## Rollback
-- Revert the browser quality script change to keep search validation at result visibility only.
+- Revert this commit to remove the status selector and status predicate from node search.
 
 ## Follow-ups
-- Add a screenshot artifact for the exact moment after search-result navigation.
+- Add tag filtering next, then move heavy search to SQLite FTS when data volume grows.

@@ -140,6 +140,7 @@ export class MindMapStore {
       return [];
     }
     const limit = Math.max(1, Math.min(50, Math.round(input.limit ?? 12)));
+    const status = input.status === "seed" || input.status === "exploring" || input.status === "committed" ? input.status : "all";
     const pattern = `%${escapeLike(query)}%`;
     const prefixPattern = `${escapeLike(query)}%`;
     const rows = this.db
@@ -155,10 +156,13 @@ export class MindMapStore {
                 nodes.updated_at
            FROM nodes
            JOIN maps ON maps.id = nodes.map_id
-          WHERE lower(nodes.title) LIKE ? ESCAPE '\\'
+          WHERE (
+                lower(nodes.title) LIKE ? ESCAPE '\\'
              OR lower(nodes.notes) LIKE ? ESCAPE '\\'
              OR lower(nodes.tags_json) LIKE ? ESCAPE '\\'
              OR lower(maps.title) LIKE ? ESCAPE '\\'
+          )
+            AND (? = 'all' OR nodes.status = ?)
           ORDER BY
             CASE
               WHEN lower(nodes.title) = ? THEN 0
@@ -171,7 +175,7 @@ export class MindMapStore {
             nodes.title ASC
           LIMIT ?`
       )
-      .all(pattern, pattern, pattern, pattern, query, prefixPattern, prefixPattern, limit) as unknown as NodeSearchRow[];
+      .all(pattern, pattern, pattern, pattern, status, status, query, prefixPattern, prefixPattern, limit) as unknown as NodeSearchRow[];
 
     return rows.map((row) => ({
       mapId: row.map_id,

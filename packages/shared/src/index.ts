@@ -195,6 +195,7 @@ export interface MindMapSyncResult {
 export interface MindMapNodeSearchInput {
   query: string;
   limit?: number;
+  status?: StoredMindNode["status"] | "all";
 }
 
 export interface MindMapNodeSearchResult {

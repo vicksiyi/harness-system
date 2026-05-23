@@ -69,6 +69,7 @@ interface EditorState {
   mapVersion: number;
   mapFiles: MindMapFileSummary[];
   nodeSearchQuery: string;
+  nodeSearchStatusFilter: IdeaStatus | "all";
   nodeSearchResults: MindMapNodeSearchResult[];
   nodeSearchStatus: "idle" | "searching" | "ready" | "error";
   nodeSearchMessage: string;
@@ -164,6 +165,7 @@ function initialState(): EditorState {
     mapVersion: saved?.mapVersion ?? 0,
     mapFiles: [],
     nodeSearchQuery: "",
+    nodeSearchStatusFilter: "all",
     nodeSearchResults: [],
     nodeSearchStatus: "idle",
     nodeSearchMessage: "Search node titles, notes, tags, or file names",
@@ -432,7 +434,7 @@ async function runNodeSearch(): Promise<void> {
     state.nodeSearchStatus = "searching";
     state.nodeSearchMessage = `Searching for "${query}"`;
     render();
-    const results = await searchRemoteNodes({ query, limit: 12 });
+    const results = await searchRemoteNodes({ query, status: state.nodeSearchStatusFilter, limit: 12 });
     state.nodeSearchResults = results;
     state.nodeSearchStatus = "ready";
     state.nodeSearchMessage = results.length ? `${results.length} matching nodes` : "No matching nodes";
@@ -1104,6 +1106,14 @@ function renderFilesPage(app: HTMLElement): void {
               Search all nodes
               <input id="node-search-query" aria-label="Search nodes across files" value="${escapeHtml(state.nodeSearchQuery)}" placeholder="Search node content" />
             </label>
+            <label>
+              Result status
+              <select id="node-search-status" aria-label="Filter node search by status">
+                ${["all", "seed", "exploring", "committed"]
+                  .map((status) => `<option value="${status}" ${state.nodeSearchStatusFilter === status ? "selected" : ""}>${status}</option>`)
+                  .join("")}
+              </select>
+            </label>
             <p class="remote-status ${state.nodeSearchStatus === "error" ? "error" : state.nodeSearchStatus === "ready" ? "online" : ""}">${escapeHtml(state.nodeSearchMessage)}</p>
             <div class="file-list node-search-results">
               ${nodeSearchMarkup()}
@@ -1192,6 +1202,10 @@ function renderFilesPage(app: HTMLElement): void {
   });
   byId<HTMLInputElement>("node-search-query").addEventListener("input", (event) => {
     state.nodeSearchQuery = (event.target as HTMLInputElement).value;
+    scheduleNodeSearch();
+  });
+  byId<HTMLSelectElement>("node-search-status").addEventListener("change", (event) => {
+    state.nodeSearchStatusFilter = (event.target as HTMLSelectElement).value as IdeaStatus | "all";
     scheduleNodeSearch();
   });
   document.querySelectorAll<HTMLButtonElement>("[data-map-file-id]").forEach((button) => {

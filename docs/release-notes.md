@@ -1,9 +1,10 @@
-# Release Notes: Search Navigation Quality Gate
+# Release Notes: Node Search Status Filter
 
-- Browser quality now clicks a cross-file node search result and confirms the editor opens the matching node.
-- The gate records both editor navigation and selected title assertions.
-- Full verify and workflow `run_mphvwqy2_tu52uhwl` passed.
+- Files page cross-file node search now supports filtering by `all`, `seed`, `exploring`, or `committed`.
+- `mindmap-rpc` applies the status predicate in SQLite instead of filtering in the browser.
+- Browser quality now verifies committed-only search results before opening a search result in the editor.
 
 ## Operator Notes
-- Run `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser` to exercise the strengthened flow.
-- Inspect `.harness/runs/run_mphvwqy2_tu52uhwl.json` for the workflow record.
+- Restart `mindmap-rpc` after pulling this change so the service uses the new query parameters.
+- Run `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` for the full regression.
+- Full workflow record: `.harness/runs/run_mphw9qox_t7loz6ea.json`.
