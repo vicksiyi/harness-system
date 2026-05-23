@@ -194,6 +194,15 @@ export interface MindMapSyncResult {
   operations: MindMapOperationRecord[];
 }
 
+export interface MindMapSyncEvent {
+  type: "mindmap-sync";
+  mapId: string;
+  version: number;
+  sourceClientId: string;
+  operations: MindMapOperationRecord[];
+  at: string;
+}
+
 export interface MindMapNodeSearchInput {
   query: string;
   limit?: number;
@@ -259,10 +268,15 @@ export interface ServiceHealth {
 }
 
 export type RpcMethod = (params: unknown, context: RpcContext) => Promise<unknown> | unknown;
+export type RpcRoute = (request: IncomingMessage, response: ServerResponse, context: RpcRouteContext) => Promise<boolean> | boolean;
 
 export interface RpcContext {
   serviceName: string;
   request: IncomingMessage;
+}
+
+export interface RpcRouteContext extends RpcContext {
+  url: URL;
 }
 
 export interface RpcServerOptions {
@@ -270,6 +284,7 @@ export interface RpcServerOptions {
   port: number;
   methods: Record<string, RpcMethod>;
   health?: () => Promise<ServiceHealth> | ServiceHealth;
+  routes?: RpcRoute[];
 }
 
 export const servicePorts = {
@@ -394,6 +409,12 @@ export function createRpcServer(options: RpcServerOptions) {
 
     try {
       const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+
+      for (const route of options.routes ?? []) {
+        if (await route(request, response, { serviceName: options.serviceName, request, url })) {
+          return;
+        }
+      }
 
       if (request.method === "GET" && url.pathname === "/health") {
         const health =

@@ -585,3 +585,62 @@
 - 验证：`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过，包含 69 个单测、类型检查、生产构建和无头浏览器截图验证；workflow `run_mphzxyd4_bye74m1r` 通过。
 - 截图证据：`.harness/browser/browser_mphzx2y7-desktop-mindmap-editor.png`、`.harness/browser/browser_mphzx2y7-mobile-mindmap-editor.png`、`.harness/browser/run_mphzxyd4_bye74m1r-desktop-viewport-mindmap-editor.png`。
 - 下一步：继续自主迭代，优先考虑协同冲突展示、版本历史或节点批量编辑能力。
+
+## Workflow Script Failure
+
+- At: 2026-05-23T08:05:51.325Z
+- Type: requirement
+- Prompt: 目前需要手动pull diff才能将远端的数据拉到本地，我希望可以自动完成这个；端1 编辑后产生DIFF，可以通过后端广播出去给所有端，然后apply
+- Error: Services did not become healthy within 30000ms. See /Users/icezero/code/harness/harness-system/.harness/logs/dev-services.log
+
+## Run run_mpi2wcjw_pkunl8yt
+
+- At: 2026-05-23T08:20:34.009Z
+- Type: requirement
+- Prompt: 目前需要手动pull diff才能将远端的数据拉到本地，我希望可以自动完成这个；端1 编辑后产生DIFF，可以通过后端广播出去给所有端，然后apply
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Realtime Diff Broadcast Loop
+
+- At: 2026-05-23
+- 目标：把协同 DIFF 从手动 Pull 改为后端广播，端 1 写入 DIFF 后其他端自动收到并 apply。
+- TDD 过程：先补 `MindMapSyncBroadcaster` 单测，首次运行因 `sync-events.js` 不存在失败；实现 SSE broadcaster 后该测试通过。
+- 产品变化：`mindmap-rpc` 新增 `GET /events` SSE；`syncMap` 成功写入本端 DIFF 后广播 `mindmap-sync`；前端通过 `EventSource` 订阅，收到当前文件的非本端事件后自动拉取并应用，存在本地 pending ops 时先推本地差异再合并服务端文档。
+- Harness 反哺：浏览器质量门新增 `live sync stream connects`、`peer client live sync connects`、`peer client applies broadcast diff`；页面加载等待从 `networkidle` 改成 `domcontentloaded`，避免 SSE 长连接导致质量门永远等不到网络空闲。
+- 验证：`pnpm test services/mindmap-rpc/src/store.test.ts services/mindmap-rpc/src/sync-events.test.ts`、`pnpm target:test`、`pnpm typecheck`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、workflow `run_mpi2wcjw_pkunl8yt` 全部通过。
+- 截图证据：`.harness/browser/browser_mpi2v1rx-desktop-mindmap-editor.png`、`.harness/browser/browser_mpi2v1rx-mobile-mindmap-editor.png`、`.harness/browser/run_mpi2wcjw_pkunl8yt-desktop-mindmap-editor.png`、`.harness/browser/run_mpi2wcjw_pkunl8yt-mobile-mindmap-editor.png`。
+
+## Run run_mpi3fxnv_73fk0inc
+
+- At: 2026-05-23T08:37:13.053Z
+- Type: requirement
+- Prompt: 目前需要手动pull diff才能将远端的数据拉到本地，我希望可以自动完成这个；端1 编辑后产生DIFF，可以通过后端广播出去给所有端，然后apply
+- Target project: apps/mindmap-editor
+- Result: blocked at blocked
+- Tests: not passed with score 35
+- Deployment: not run
+- MR Summary: docs/generated-mr-summary.md
+
+## Run run_mpi3ifzc_5u6fr7u2
+
+- At: 2026-05-23T08:37:45.693Z
+- Type: requirement
+- Prompt: 目前需要手动pull diff才能将远端的数据拉到本地，我希望可以自动完成这个；端1 编辑后产生DIFF，可以通过后端广播出去给所有端，然后apply
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Realtime Diff Same-Browser Fix
+
+- At: 2026-05-23
+- 问题：同一浏览器 profile 的两个标签页会共享 localStorage 中的 `clientId`，导致接收端把另一标签页广播误判为本端事件并忽略。
+- 修复：前端 `clientId` 改为每个编辑器实例启动时生成，不再持久化到 localStorage。
+- 质量门：新增同一 browser context 内两个页面的验证，覆盖同浏览器双页签打开同一文件、端 1 修改节点标题、端 2 自动收到 `Applied ... broadcast changes` 并展示节点新标题。
+- 验证：`pnpm typecheck`、`pnpm target:test`、`pnpm test`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、workflow `run_mpi3ifzc_5u6fr7u2` 全部通过。
+- 当前支持边界：支持当前打开 map 的 `syncMap` DIFF 广播；尚未支持 create/delete/full-save 文件生命周期广播，也不会自动切换 peer 到其他 map。

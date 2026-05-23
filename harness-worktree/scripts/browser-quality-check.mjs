@@ -44,11 +44,11 @@ try {
   });
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  await page.goto(targetUrl, { waitUntil: "networkidle" });
+  await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
   await page.evaluate(() => {
     window.localStorage.clear();
   });
-  await page.reload({ waitUntil: "networkidle" });
+  await page.reload({ waitUntil: "domcontentloaded" });
   await visible(page.getByRole("heading", { name: "Mind Map Studio" }), "main product heading");
   await visible(page.getByRole("heading", { name: "Map Canvas" }), "map canvas section");
   await visible(page.getByRole("heading", { name: "Collaboration" }), "collaboration sync section");
@@ -101,14 +101,16 @@ try {
   record("markdown file export download", /\.md$/.test(markdownDownload.suggestedFilename()), `downloaded ${markdownDownload.suggestedFilename()}`);
   await page.getByRole("button", { name: "Open editor page" }).click();
   await visible(page.locator(".collaboration-panel [data-current-map-id]").first(), "collaboration panel exposes current file id");
+  await visible(page.getByText("Live sync connected").first(), "live sync stream connects");
   const peerContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const peerPage = await peerContext.newPage();
-  await peerPage.goto(targetUrl, { waitUntil: "networkidle" });
+  await peerPage.goto(targetUrl, { waitUntil: "domcontentloaded" });
   await peerPage.evaluate(() => {
     window.localStorage.clear();
   });
-  await peerPage.reload({ waitUntil: "networkidle" });
+  await peerPage.reload({ waitUntil: "domcontentloaded" });
   await visible(peerPage.getByRole("heading", { name: "Mind Map Studio" }), "peer client product heading");
+  await visible(peerPage.getByText("Live sync connected").first(), "peer client live sync connects");
   const peerOpenedSharedMap = await peerPage
     .waitForFunction((title) => document.querySelector("[data-current-map-title]")?.textContent?.includes(title), `Browser diff ${runId}`, { timeout: 5000 })
     .then(() => true)
@@ -133,12 +135,55 @@ try {
   await page.getByRole("button", { name: "Save map file" }).click();
   await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "auto-sync source diff saves");
   await page.getByRole("button", { name: "Open editor page" }).click();
+  await visible(peerPage.getByText(/Applied \d+ broadcast changes/).first(), "peer client applies broadcast diff");
   const peerAutoSyncedTitle = await peerPage
     .waitForFunction((title) => document.querySelector("[data-current-map-title]")?.textContent?.includes(title), autoSyncTitle, { timeout: 7000 })
     .then(() => true)
     .catch(() => false);
   record("peer client auto syncs remote diff", peerAutoSyncedTitle, peerAutoSyncedTitle ? "second client received the rename diff without manual pull" : "second client did not auto sync the remote rename diff");
   await peerContext.close();
+  const sameContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const sameContextSource = await sameContext.newPage();
+  await sameContextSource.goto(targetUrl, { waitUntil: "domcontentloaded" });
+  await sameContextSource.evaluate(() => window.localStorage.clear());
+  await sameContextSource.reload({ waitUntil: "domcontentloaded" });
+  await sameContextSource.getByRole("button", { name: "Open files page" }).click();
+  await sameContextSource.getByRole("button", { name: "Create map file" }).click();
+  await sameContextSource.waitForSelector("[data-current-map-id^='map_']");
+  const sameContextMapTitle = `Same browser map ${runId}`;
+  await sameContextSource.getByLabel("Map file title").fill(sameContextMapTitle);
+  await sameContextSource.getByRole("button", { name: "Save map file" }).click();
+  await visible(sameContextSource.getByText(/Saved \d+ changes|Saved file to database/).first(), "same-browser source map saves");
+  await sameContextSource.getByRole("button", { name: "Open editor page" }).click();
+  await visible(sameContextSource.getByText("Live sync connected").first(), "same-browser source live sync connects");
+  const sameContextPeer = await sameContext.newPage();
+  await sameContextPeer.goto(targetUrl, { waitUntil: "domcontentloaded" });
+  await visible(sameContextPeer.getByText("Live sync connected").first(), "same-browser peer live sync connects");
+  await sameContextPeer.getByRole("button", { name: "Open files page" }).click();
+  await sameContextPeer.getByLabel("Search map files").fill(sameContextMapTitle);
+  const sameContextFile = sameContextPeer.getByRole("button", { name: new RegExp(sameContextMapTitle) }).first();
+  await visible(sameContextFile, "same-browser peer finds shared map");
+  await sameContextFile.click();
+  await sameContextPeer.getByRole("button", { name: "Open editor page" }).click();
+  await visible(sameContextPeer.getByRole("heading", { name: "Inspector" }), "same-browser peer opens shared map");
+  await sameContextPeer.waitForFunction((title) => document.querySelector("[data-current-map-title]")?.textContent?.includes(title), sameContextMapTitle, { timeout: 7000 });
+  const sameContextTitle = `Same browser ${runId}`;
+  await sameContextSource.getByRole("button", { name: /Launch plan/ }).first().click();
+  await sameContextSource.getByLabel("Idea title").fill(sameContextTitle);
+  await visible(sameContextSource.getByText(/Saved \d+ changes|Saved file to database/).first(), "same-browser source diff saves");
+  await visible(sameContextPeer.getByText(/Applied \d+ broadcast changes/).first(), "same-browser peer applies broadcast diff");
+  const sameContextPeerReceivedNode = await sameContextPeer
+    .getByRole("button", { name: new RegExp(sameContextTitle) })
+    .first()
+    .waitFor({ timeout: 7000 })
+    .then(() => true)
+    .catch(() => false);
+  record(
+    "same-browser peer receives node diff",
+    sameContextPeerReceivedNode,
+    sameContextPeerReceivedNode ? "same browser-context peer received node title diff" : "same browser-context peer did not receive node title diff"
+  );
+  await sameContext.close();
   await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
   await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");
 

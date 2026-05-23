@@ -46,8 +46,8 @@ import {
   type MindMapSnapshot,
   type MindNode
 } from "./domain.js";
-import { createRemoteMap, getRemoteMap, listRemoteMaps, saveRemoteMap, searchRemoteNodes, syncRemoteMap } from "./rpc.js";
-import type { MindMapFileDocument, MindMapFileSummary, MindMapNodeSearchResult, MindMapOperationInput, StoredMindNode } from "@harness/shared";
+import { createRemoteMap, getRemoteMap, listRemoteMaps, saveRemoteMap, searchRemoteNodes, subscribeRemoteSyncEvents, syncRemoteMap } from "./rpc.js";
+import type { MindMapFileDocument, MindMapFileSummary, MindMapNodeSearchResult, MindMapOperationInput, MindMapSyncEvent, StoredMindNode } from "@harness/shared";
 
 interface EditorState {
   nodes: MindNode[];
@@ -78,6 +78,8 @@ interface EditorState {
   viewport: CanvasViewport;
   collapsedIds: string[];
   autoPullEnabled: boolean;
+  syncStreamStatus: "connecting" | "live" | "retrying" | "unsupported";
+  syncStreamMessage: string;
   rpcStatus: "checking" | "online" | "saving" | "saved" | "offline" | "error";
   rpcMessage: string;
 }
@@ -85,12 +87,13 @@ interface EditorState {
 const storageKeys = {
   map: "mindmap-studio-state-v1",
   snapshots: "mindmap-studio-snapshots-v1",
-  clientId: "mindmap-studio-client-id-v1",
   autoPull: "mindmap-studio-auto-pull-v1"
 };
 
 const state: EditorState = initialState();
 let remoteSaveTimer: number | null = null;
+let remoteSyncTimer: number | null = null;
+let unsubscribeRemoteSyncEvents: (() => void) | null = null;
 let nodeSearchTimer: number | null = null;
 let applyingRemoteMap = false;
 let dragState:
@@ -183,6 +186,8 @@ function initialState(): EditorState {
     viewport: saved?.viewport ?? createCanvasViewport(),
     collapsedIds: saved?.collapsedIds ?? [],
     autoPullEnabled: loadAutoPullPreference(),
+    syncStreamStatus: "connecting",
+    syncStreamMessage: "Live sync connecting",
     rpcStatus: "checking",
     rpcMessage: "Connecting to sync service"
   };
@@ -375,8 +380,8 @@ async function syncCurrentRemoteDiff(successMessage?: string): Promise<void> {
   }
 }
 
-async function pullRemoteChanges(options: { silent?: boolean } = {}): Promise<void> {
-  if (!state.mapId || (options.silent && state.pendingOperations.length > 0)) {
+async function pullRemoteChanges(options: { silent?: boolean; force?: boolean; message?: string } = {}): Promise<void> {
+  if (!state.mapId || (options.silent && state.pendingOperations.length > 0 && !options.force)) {
     return;
   }
   try {
@@ -393,7 +398,7 @@ async function pullRemoteChanges(options: { silent?: boolean } = {}): Promise<vo
     });
     const remoteOperations = result.operations.filter((operation) => operation.clientId !== state.clientId);
     if (remoteOperations.length > 0) {
-      applyRemoteMap(result.document, options.silent ? `Auto synced ${remoteOperations.length} changes` : `Pulled ${remoteOperations.length} remote operations`);
+      applyRemoteMap(result.document, options.message ?? (options.silent ? `Auto synced ${remoteOperations.length} changes` : `Pulled ${remoteOperations.length} remote operations`));
     } else if (!options.silent) {
       applyRemoteMap(result.document, "No remote changes");
     }
@@ -631,6 +636,59 @@ function tickAutoPull(): void {
     return;
   }
   void pullRemoteChanges({ silent: true });
+}
+
+function connectRemoteSyncEvents(): void {
+  unsubscribeRemoteSyncEvents?.();
+  unsubscribeRemoteSyncEvents = subscribeRemoteSyncEvents({
+    clientId: state.clientId,
+    onEvent: (event) => {
+      void handleRemoteSyncEvent(event);
+    },
+    onStatus: (status) => {
+      state.syncStreamStatus = status;
+      state.syncStreamMessage =
+        status === "live"
+          ? "Live sync connected"
+          : status === "retrying"
+            ? "Live sync retrying"
+            : status === "unsupported"
+              ? "Live sync unavailable"
+              : "Live sync connecting";
+      render();
+    }
+  });
+}
+
+async function handleRemoteSyncEvent(event: MindMapSyncEvent): Promise<void> {
+  if (event.type !== "mindmap-sync" || event.mapId !== state.mapId || event.sourceClientId === state.clientId) {
+    return;
+  }
+  if (event.version <= state.mapVersion && state.pendingOperations.length === 0) {
+    return;
+  }
+  if (remoteSyncTimer !== null) {
+    window.clearTimeout(remoteSyncTimer);
+  }
+  remoteSyncTimer = window.setTimeout(() => {
+    void applyRemoteSyncEvent(event);
+  }, 80);
+}
+
+async function applyRemoteSyncEvent(event: MindMapSyncEvent): Promise<void> {
+  remoteSyncTimer = null;
+  if (!state.mapId || event.mapId !== state.mapId) {
+    return;
+  }
+  if (state.pendingOperations.length > 0) {
+    await syncCurrentRemoteDiff(`Merged ${event.operations.length} broadcast changes`);
+    return;
+  }
+  await pullRemoteChanges({
+    silent: true,
+    force: true,
+    message: `Applied ${event.operations.length} broadcast changes`
+  });
 }
 
 function upsertOperations(nodes: MindNode[]): MindMapOperationInput[] {
@@ -905,12 +963,7 @@ function loadSavedMap(): Pick<EditorState, "nodes" | "selectedId" | "mapId" | "m
 }
 
 function loadClientId(): string {
-  const saved = readStorage(storageKeys.clientId);
-  if (saved) {
-    return saved;
-  }
   const id = `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-  writeStorage(storageKeys.clientId, id);
   return id;
 }
 
@@ -1556,9 +1609,10 @@ function render(): void {
             </div>
             <p class="remote-status saved">Client ${escapeHtml(state.clientId.slice(-7))} · ${state.pendingOperations.length} pending ops</p>
             <p class="remote-status online" data-current-map-id="${escapeHtml(state.mapId ?? "local")}">File ID ${escapeHtml(state.mapId ?? "local draft")}</p>
+            <p class="remote-status ${state.syncStreamStatus === "live" ? "online" : state.syncStreamStatus === "retrying" ? "offline" : "saved"}">${escapeHtml(state.syncStreamMessage)}</p>
             <label class="toggle-row">
               <input id="auto-pull" aria-label="Auto sync changes" type="checkbox" ${state.autoPullEnabled ? "checked" : ""} />
-              Auto sync
+              Poll fallback
             </label>
             <div class="file-actions">
               <button id="push-diff" aria-label="Push diff operations" ${state.mapId && state.pendingOperations.length ? "" : "disabled"}>Push diff</button>
@@ -1974,5 +2028,6 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 render();
+connectRemoteSyncEvents();
 void initializeRemoteLibrary();
 window.setInterval(tickAutoPull, 1800);

@@ -4,6 +4,7 @@ import type {
   MindMapNodeSearchInput,
   MindMapNodeSearchResult,
   MindMapSaveInput,
+  MindMapSyncEvent,
   MindMapSyncInput,
   MindMapSyncResult,
   RpcResponse
@@ -58,4 +59,32 @@ export function saveRemoteMap(input: MindMapSaveInput): Promise<MindMapFileDocum
 
 export function syncRemoteMap(input: MindMapSyncInput): Promise<MindMapSyncResult> {
   return mindMapRpc<MindMapSyncResult>("syncMap", input);
+}
+
+export function subscribeRemoteSyncEvents(input: {
+  clientId: string;
+  onEvent: (event: MindMapSyncEvent) => void;
+  onStatus?: (status: "connecting" | "live" | "retrying" | "unsupported") => void;
+}): () => void {
+  if (typeof window.EventSource !== "function") {
+    input.onStatus?.("unsupported");
+    return () => {};
+  }
+
+  const url = new URL(`${rpcBaseUrl.replace(/\/$/, "")}/events`);
+  url.searchParams.set("clientId", input.clientId);
+  input.onStatus?.("connecting");
+
+  const source = new EventSource(url);
+  source.addEventListener("open", () => input.onStatus?.("live"));
+  source.addEventListener("error", () => input.onStatus?.("retrying"));
+  source.addEventListener("mindmap-sync", (event) => {
+    try {
+      input.onEvent(JSON.parse((event as MessageEvent<string>).data) as MindMapSyncEvent);
+    } catch {
+      input.onStatus?.("retrying");
+    }
+  });
+
+  return () => source.close();
 }
