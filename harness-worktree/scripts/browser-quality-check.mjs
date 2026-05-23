@@ -58,6 +58,30 @@ try {
   await page.keyboard.press("Tab");
   await page.getByRole("button", { name: "Push diff operations" }).click();
   await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "diff sync saves through service");
+  const peerContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const peerPage = await peerContext.newPage();
+  await peerPage.goto(targetUrl, { waitUntil: "networkidle" });
+  await peerPage.evaluate(() => {
+    window.localStorage.clear();
+  });
+  await peerPage.reload({ waitUntil: "networkidle" });
+  await visible(peerPage.getByRole("heading", { name: "Mind Map Studio" }), "peer client product heading");
+  const peerOpenedSharedMap = await peerPage
+    .waitForFunction((title) => document.querySelector("#map-title-input")?.value === title, `Browser diff ${runId}`, { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  record("peer client opens shared map", peerOpenedSharedMap, peerOpenedSharedMap ? "second client opened the latest synced database file" : "second client did not open the expected shared file");
+  const multiClientTitle = `Multi client ${runId}`;
+  await page.getByLabel("Map file title").fill(multiClientTitle);
+  await page.getByRole("button", { name: "Push diff operations" }).click();
+  await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "multi-client diff push saves");
+  await peerPage.getByRole("button", { name: "Pull diff operations" }).click();
+  const peerPulledRemoteTitle = await peerPage
+    .waitForFunction((title) => document.querySelector("#map-title-input")?.value === title, multiClientTitle, { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  record("peer client pulls remote diff", peerPulledRemoteTitle, peerPulledRemoteTitle ? "second client pulled the primary client rename diff" : "second client did not receive the remote rename diff");
+  await peerContext.close();
   await visible(page.getByRole("heading", { name: "Outline" }), "outline section");
   await visible(page.getByRole("heading", { name: "Focus Queue" }), "focus queue section");
   await visible(page.getByRole("heading", { name: "Markdown Export" }), "markdown export section");

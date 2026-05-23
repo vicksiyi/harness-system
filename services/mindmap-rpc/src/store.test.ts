@@ -176,6 +176,71 @@ describe("MindMapStore", () => {
     });
   });
 
+  it("merges stale-base operations from multiple clients by ordered diff log", () => {
+    const created = store.createMap({ title: "Concurrent", selectedId: "root", nodes });
+    const clientA = store.syncMap({
+      id: created.id,
+      clientId: "client-a",
+      sinceVersion: created.version,
+      operations: [
+        {
+          type: "rename-map",
+          title: "Renamed by A"
+        }
+      ]
+    });
+
+    const clientB = store.syncMap({
+      id: created.id,
+      clientId: "client-b",
+      sinceVersion: created.version,
+      operations: [
+        {
+          type: "upsert-node",
+          node: {
+            id: "client-b-node",
+            title: "Client B branch",
+            notes: "Submitted from a stale base version",
+            tags: ["sync", "client-b"],
+            status: "exploring",
+            parentId: "root",
+            x: 560,
+            y: 260,
+            updatedAt: "2026-05-23T10:40:00.000Z"
+          }
+        },
+        {
+          type: "select-node",
+          selectedId: "client-b-node"
+        }
+      ]
+    });
+
+    expect(clientB.document).toMatchObject({
+      title: "Renamed by A",
+      selectedId: "client-b-node",
+      version: created.version + 3
+    });
+    expect(clientB.operations.map((operation) => `${operation.clientId}:${operation.type}`)).toEqual([
+      "client-a:rename-map",
+      "client-b:upsert-node",
+      "client-b:select-node"
+    ]);
+
+    const clientAPull = store.syncMap({
+      id: created.id,
+      clientId: "client-a",
+      sinceVersion: clientA.document.version,
+      operations: []
+    });
+
+    expect(clientAPull.operations.map((operation) => operation.clientId)).toEqual(["client-b", "client-b"]);
+    expect(clientAPull.document.nodes.find((node) => node.id === "client-b-node")).toMatchObject({
+      parentId: "root",
+      title: "Client B branch"
+    });
+  });
+
   it("deletes files and keeps missing reads explicit", () => {
     const created = store.createMap({ title: "Temporary", selectedId: "root", nodes });
 

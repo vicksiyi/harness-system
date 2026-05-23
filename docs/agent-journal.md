@@ -302,3 +302,24 @@
 - Tests: passed with score 98
 - Deployment: healthy
 - MR Summary: docs/generated-mr-summary.md
+
+## Run run_mphqhqh7_rlkz5xut
+
+- At: 2026-05-23T02:33:22.363Z
+- Type: requirement
+- Prompt: 验证脑图文件 DIFF 协同的双客户端拉取闭环
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Multi Client Diff Sync Loop
+
+- At: 2026-05-23
+- 目标：把 DIFF 协同从单客户端 push/pull 扩展为双客户端真实浏览器闭环。
+- TDD scope：先在 `services/mindmap-rpc/src/store.test.ts` 增加 stale-base 双客户端操作合并测试，确认 operation log 能按版本顺序合并 client A 的 rename 与 client B 的 upsert/select。
+- Product/Harness changes：浏览器质量脚本现在启动第二个独立浏览器上下文，验证 peer client 打开最新数据库文件，主客户端 push rename diff 后 peer client 点击 Pull diff 并看到相同文件标题。
+- 验证：`pnpm test services/mindmap-rpc/src/store.test.ts` 通过 6 条 store 测试；`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 通过 55 条总测试、构建和浏览器门禁；workflow `run_mphqhqh7_rlkz5xut` 通过。
+- 视觉复核：已读取 `.harness/browser/browser_mphqgosf-desktop-connectors-mindmap-editor.png`、`.harness/browser/browser_mphqgosf-desktop-mindmap-editor.png` 和 `.harness/browser/browser_mphqgosf-mobile-mindmap-editor.png`，确认双客户端验证后主界面、Canvas 连线和移动端仍正常。
+- 下一步：继续到用户路线里的无限画布，让脑图可平移/缩放并把浏览器截图质量门禁覆盖到 viewport transform。
