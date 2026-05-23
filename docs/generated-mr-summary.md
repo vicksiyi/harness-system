@@ -1,68 +1,42 @@
-# MR Summary: Focused Mind Map Editor Workspace
+# MR Summary: Implement: 给 Files 页面增加文件搜索和排序，并纳入浏览器质量门
 
 Type: requirement
 Target Project: apps/mindmap-editor
-Workflow Run: run_mphuzbxm_8v7ws9id
 Status: passed
 Stage: completed
 
 ## Background
-
-The editor had grown into a mixed file manager and editing surface. File selection, save controls, import/export, collaboration status, canvas tools, and node editing all competed on the same page. The latest request split file management into its own page, fixed auto sync expectations, added keyboard zoom, removed direct create/undo/redo button entry points, and made the editor more focused on node editing.
+给 Files 页面增加文件搜索和排序，并纳入浏览器质量门
 
 ## Scope
-
-- Keep `apps/mindmap-editor` isolated as the product sample.
-- Move file management, save file, and import/export controls to a dedicated Files page.
-- Keep the Editor page focused on navigator, canvas, collaboration status, and node inspector.
-- Fix auto sync behavior so it defaults on and immediately pulls after being enabled.
-- Add keyboard shortcut modeling for create node, undo/redo, snapshot, layout, search, command palette, zoom, and reset view.
-- Preserve and finish the branch collapse/expand work started in the autonomous loop.
-- Expand browser quality checks to cover the new page split and shortcut-driven workflows.
+- Modify the isolated target project at apps/mindmap-editor.
+- Keep Harness orchestration code unchanged unless the task explicitly asks for Harness behavior.
+- Expose product changes through the target project UI and tests.
+- Refresh generated MR summary, release notes, and execution records.
 
 ## Changes
-
-- Added a `view` state with `editor` and `files` modes.
-- Added a Files page with map list, file title editing, save, current-file summary, Markdown/JSON export, and JSON import.
-- Removed Map Files, Markdown Export, and JSON Transfer panels from the Editor page.
-- Removed direct toolbar buttons for root creation, child creation, undo, redo, snapshot save, layout, and reset map.
-- Added `resolveEditorShortcut` and unit tests for node creation, undo/redo, keyboard zoom, reset view, and typing-target suppression.
-- Auto sync now defaults to enabled and triggers an immediate silent pull when turned on.
-- Added collapsed branch state, visible-node filtering, descendant counts, and Collapse/Expand controls in Relationship Insight.
-- Browser quality now verifies Files page workflows, shortcut-created children, shortcut undo/redo, keyboard zoom, branch collapse/expand, multi-client pull, and auto sync.
+- Added file-library search on the isolated Files page so operators can filter database-backed mind map files without leaving file management.
+- Added file sorting by most recent update, title, and idea count through a typed `MapFileSortMode` domain model.
+- Kept the editor page focused on node editing; file discovery remains isolated from the canvas workspace.
+- Extended `browser-quality-check.mjs` to create a database-backed file, filter the file list, switch the sort mode, and then continue export/import and editor regression checks.
+- Added unit coverage for file filtering and sorting, including the TDD correction for title ordering.
 
 ## Validation
-
-- `pnpm target:test`
-- `pnpm typecheck`
-- `pnpm target:build`
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`
-- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "重构脑图编辑页：文件管理独立页面，修复自动同步拉取，增加快捷键缩放和节点编辑快捷键，编辑页聚焦节点编辑"`
-
-Result: 64 total tests passed, target build passed, browser quality passed, and workflow `run_mphuzbxm_8v7ws9id` completed successfully.
-
-## Visual QA
-
-- Editor desktop screenshot reviewed: `.harness/browser/browser_mphux9dv-desktop-mindmap-editor.png`
-- Editor mobile screenshot reviewed: `.harness/browser/browser_mphux9dv-mobile-mindmap-editor.png`
-- Files page screenshot reviewed: `.harness/browser/files-page-review.png`
-- The editor is now visually focused on node editing, with Files and Commands as the only header actions.
-- The Files page cleanly hosts file list, save, export, and import without horizontal overflow.
+- `pnpm target:test`: passed.
+- `pnpm typecheck`: passed.
+- `pnpm target:build`: passed.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`: passed, including file search and sort checks.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify`: passed with 65 total tests.
+- `HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm workflow:requirement "给 Files 页面增加文件搜索和排序，并纳入浏览器质量门"`: workflow `run_mphvdk6q_6fklwl3i` passed.
 
 ## Risks
-
-- The Files page currently has a dense list when many local test maps exist.
-- Keyboard-only creation assumes the user has left text inputs before pressing single-letter shortcuts.
-- Auto sync is polling-based and should eventually expose richer sync diagnostics.
+- Search currently indexes title, node count, and version; future metadata such as owner or tags will need explicit inclusion.
+- Sorting runs client-side over the loaded file list. Very large file libraries should move sorting/filtering into the RPC query.
+- Browser validation depends on `mindmap-rpc` being reachable at `http://localhost:4105`.
 
 ## Rollback
+- Revert this commit to remove the Files page filter/sort controls and the additional browser quality assertions.
 
-- Revert the view split and browser-quality script changes.
-- Existing saved map data remains compatible because the change only adds local UI state for collapsed branches and page mode.
-
-## Follow-Ups
-
-- Add a searchable/sortable file library.
-- Add a keyboard shortcut palette view that can be opened without visible toolbar clutter.
-- Add cross-file relationship search from the Files page.
+## Follow-ups
+- Add cross-file search across node titles once the backend supports indexed queries.
+- Add persisted user preferences for Files page sort mode.

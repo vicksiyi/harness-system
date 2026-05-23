@@ -18,6 +18,7 @@ import {
   exportMapAsMarkdown,
   exportMapAsJson,
   filterCommands,
+  filterMapFiles,
   filterNodes,
   getAncestors,
   getChildren,
@@ -455,5 +456,17 @@ describe("mind map domain", () => {
     expect(resolveEditorShortcut({ key: "-", ctrlKey: true })).toBe("zoom-out");
     expect(resolveEditorShortcut({ key: "0", metaKey: true })).toBe("reset-view");
     expect(resolveEditorShortcut({ key: "r", targetIsTyping: true })).toBeNull();
+  });
+
+  it("filters and sorts map files for the file workspace", () => {
+    const files = [
+      { id: "alpha", title: "Launch Planning", nodeCount: 3, version: 2, updatedAt: "2026-05-23T03:00:00.000Z" },
+      { id: "beta", title: "Research Archive", nodeCount: 9, version: 4, updatedAt: "2026-05-23T02:00:00.000Z" },
+      { id: "gamma", title: "Launch Metrics", nodeCount: 6, version: 7, updatedAt: "2026-05-23T04:00:00.000Z" }
+    ];
+
+    expect(filterMapFiles(files, "launch", "updated-desc").map((file) => file.id)).toEqual(["gamma", "alpha"]);
+    expect(filterMapFiles(files, "", "title-asc").map((file) => file.id)).toEqual(["gamma", "alpha", "beta"]);
+    expect(filterMapFiles(files, "", "nodes-desc").map((file) => file.id)).toEqual(["beta", "gamma", "alpha"]);
   });
 });

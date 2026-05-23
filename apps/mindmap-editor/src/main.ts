@@ -19,6 +19,7 @@ import {
   exportMapAsMarkdown,
   exportMapAsJson,
   filterCommands,
+  filterMapFiles,
   filterNodes,
   getAncestors,
   getChildren,
@@ -39,6 +40,7 @@ import {
   type CanvasViewport,
   type IdeaStatus,
   type CommandDefinition,
+  type MapFileSortMode,
   type MindMapHistory,
   type MindMapImportResult,
   type MindMapSnapshot,
@@ -54,6 +56,8 @@ interface EditorState {
   tag: string;
   status: IdeaStatus | "all";
   view: "editor" | "files";
+  fileQuery: string;
+  fileSort: MapFileSortMode;
   snapshots: MindMapSnapshot[];
   commandPaletteOpen: boolean;
   commandQuery: string;
@@ -142,6 +146,8 @@ function initialState(): EditorState {
     tag: "all",
     status: "all",
     view: "editor",
+    fileQuery: "",
+    fileSort: "updated-desc",
     snapshots: loadSnapshots(),
     commandPaletteOpen: false,
     commandQuery: "",
@@ -946,6 +952,7 @@ function renderFilesPage(app: HTMLElement): void {
   const jsonExport = exportMapAsJson(state.nodes, state.selectedId);
   const summary = summarizeMap(state.nodes);
   const rpcLabel = state.rpcStatus === "saved" || state.rpcStatus === "online" ? "Sync online" : state.rpcStatus === "offline" ? "Sync offline" : state.rpcStatus;
+  const visibleMapFiles = filterMapFiles(state.mapFiles, state.fileQuery, state.fileSort);
 
   app.innerHTML = `
     <section class="studio">
@@ -969,6 +976,20 @@ function renderFilesPage(app: HTMLElement): void {
             File title
             <input id="map-title-input" aria-label="Map file title" value="${escapeHtml(state.mapTitle)}" />
           </label>
+          <div class="field-grid">
+            <label>
+              Search files
+              <input id="file-query" aria-label="Search map files" value="${escapeHtml(state.fileQuery)}" placeholder="Search files" />
+            </label>
+            <label>
+              Sort files
+              <select id="file-sort" aria-label="Sort map files">
+                <option value="updated-desc" ${state.fileSort === "updated-desc" ? "selected" : ""}>Recent</option>
+                <option value="title-asc" ${state.fileSort === "title-asc" ? "selected" : ""}>Title</option>
+                <option value="nodes-desc" ${state.fileSort === "nodes-desc" ? "selected" : ""}>Ideas</option>
+              </select>
+            </label>
+          </div>
           <div class="file-actions">
             <button id="create-map-file" aria-label="Create map file">New file</button>
             <button id="save-map-file" aria-label="Save map file" ${state.mapId ? "" : "disabled"}>Save file</button>
@@ -982,8 +1003,8 @@ function renderFilesPage(app: HTMLElement): void {
           </div>
           <div class="file-list">
             ${
-              state.mapFiles.length
-                ? state.mapFiles
+              visibleMapFiles.length
+                ? visibleMapFiles
                     .map(
                       (file) => `
                         <button class="file-row ${file.id === state.mapId ? "selected" : ""}" data-map-file-id="${file.id}">
@@ -993,7 +1014,7 @@ function renderFilesPage(app: HTMLElement): void {
                       `
                     )
                     .join("")
-                : `<p class="empty">No database files loaded.</p>`
+                : `<p class="empty">No matching files.</p>`
             }
           </div>
         </section>
@@ -1052,6 +1073,14 @@ function renderFilesPage(app: HTMLElement): void {
   });
   byId<HTMLInputElement>("map-title-input").addEventListener("input", (event) => {
     updateMapTitle((event.target as HTMLInputElement).value);
+  });
+  byId<HTMLInputElement>("file-query").addEventListener("input", (event) => {
+    state.fileQuery = (event.target as HTMLInputElement).value;
+    render();
+  });
+  byId<HTMLSelectElement>("file-sort").addEventListener("change", (event) => {
+    state.fileSort = (event.target as HTMLSelectElement).value as MapFileSortMode;
+    render();
   });
   document.querySelectorAll<HTMLButtonElement>("[data-map-file-id]").forEach((button) => {
     button.addEventListener("click", () => {

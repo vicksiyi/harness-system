@@ -58,6 +58,12 @@ try {
   await page.getByLabel("Map file title").fill(`Browser diff ${runId}`);
   await page.getByRole("button", { name: "Save map file" }).click();
   await visible(page.getByText(/Saved \d+ changes|Saved file to database/).first(), "diff sync saves through service");
+  await page.getByLabel("Search map files").fill("Browser diff");
+  await visible(page.getByRole("button", { name: /Browser diff/ }).first(), "file search filters map library");
+  await page.getByLabel("Sort map files").selectOption("nodes-desc");
+  const fileSortApplied = await page.getByLabel("Sort map files").evaluate((element) => element instanceof HTMLSelectElement && element.value === "nodes-desc");
+  record("file sort changes map library order", fileSortApplied, fileSortApplied ? "file library accepted the ideas sort mode" : "file sort mode did not update");
+  await page.getByLabel("Search map files").fill("");
   await visible(page.getByRole("heading", { name: "Export" }), "file export section");
   const [jsonDownload] = await Promise.all([
     page.waitForEvent("download"),

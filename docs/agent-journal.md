@@ -479,3 +479,24 @@
 - 视觉复核：已读取 `.harness/browser/browser_mphux9dv-desktop-mindmap-editor.png`、`.harness/browser/browser_mphux9dv-mobile-mindmap-editor.png` 和 `.harness/browser/files-page-review.png`。
 - 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphuzbxm_8v7ws9id` 全部通过。
 - 下一步：继续自主迭代，优先考虑文件库搜索/排序、快捷键面板或跨文件关系搜索。
+
+## Run run_mphvdk6q_6fklwl3i
+
+- At: 2026-05-23T04:50:00.605Z
+- Type: requirement
+- Prompt: 给 Files 页面增加文件搜索和排序，并纳入浏览器质量门
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- MR Summary: docs/generated-mr-summary.md
+
+## Files Library Search Loop
+
+- At: 2026-05-23
+- 目标：继续自主增强产品样例，让独立 Files 页面能在文件数量增长后快速定位和排序脑图文件。
+- TDD 过程：先新增 `filterMapFiles` 单测；第一次期望中的标题排序不符合 `localeCompare` 实际顺序，修正为 `Launch Metrics` 早于 `Launch Planning` 后重跑通过。
+- 产品变化：Files 页面新增 Search files 和 Sort files 控件，支持按更新时间、标题、节点数量排序；无匹配时显示专门的空状态。
+- Harness 反哺：浏览器质量脚本会在保存数据库文件后输入搜索词、断言文件行可见、切换排序模式，并继续执行导出、导入、协同和画布回归。
+- 验证：`pnpm target:test`、`pnpm typecheck`、`pnpm target:build`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm target:browser`、`HARNESS_BROWSER_TARGET_URL=http://localhost:5175 pnpm verify` 和 workflow `run_mphvdk6q_6fklwl3i` 全部通过。
+- 下一步：继续自主迭代，优先考虑跨文件节点搜索、文件元数据筛选或编辑器快捷键帮助面板。

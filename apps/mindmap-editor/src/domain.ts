@@ -76,11 +76,20 @@ export interface CanvasViewport {
 }
 
 export type ExportFormat = "json" | "markdown";
+export type MapFileSortMode = "updated-desc" | "title-asc" | "nodes-desc";
 
 export interface ExportArtifact {
   content: string;
   fileName: string;
   mimeType: string;
+}
+
+export interface MapFileListItem {
+  id: string;
+  title: string;
+  nodeCount: number;
+  version: number;
+  updatedAt: string;
 }
 
 export interface MiniMapModel {
@@ -745,6 +754,21 @@ export function filterCommands(commands: CommandDefinition[], query: string): Co
     .sort((a, b) => b.score - a.score || Number(a.item.disabled) - Number(b.item.disabled) || a.index - b.index);
 
   return scored.map((entry) => entry.item);
+}
+
+export function filterMapFiles<T extends MapFileListItem>(files: T[], query: string, sortMode: MapFileSortMode): T[] {
+  const needle = query.trim().toLowerCase();
+  return files
+    .filter((file) => !needle || `${file.title} ${file.nodeCount} ${file.version}`.toLowerCase().includes(needle))
+    .sort((a, b) => {
+      if (sortMode === "title-asc") {
+        return a.title.localeCompare(b.title) || b.updatedAt.localeCompare(a.updatedAt);
+      }
+      if (sortMode === "nodes-desc") {
+        return b.nodeCount - a.nodeCount || a.title.localeCompare(b.title);
+      }
+      return b.updatedAt.localeCompare(a.updatedAt) || a.title.localeCompare(b.title);
+    });
 }
 
 export function resolveEditorShortcut(input: EditorShortcutInput): EditorShortcutIntent | null {
