@@ -68,6 +68,7 @@ pnpm workflow:polish "<优化目标>"
 - 第一屏优先展示任务、状态、日志、健康和 MR Summary。
 - 不要引入与现有架构不匹配的新抽象。
 - 改动要有测试或明确的手工检查记录。
+- Git change review 要记录 polish 影响文件；提交时只包含本次 polish 文件。
 
 ## 输出
 
@@ -77,3 +78,4 @@ pnpm workflow:polish "<优化目标>"
 - `docs/release-notes.md`
 - `docs/test-log.md`
 - `docs/agent-journal.md`
+- `.harness/git/<run-id>.json`

@@ -17,6 +17,7 @@
     "workflow:requirement": "node harness-worktree/scripts/run-workflow.mjs requirement",
     "workflow:bugfix": "node harness-worktree/scripts/run-workflow.mjs bugfix",
     "workflow:polish": "node harness-worktree/scripts/run-workflow.mjs polish",
+    "workflow:git": "node harness-worktree/scripts/git-finalize.mjs",
     "mr:summary": "node harness-worktree/scripts/create-mr-summary.mjs",
     "deploy:local": "node harness-worktree/scripts/deploy.mjs",
     "test": "vitest run",

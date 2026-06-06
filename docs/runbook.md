@@ -55,6 +55,7 @@ HARNESS_PORT_OFFSET=100 HARNESS_BROWSER_TARGET_URL=http://localhost:5176 pnpm wo
 ```txt
 .harness/runs/<run-id>.json
 .harness/tasks/<run-id>.json
+.harness/git/<run-id>.json
 ```
 
 其中 task JSON 是稳定执行 flow。继续处理任务、修复失败或做质量验证前，先读取 task JSON 的 `currentStepId`、`flow.steps[]`、`testCases[]` 和 `blockers[]`。
@@ -99,3 +100,16 @@ MINDMAP_EDITOR_PORT=5176 docker compose up --build
 ```bash
 pnpm mr:summary
 ```
+
+## Git 收尾
+
+Harness workflow 会记录 Git review / commit / push / MR create 这些步骤，但不会在 orchestrator 中直接提交代码。需要人工或 Skill 明确收尾时使用：
+
+```bash
+pnpm workflow:git review -- --run-id <run-id>
+pnpm workflow:git commit -- --run-id <run-id> --message "feat: ..." --files "path/a.ts,path/b.ts"
+pnpm workflow:git push -- --run-id <run-id>
+pnpm workflow:git mr -- --run-id <run-id>
+```
+
+`commit` 必须提供显式文件列表，避免把无关本地改动带入同一个提交。`mr` 默认只记录 compare URL；需要真实创建 PR 时再加 `--create`。

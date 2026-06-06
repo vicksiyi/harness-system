@@ -260,7 +260,7 @@
 
       .flow {
         display: grid;
-        grid-template-columns: repeat(10, minmax(160px, 1fr));
+        grid-template-columns: repeat(14, minmax(160px, 1fr));
         gap: 12px;
         overflow-x: auto;
         padding-bottom: 8px;
@@ -791,10 +791,10 @@
             <h1>当前 Harness 整体流程</h1>
             <p class="lead">
               Harness 是本地优先的 Codex / Agent 研发闭环控制面。一次任务会从
-              <code>$harness</code> 或 <code>pnpm workflow:*</code> 进入，经过需求结构化、测试矩阵、编码计划、自动测试、质量验证、MR Summary、部署记录和最终执行归档。
+              <code>$harness</code> 或 <code>pnpm workflow:*</code> 进入，经过需求结构化、测试矩阵、编码计划、自动测试、质量验证、Git 收尾记录、MR Summary、部署记录和最终执行归档。
             </p>
             <nav class="quick-links" aria-label="页面导航">
-              <a href="#flow">十步执行轨道</a>
+              <a href="#flow">十四步执行轨道</a>
               <a href="#lanes">服务泳道</a>
               <a href="#quality">质量闭环</a>
               <a href="#artifacts">审计产物</a>
@@ -820,6 +820,10 @@
                 <span><code>.harness/tasks/&lt;run-id&gt;.json</code> 固定当前步骤、证据、测试用例和阻塞原因。</span>
               </div>
               <div class="system-row">
+                <strong>Git 记录</strong>
+                <span><code>.harness/git/&lt;run-id&gt;.json</code> 保存 review、commit、push 和 MR/PR handoff。</span>
+              </div>
+              <div class="system-row">
                 <strong>服务协议</strong>
                 <span>所有 RPC 服务统一暴露 <code>GET /health</code> 和 <code>POST /rpc</code>。</span>
               </div>
@@ -829,7 +833,7 @@
 
         <div class="below-fold-hint" aria-label="流程摘要">
           <div class="metric">
-            <b>10</b>
+            <b>14</b>
             <span>稳定 task flow 步骤，从 intake 到 execution-record。</span>
           </div>
           <div class="metric">
@@ -891,7 +895,7 @@
               <div class="chart-node control">
                 <small>Task Contract</small>
                 <strong>创建 task JSON</strong>
-                <span><code>.harness/tasks/&lt;run-id&gt;.json</code> 固定十步 flow。</span>
+                <span><code>.harness/tasks/&lt;run-id&gt;.json</code> 固定十四步 flow。</span>
               </div>
               <div class="chart-arrow" aria-hidden="true">→</div>
               <div class="chart-node">
@@ -934,6 +938,12 @@
                 <span>按本次风险选择截图、console、network、E2E 证据。</span>
               </div>
               <div class="chart-arrow" aria-hidden="true">→</div>
+              <div class="chart-node agent">
+                <small>Git Handoff</small>
+                <strong>workflow:git</strong>
+                <span>记录 change review，显式执行 commit、push 和 MR/PR handoff。</span>
+              </div>
+              <div class="chart-arrow" aria-hidden="true">→</div>
               <div class="chart-node control">
                 <small>Ship Record</small>
                 <strong>MR + Deploy + Record</strong>
@@ -963,7 +973,7 @@
             </div>
 
             <div class="compact-flow">
-              <h3>对应的 task JSON 十步 flow</h3>
+              <h3>对应的 task JSON 十四步 flow</h3>
               <div class="flow" aria-label="Harness 标准执行轨道">
                 <article class="step">
                   <span class="step-number">1</span>
@@ -1009,20 +1019,44 @@
                 </article>
                 <article class="step">
                   <span class="step-number">8</span>
+                  <h3>git-change-review</h3>
+                  <p>确认分支、remote、改动文件和提交边界。</p>
+                  <span class="owner">Codex</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">9</span>
+                  <h3>git-commit</h3>
+                  <p>基于显式文件列表创建提交。</p>
+                  <span class="owner">Codex</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">10</span>
+                  <h3>git-push</h3>
+                  <p>推送任务分支或记录阻塞原因。</p>
+                  <span class="owner">Codex</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">11</span>
                   <h3>mr-summary</h3>
                   <p>输出 MR Summary 和 Release Notes。</p>
                   <span class="owner">workflow-core</span>
                 </article>
                 <article class="step">
-                  <span class="step-number">9</span>
+                  <span class="step-number">12</span>
+                  <h3>mr-create</h3>
+                  <p>创建 PR/MR 或记录 compare URL。</p>
+                  <span class="owner">Codex</span>
+                </article>
+                <article class="step">
+                  <span class="step-number">13</span>
                   <h3>deployment</h3>
                   <p>记录 Docker Compose 和健康检查。</p>
                   <span class="owner">deploy-rpc</span>
                 </article>
                 <article class="step">
-                  <span class="step-number">10</span>
+                  <span class="step-number">14</span>
                   <h3>execution-record</h3>
-                  <p>同步 run、task、日志和 docs。</p>
+                  <p>同步 run、task、git、日志和 docs。</p>
                   <span class="owner">orchestrator</span>
                 </article>
               </div>
@@ -1198,6 +1232,7 @@ $harness polish 优化前端任务状态展示
 pnpm workflow:requirement "&lt;需求&gt;"
 pnpm workflow:bugfix "&lt;Bug 或失败日志&gt;"
 pnpm workflow:polish "&lt;优化目标&gt;"
+pnpm workflow:git review -- --run-id &lt;run-id&gt;
 
 pnpm verify
 pnpm health
@@ -1230,6 +1265,13 @@ docker compose up --build</code></pre>
                   <span>完整运行事件、日志、测试结果、部署状态和最终 stage。</span>
                 </div>
                 <span class="tag blue">run</span>
+              </div>
+              <div class="artifact">
+                <div>
+                  <b><code>.harness/git/&lt;run-id&gt;.json</code></b>
+                  <span>Git review、commit、push、MR/PR handoff 和 compare URL。</span>
+                </div>
+                <span class="tag amber">git</span>
               </div>
               <div class="artifact">
                 <div>
@@ -1271,7 +1313,7 @@ docker compose up --build</code></pre>
     <footer class="footer">
       <div class="page">
         基于当前仓库的 <code>AGENTS.md</code>、<code>README.md</code>、<code>docs/task-flow.md</code>、
-        <code>packages/workflow-core</code> 和 <code>harness-worktree/scripts/run-workflow.mjs</code> 整理。
+        <code>packages/workflow-core</code>、<code>services/orchestrator-rpc</code> 和 <code>harness-worktree/scripts</code> 整理。
       </div>
     </footer>
   </body>

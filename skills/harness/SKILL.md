@@ -66,8 +66,10 @@ pnpm workflow:polish "<优化目标>"
 - 由编排服务依次调用 requirements、coding、testing、deploy RPC。
 - 读取测试结果和结构化失败原因。
 - 在失败可修复时进入 `fixing -> retesting`。
+- 通过 Git review / commit / push / MR create steps 记录收尾边界；真实 Git 动作由 `pnpm workflow:git ...` 显式执行。
 - 将运行记录写入 `.harness/runs/<run-id>.json`。
 - 将稳定执行计划写入 `.harness/tasks/<run-id>.json`。
+- 将 Git 收尾记录写入 `.harness/git/<run-id>.json`。
 - 更新 `docs/agent-journal.md`、`docs/test-log.md`、`docs/generated-mr-summary.md`、`docs/release-notes.md`。
 
 ## Task JSON 和稳定 Flow
@@ -82,7 +84,8 @@ task JSON 固定包含以下 flow：
 
 ```txt
 intake -> requirement-analysis -> test-case-generation -> implementation-planning
--> coding -> automated-testing -> quality-validation -> mr-summary
+-> coding -> automated-testing -> quality-validation -> git-change-review
+-> git-commit -> git-push -> mr-summary -> mr-create
 -> deployment -> execution-record
 ```
 
@@ -92,6 +95,8 @@ intake -> requirement-analysis -> test-case-generation -> implementation-plannin
 - 每一步都要产出对应 `outputs`、`evidence` 或 `notes`。
 - 需求、Bug、Polish 都必须经过 `test-case-generation`，把验收标准转成测试矩阵。
 - `quality-validation` 只定义方法和证据要求，具体验证路径由 `harness-quality` Skill 根据本次改动决定。
+- `git-change-review` 先确认分支、remote、文件边界和测试证据；`git-commit` 只提交本任务文件。
+- `git-push` 和 `mr-create` 要么执行成功，要么把失败/手动 compare URL 写入 `.harness/git/<run-id>.json`。
 - 如果某一步失败，记录到该 step 的 `evidence/notes`，修复后重跑并更新状态。
 - 最终 `execution-record` 必须让 run JSON、task JSON、test log、journal 保持一致。
 
@@ -119,9 +124,10 @@ pnpm target:dev
 
 1. `.harness/runs/<run-id>.json`：完整事件、日志、测试、部署、阻塞原因。
 2. `.harness/tasks/<run-id>.json`：稳定 flow、当前步骤、测试用例、质量验证和证据。
-3. `.harness/logs/dev-services.log`：服务启动和端口冲突日志。
-4. `docs/test-log.md`：人工可读的测试命令、失败摘要、修复和重试记录。
-5. `docs/agent-journal.md`：每次执行摘要和下一步。
+3. `.harness/git/<run-id>.json`：Git review、commit、push 和 MR/PR 记录。
+4. `.harness/logs/dev-services.log`：服务启动和端口冲突日志。
+5. `docs/test-log.md`：人工可读的测试命令、失败摘要、修复和重试记录。
+6. `docs/agent-journal.md`：每次执行摘要和下一步。
 
 ## 如何判断失败
 
@@ -132,6 +138,10 @@ pnpm target:dev
 - `blocker`
 - `tests.failures[]`
 - `deployment.healthChecks[]`
+- `git.review.changedFiles[]`
+- `git.commit.status`
+- `git.push.status`
+- `git.mr.status`
 
 同时看 `.harness/tasks/<run-id>.json` 中的：
 
@@ -185,6 +195,17 @@ pnpm mr:summary
 - `docs/generated-mr-summary.md`
 - `docs/release-notes.md`
 
+## Git 收尾
+
+```bash
+pnpm workflow:git review -- --run-id <run-id>
+pnpm workflow:git commit -- --run-id <run-id> --message "feat: ..." --files "path/a.ts,path/b.ts"
+pnpm workflow:git push -- --run-id <run-id>
+pnpm workflow:git mr -- --run-id <run-id>
+```
+
+`commit` 必须使用显式文件列表；不要把无关用户改动加入提交。`mr` 默认记录 compare URL，如需真实创建 PR/MR，确认上下文后再使用 `--create`。
+
 ## 部署与健康检查
 
 Docker 部署：
@@ -212,6 +233,7 @@ pnpm deploy:local
 - `docs/agent-journal.md`
 - `docs/test-log.md`
 - `.harness/runs/<run-id>.json`
+- `.harness/git/<run-id>.json`
 - `docs/generated-mr-summary.md`
 - `docs/release-notes.md`
 

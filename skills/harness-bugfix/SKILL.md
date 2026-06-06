@@ -49,6 +49,7 @@ pnpm workflow:bugfix "<Bug 描述或失败日志>"
 
 - `.harness/runs/<run-id>.json` 的 `tests.failures[]`
 - `.harness/tasks/<run-id>.json` 的当前 step、失败 evidence、testCases 和 blockers
+- `.harness/git/<run-id>.json` 的 change review 和收尾状态
 - `.harness/logs/dev-services.log`
 - `docs/test-log.md`
 
@@ -66,4 +67,5 @@ pnpm workflow:bugfix "<Bug 描述或失败日志>"
 - 失败可以复现或有明确日志签名。
 - 根因摘要写入执行记录。
 - 回归测试覆盖失败签名。
+- Git change review 已记录；如需提交，commit 只包含本次修复文件。
 - MR Summary 和 Release Notes 已刷新。

@@ -47,7 +47,7 @@ pnpm workflow:requirement "<需求>"
 .harness/tasks/<run-id>.json
 ```
 
-按 task JSON 的 flow 执行，不要跳过 `test-case-generation`、`quality-validation`、`execution-record`。
+按 task JSON 的 flow 执行，不要跳过 `test-case-generation`、`quality-validation`、`git-change-review`、`execution-record`。
 
 ## 测试与修复
 
@@ -71,4 +71,4 @@ pnpm mr:summary
 
 - 需求被结构化为验收标准。
 - Workflow 到达 `completed`，或在文档中记录明确 blocker。
-- `docs/generated-mr-summary.md`、`docs/release-notes.md`、`docs/agent-journal.md`、`docs/test-log.md` 已更新。
+- `.harness/git/<run-id>.json`、`docs/generated-mr-summary.md`、`docs/release-notes.md`、`docs/agent-journal.md`、`docs/test-log.md` 已更新。

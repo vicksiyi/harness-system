@@ -10,7 +10,11 @@ export type WorkflowStage =
   | "testing"
   | "fixing"
   | "retesting"
+  | "reviewing"
+  | "committing"
+  | "pushing"
   | "summarizing"
+  | "creating-mr"
   | "deploying"
   | "completed"
   | "blocked"
@@ -101,7 +105,11 @@ export type HarnessTaskStepId =
   | "coding"
   | "automated-testing"
   | "quality-validation"
+  | "git-change-review"
+  | "git-commit"
+  | "git-push"
   | "mr-summary"
+  | "mr-create"
   | "deployment"
   | "execution-record";
 
@@ -154,6 +162,7 @@ export interface HarnessTaskFile {
   artifacts: {
     runJson: string;
     taskJson: string;
+    gitRecord: string;
     mrSummary: string;
     releaseNotes: string;
     testLog: string;
@@ -186,6 +195,55 @@ export interface DeploymentResult {
   target: string;
   healthChecks: Array<{ name: string; ok: boolean; detail: string }>;
   rollbackSuggestion?: string;
+}
+
+export interface GitChangeReviewResult {
+  status: "clean" | "dirty";
+  branch: string;
+  remote: string;
+  upstream?: string;
+  baseBranch: string;
+  changedFiles: string[];
+  statusShort: string[];
+  recommendedCommitMessage: string;
+  notes: string[];
+}
+
+export interface GitRepositorySnapshot {
+  branch: string;
+  remote: string;
+  upstream?: string;
+  baseBranch: string;
+  changedFiles: string[];
+  statusShort: string[];
+}
+
+export interface GitCommitResult {
+  status: "created" | "skipped" | "failed" | "pending";
+  message: string;
+  hash?: string;
+  reason?: string;
+}
+
+export interface GitPushResult {
+  status: "pushed" | "skipped" | "failed" | "pending";
+  remote: string;
+  branch: string;
+  reason?: string;
+}
+
+export interface MrCreateResult {
+  status: "created" | "manual" | "skipped" | "failed" | "pending";
+  title: string;
+  url?: string;
+  reason?: string;
+}
+
+export interface GitIntegrationResult {
+  review: GitChangeReviewResult;
+  commit: GitCommitResult;
+  push: GitPushResult;
+  mr: MrCreateResult;
 }
 
 export interface StoredMindNode {
@@ -308,6 +366,7 @@ export interface WorkflowRun {
   analysis?: RequirementAnalysis;
   coding?: CodingResult;
   tests?: TestResult;
+  git?: GitIntegrationResult;
   deployment?: DeploymentResult;
   events: HarnessEvent[];
   logs: HarnessLogEntry[];

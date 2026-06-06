@@ -18,7 +18,11 @@ intake
 -> coding
 -> automated-testing
 -> quality-validation
+-> git-change-review
+-> git-commit
+-> git-push
 -> mr-summary
+-> mr-create
 -> deployment
 -> execution-record
 ```
@@ -29,7 +33,7 @@ intake
 - `flow.steps[]`：每一步的职责、输入、输出、命令、质量门、状态和证据。
 - `acceptanceCriteria[]`：由 requirements-rpc 生成的验收标准。
 - `testCases[]`：由 workflow-core 根据验收标准和风险生成的测试矩阵。
-- `artifacts`：run JSON、task JSON、MR Summary、Release Notes、测试日志和执行日志路径。
+- `artifacts`：run JSON、task JSON、Git record、MR Summary、Release Notes、测试日志和执行日志路径。
 - `blockers[]`：无法自动继续时的阻塞原因。
 
 ## 执行规则
@@ -37,8 +41,10 @@ intake
 1. Skill 先读 `.harness/tasks/<run-id>.json`，再执行当前步骤。
 2. 不跳过 `test-case-generation` 和 `quality-validation`。
 3. `quality-validation` 不规定固定路径，只规定要留下任务相关证据。
-4. 失败要写入 step evidence、`docs/test-log.md` 和 `docs/agent-journal.md`。
-5. 修复后重跑同一验证，直到通过或记录 blocker。
+4. `git-change-review` 只记录边界和建议，不自动提交无关改动。
+5. `git-commit` 必须基于显式文件列表，`git-push` 和 `mr-create` 必须记录结果或阻塞原因。
+6. 失败要写入 step evidence、`docs/test-log.md` 和 `docs/agent-journal.md`。
+7. 修复后重跑同一验证，直到通过或记录 blocker。
 
 ## 示例片段
 

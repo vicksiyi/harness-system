@@ -70,7 +70,7 @@
 
 ## 0012 Skill-Guided Task JSON Flow
 
-- 决策：每次 Harness workflow 都生成 `.harness/tasks/<run-id>.json`，并固定 `intake -> requirement-analysis -> test-case-generation -> implementation-planning -> coding -> automated-testing -> quality-validation -> mr-summary -> deployment -> execution-record`。
+- 决策：每次 Harness workflow 都生成 `.harness/tasks/<run-id>.json`，并固定 `intake -> requirement-analysis -> test-case-generation -> implementation-planning -> coding -> automated-testing -> quality-validation -> git-change-review -> git-commit -> git-push -> mr-summary -> mr-create -> deployment -> execution-record`。
 - 原因：Skill 只有自然语言说明时容易跑偏；本地 task JSON 提供当前步骤、验收标准、测试用例、证据和 blocker 的稳定调度面。
 - 取舍：`.harness/tasks` 属于本地执行产物，不纳入 Git；可审计摘要继续写入 `docs/agent-journal.md` 和 `docs/test-log.md`。
 
@@ -85,3 +85,9 @@
 - 决策：undo/redo 应把恢复后的历史帧转换为协同 DIFF：`select-node`、按父子顺序 `upsert-node`、以及对恢复帧中不存在的节点发 `delete-node`。
 - 原因：只恢复本地 `state.nodes` 会让其他客户端保持旧状态；仅 upsert 也无法同步“撤销新增节点”这类删除语义。
 - 质量要求：浏览器门禁必须验证同一文件双端编辑后，peer 同步收到节点 diff、undo diff 和 redo diff。
+
+## 0015 Git Finalization Boundary
+
+- 决策：Git finalization 分为纯 workflow contract、orchestrator snapshot adapter 和 `workflow:git` 本地收尾脚本三层。
+- 原因：状态机需要记录 review/commit/push/MR 证据，但 RPC 编排服务不应直接提交、推送或创建 PR。
+- 取舍：默认 workflow 只记录 handoff；真实 `git commit` 必须由 `pnpm workflow:git commit -- --files ...` 明确触发。

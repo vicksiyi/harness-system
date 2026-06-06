@@ -2,7 +2,7 @@
 
 ## 模块职责
 
-`packages/workflow-core` 是工作流状态机和闭环决策核心。它负责创建 run、生成 task JSON flow、推进 stage、决定测试后是修复还是总结、生成 MR Summary 和 Release Notes。
+`packages/workflow-core` 是工作流状态机和闭环决策核心。它负责创建 run、生成 task JSON flow、推进 stage、决定测试后是修复还是进入 Git review、生成 MR Summary 和 Release Notes，并根据 Git snapshot 推导 finalization 记录。
 
 ## 关键入口
 
@@ -22,6 +22,7 @@ pnpm typecheck
 - 先改测试，再改状态机。
 - `allowedTransitions` 是行为契约，新增 stage 必须补测试。
 - `defaultTaskFlow` 是 Skill 执行契约，新增/改名 step 必须同步 Skill、workflow docs 和测试。
+- Git 相关函数必须保持纯逻辑，不直接调用本地 `git` 命令。
 - `terminalStages` 不能再转移。
 - MR Summary 和 Release Notes 输出要保持可读、可审计。
 

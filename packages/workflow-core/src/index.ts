@@ -5,10 +5,16 @@ import {
   nowIso,
   titleFromPrompt,
   type DeploymentResult,
+  type GitChangeReviewResult,
+  type GitCommitResult,
+  type GitIntegrationResult,
+  type GitPushResult,
+  type GitRepositorySnapshot,
   type HarnessTaskCase,
   type HarnessTaskFile,
   type HarnessTaskStepId,
   type HarnessTaskStepStatus,
+  type MrCreateResult,
   type RequirementAnalysis,
   type TestResult,
   type WorkflowInput,
@@ -24,10 +30,14 @@ export const allowedTransitions: Record<WorkflowStage, WorkflowStage[]> = {
   analyzing: ["planning", "blocked", "failed"],
   planning: ["coding", "blocked", "failed"],
   coding: ["testing", "blocked", "failed"],
-  testing: ["fixing", "summarizing", "blocked", "failed"],
+  testing: ["fixing", "reviewing", "blocked", "failed"],
   fixing: ["retesting", "blocked", "failed"],
-  retesting: ["fixing", "summarizing", "blocked", "failed"],
-  summarizing: ["deploying", "blocked", "failed"],
+  retesting: ["fixing", "reviewing", "blocked", "failed"],
+  reviewing: ["committing", "blocked", "failed"],
+  committing: ["pushing", "blocked", "failed"],
+  pushing: ["summarizing", "blocked", "failed"],
+  summarizing: ["creating-mr", "blocked", "failed"],
+  "creating-mr": ["deploying", "blocked", "failed"],
   deploying: ["completed", "blocked", "failed"],
   completed: [],
   blocked: [],
@@ -89,6 +99,7 @@ export function createHarnessTaskFile(run: WorkflowRun): HarnessTaskFile {
     artifacts: {
       runJson: `.harness/runs/${run.id}.json`,
       taskJson,
+      gitRecord: `.harness/git/${run.id}.json`,
       mrSummary: "docs/generated-mr-summary.md",
       releaseNotes: "docs/release-notes.md",
       testLog: "docs/test-log.md",
@@ -155,13 +166,39 @@ export function defaultTaskFlow(type: WorkflowInput["type"]): HarnessTaskFile["f
       "Validation plan is task-specific, not a hard-coded path.",
       "Any visual or E2E failure is fixed and rerun."
     ]),
-    taskStep("mr-summary", "MR Summary", "Generate human-readable summary, risk, rollback, validation, and follow-up notes.", "workflow-core", ["quality-validation"], [
+    taskStep("git-change-review", "Git Change Review", "Inspect branch, remote, status, changed files, and commit boundary before staging.", "Codex Agent", ["quality-validation"], [
+      "git status",
+      "code diff",
+      "test evidence"
+    ], [".harness/git/<run-id>.json", "reviewed changed file list"], ["pnpm workflow:git review -- --run-id <run-id>"], [
+      "Do not include unrelated user changes in commit scope."
+    ]),
+    taskStep("git-commit", "Git Commit", "Stage intended files and create a readable commit after validation passes.", "Codex Agent", ["git-change-review"], [
+      "reviewed changed file list",
+      "MR summary draft"
+    ], ["commit hash"], ["git add <files>", "git commit -m \"<message>\"", "pnpm workflow:git commit -- --run-id <run-id> --message \"<message>\" --files <files>"], [
+      "Commit only files that belong to the task."
+    ]),
+    taskStep("git-push", "Git Push", "Push the task branch or direct branch after commit succeeds.", "Codex Agent", ["git-commit"], [
+      "commit hash",
+      "remote"
+    ], ["push result", "remote branch"], ["git push -u origin <branch>", "pnpm workflow:git push -- --run-id <run-id>"], [
+      "Push failure must be recorded with remediation."
+    ]),
+    taskStep("mr-summary", "MR Summary", "Generate human-readable summary, risk, rollback, validation, and follow-up notes.", "workflow-core", ["git-push"], [
       "WorkflowRun",
       "HarnessTaskFile"
     ], ["docs/generated-mr-summary.md", "docs/release-notes.md"], ["pnpm mr:summary"], [
       "Summary references actual validation evidence."
     ]),
-    taskStep("deployment", "Deployment", "Run or record Docker Compose deployment and health checks.", "deploy-rpc", ["mr-summary"], [
+    taskStep("mr-create", "MR Create", "Create or record the GitHub PR/MR URL after push and summary generation.", "Codex Agent", ["mr-summary"], [
+      "commit hash",
+      "pushed branch",
+      "docs/generated-mr-summary.md"
+    ], ["MR/PR URL or manual compare URL"], ["gh pr create --fill", "pnpm workflow:git mr -- --run-id <run-id>"], [
+      "If running on main, record direct-push reason instead of inventing an MR URL."
+    ]),
+    taskStep("deployment", "Deployment", "Run or record Docker Compose deployment and health checks.", "deploy-rpc", ["mr-create"], [
       "release notes",
       "deployment target"
     ], ["DeploymentResult"], ["docker compose up --build", "pnpm health"], [
@@ -171,7 +208,7 @@ export function defaultTaskFlow(type: WorkflowInput["type"]): HarnessTaskFile["f
       "WorkflowRun",
       "HarnessTaskFile",
       "DeploymentResult"
-    ], [".harness/runs/<run-id>.json", ".harness/tasks/<run-id>.json", "docs/test-log.md", "docs/agent-journal.md"], [], [
+    ], [".harness/runs/<run-id>.json", ".harness/tasks/<run-id>.json", ".harness/git/<run-id>.json", "docs/test-log.md", "docs/agent-journal.md"], [], [
       "Task JSON and run JSON agree on final status."
     ])
   ];
@@ -315,6 +352,102 @@ export function attachDeploymentToTask(task: HarnessTaskFile, deployment: Deploy
   return task;
 }
 
+export function createGitIntegration(run: WorkflowRun, snapshot: GitRepositorySnapshot): GitIntegrationResult {
+  const recommendedCommitMessage = recommendedCommitMessageFor(run);
+  const mrUrl = compareUrl(snapshot.remote, snapshot.baseBranch, snapshot.branch);
+  const changedFiles = [...snapshot.changedFiles];
+
+  return {
+    review: {
+      status: changedFiles.length === 0 ? "clean" : "dirty",
+      branch: snapshot.branch,
+      remote: snapshot.remote,
+      upstream: snapshot.upstream,
+      baseBranch: snapshot.baseBranch,
+      changedFiles,
+      statusShort: [...snapshot.statusShort],
+      recommendedCommitMessage,
+      notes: [
+        changedFiles.length === 0 ? "No uncommitted changes were detected during workflow review." : "Review changed files before staging; leave unrelated user edits untouched.",
+        "RPC records Git state only; Codex Skill performs explicit commit/push/MR actions."
+      ]
+    },
+    commit: {
+      status: "skipped",
+      message: recommendedCommitMessage,
+      reason: "Commit is handled by Codex Skill after explicit file review; use pnpm workflow:git commit."
+    },
+    push: {
+      status: "skipped",
+      remote: snapshot.remote,
+      branch: snapshot.branch,
+      reason: "Push is handled by Codex Skill after commit succeeds; use pnpm workflow:git push."
+    },
+    mr: {
+      status: snapshot.branch === snapshot.baseBranch ? "skipped" : mrUrl ? "manual" : "skipped",
+      title: run.title,
+      url: snapshot.branch === snapshot.baseBranch ? undefined : mrUrl,
+      reason:
+        snapshot.branch === snapshot.baseBranch
+          ? "Current branch is the base branch; record direct push instead of creating an MR."
+          : mrUrl
+            ? "Use the compare URL or gh pr create after push."
+            : "Could not infer GitHub compare URL from remote."
+    }
+  };
+}
+
+export function attachGitIntegration(run: WorkflowRun, git: GitIntegrationResult): WorkflowRun {
+  run.git = git;
+  addEvent(run, run.stage, `Git review ${git.review.status}`, git.review.status === "dirty" ? "info" : "warn", {
+    branch: git.review.branch,
+    changedFiles: git.review.changedFiles,
+    commit: git.commit,
+    push: git.push,
+    mr: git.mr
+  });
+  return run;
+}
+
+export function attachGitReviewToTask(task: HarnessTaskFile, review: GitChangeReviewResult): HarnessTaskFile {
+  markTaskStep(task, "git-change-review", "passed", {
+    evidence: [
+      `branch=${review.branch}`,
+      `remote=${review.remote}`,
+      `base=${review.baseBranch}`,
+      `changed=${review.changedFiles.length}`,
+      ...review.statusShort.slice(0, 20)
+    ],
+    notes: [...review.notes, `Recommended commit: ${review.recommendedCommitMessage}`]
+  });
+  return task;
+}
+
+export function attachGitCommitToTask(task: HarnessTaskFile, commit: GitCommitResult): HarnessTaskFile {
+  markTaskStep(task, "git-commit", gitMutationStatus(commit.status), {
+    evidence: [commit.hash ? `commit=${commit.hash}` : `message=${commit.message}`],
+    notes: commit.reason ? [commit.reason] : []
+  });
+  return task;
+}
+
+export function attachGitPushToTask(task: HarnessTaskFile, push: GitPushResult): HarnessTaskFile {
+  markTaskStep(task, "git-push", gitMutationStatus(push.status), {
+    evidence: [`remote=${push.remote}`, `branch=${push.branch}`],
+    notes: push.reason ? [push.reason] : []
+  });
+  return task;
+}
+
+export function attachMrCreateToTask(task: HarnessTaskFile, mr: MrCreateResult): HarnessTaskFile {
+  const status = mr.status === "created" || mr.status === "manual" || mr.status === "skipped" ? "passed" : gitMutationStatus(mr.status);
+  markTaskStep(task, "mr-create", status, {
+    evidence: [mr.url ?? mr.title],
+    notes: mr.reason ? [mr.reason] : []
+  });
+  return task;
+}
+
 export function finalizeTask(task: HarnessTaskFile, run: WorkflowRun): HarnessTaskFile {
   updateTaskFromRun(task, run);
   markTaskStep(task, "mr-summary", run.mrSummary ? "passed" : "pending", {
@@ -365,6 +498,41 @@ function appendUnique<T>(target: T[], values: T[]): T[] {
   return [...target, ...values.filter((value) => !target.includes(value))];
 }
 
+function gitMutationStatus(status: GitCommitResult["status"] | GitPushResult["status"] | MrCreateResult["status"]): HarnessTaskStepStatus {
+  if (status === "created" || status === "pushed") {
+    return "passed";
+  }
+  if (status === "failed") {
+    return "failed";
+  }
+  if (status === "skipped") {
+    return "skipped";
+  }
+  return "pending";
+}
+
+export function recommendedCommitMessageFor(run: WorkflowRun): string {
+  const prefix = run.type === "bugfix" ? "fix" : run.type === "polish" ? "polish" : "feat";
+  const summary = run.title
+    .replace(/^Fix:\s*/i, "")
+    .replace(/[^a-zA-Z0-9\u4e00-\u9fa5]+/g, " ")
+    .trim()
+    .slice(0, 56)
+    .toLowerCase();
+  return `${prefix}: ${summary || "complete harness workflow"}`;
+}
+
+export function compareUrl(remote: string, baseBranch: string, branch: string): string | undefined {
+  const normalized = remote.endsWith(".git") ? remote.slice(0, -4) : remote;
+  const sshMatch = normalized.match(/^git@github\.com:(.+\/.+)$/);
+  const httpsMatch = normalized.match(/^https:\/\/github\.com\/(.+\/.+)$/);
+  const repo = sshMatch?.[1] ?? httpsMatch?.[1];
+  if (!repo || !branch || branch === "HEAD") {
+    return undefined;
+  }
+  return `https://github.com/${repo}/compare/${encodeURIComponent(baseBranch)}...${encodeURIComponent(branch)}?expand=1`;
+}
+
 export function transition(run: WorkflowRun, next: WorkflowStage, options: TransitionOptions = {}): WorkflowRun {
   const allowed = allowedTransitions[run.stage] ?? [];
   if (!allowed.includes(next)) {
@@ -404,7 +572,7 @@ export function decideAfterTest(run: WorkflowRun): WorkflowStage {
   }
 
   if (run.tests.passed) {
-    return "summarizing";
+    return "reviewing";
   }
 
   return run.attempts < run.maxAttempts ? "fixing" : "blocked";
@@ -446,7 +614,11 @@ export function scoreRun(run: WorkflowRun): number {
     testing: 55,
     fixing: 50,
     retesting: 65,
-    summarizing: 75,
+    reviewing: 70,
+    committing: 72,
+    pushing: 74,
+    summarizing: 78,
+    "creating-mr": 82,
     deploying: 90,
     completed: 100,
     blocked: Math.max(30, run.tests?.score ?? 35),
@@ -463,6 +635,9 @@ export function summarizeRun(run: WorkflowRun): string {
     ? `Browser quality: ${run.tests.browserQuality.passed ? "passed" : "failed"} on ${run.tests.browserQuality.targetUrl}.`
     : "Browser quality: not run.";
   const deploy = run.deployment ? `Deployment: ${run.deployment.status} on ${run.deployment.target}.` : "Deployment: not run.";
+  const git = run.git
+    ? `Git: ${run.git.review.branch} ${run.git.commit.hash ? `commit ${run.git.commit.hash}` : run.git.commit.status}; push ${run.git.push.status}; MR ${run.git.mr.status}.`
+    : "Git: not recorded.";
   return [
     `# MR Summary: ${run.title}`,
     "",
@@ -483,6 +658,7 @@ export function summarizeRun(run: WorkflowRun): string {
     "## Validation",
     `- ${tests}`,
     `- ${browser}`,
+    `- ${git}`,
     `- ${deploy}`,
     "",
     "## Risks",
@@ -504,6 +680,7 @@ export function summarizeRelease(run: WorkflowRun): string {
     `- Target project: ${run.targetProject}`,
     `- Result: ${run.status}`,
     `- Score: ${scoreRun(run)}`,
+    `- Git: ${run.git ? `${run.git.commit.status}/${run.git.push.status}/${run.git.mr.status}` : "not recorded"}`,
     `- Deployment: ${run.deployment?.status ?? "not run"}`,
     "",
     "## Operator Notes",

@@ -24,6 +24,11 @@ import {
   attachCodingToTask,
   attachDeployment,
   attachDeploymentToTask,
+  attachGitCommitToTask,
+  attachGitIntegration,
+  attachGitPushToTask,
+  attachGitReviewToTask,
+  attachMrCreateToTask,
   attachTestResult,
   attachTestsToTask,
   completeOrBlockAfterDeploy,
@@ -36,11 +41,13 @@ import {
   summarizeRun,
   transition
 } from "@harness/workflow-core";
+import { inspectGitIntegration } from "./git-adapter.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = process.env.HARNESS_ROOT ?? join(here, "../../..");
 const runDir = join(rootDir, ".harness", "runs");
 const taskDir = join(rootDir, ".harness", "tasks");
+const gitDir = join(rootDir, ".harness", "git");
 const docsDir = join(rootDir, "docs");
 
 const serviceUrls = {
@@ -72,6 +79,10 @@ async function persistRun(run: WorkflowRun): Promise<void> {
   await mkdir(runDir, { recursive: true });
   await mkdir(docsDir, { recursive: true });
   await writeFile(join(runDir, `${run.id}.json`), `${JSON.stringify(run, null, 2)}\n`, "utf8");
+  if (run.git) {
+    await mkdir(gitDir, { recursive: true });
+    await writeFile(join(gitDir, `${run.id}.json`), `${JSON.stringify(run.git, null, 2)}\n`, "utf8");
+  }
   await writeFile(join(docsDir, "generated-mr-summary.md"), `${run.mrSummary ?? summarizeRun(run)}\n`, "utf8");
   await writeFile(join(docsDir, "release-notes.md"), `${run.releaseNotes ?? summarizeRelease(run)}\n`, "utf8");
 }
@@ -207,6 +218,26 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
       return run;
     }
 
+    transition(run, "reviewing", { message: "Reviewing git changes and commit boundary" });
+    markTaskStep(task, "git-change-review", "in_progress", {
+      notes: ["Inspecting branch, remote, status, and changed files."]
+    });
+    await persistWorkflowState(run, task);
+    const git = await inspectGitIntegration(run, rootDir);
+    attachGitIntegration(run, git);
+    attachGitReviewToTask(task, git.review);
+    await persistWorkflowState(run, task);
+
+    transition(run, "committing", { message: "Recording git commit handoff" });
+    attachGitCommitToTask(task, git.commit);
+    addLog(run, "orchestrator-rpc", "Git commit step recorded for Codex Skill execution", git.commit.status === "failed" ? "error" : "info", git.commit);
+    await persistWorkflowState(run, task);
+
+    transition(run, "pushing", { message: "Recording git push handoff" });
+    attachGitPushToTask(task, git.push);
+    addLog(run, "orchestrator-rpc", "Git push step recorded for Codex Skill execution", git.push.status === "failed" ? "error" : "info", git.push);
+    await persistWorkflowState(run, task);
+
     transition(run, "summarizing", { message: "Generating MR summary and release notes" });
     run.mrSummary = summarizeRun(run);
     run.releaseNotes = summarizeRelease(run);
@@ -214,6 +245,11 @@ async function runWorkflow(params: unknown): Promise<WorkflowRun> {
       evidence: [task.artifacts.mrSummary, task.artifacts.releaseNotes],
       notes: ["Generated summary before deployment."]
     });
+    await persistWorkflowState(run, task);
+
+    transition(run, "creating-mr", { message: "Recording MR creation handoff" });
+    attachMrCreateToTask(task, git.mr);
+    addLog(run, "orchestrator-rpc", "MR creation step recorded for Codex Skill execution", git.mr.status === "failed" ? "error" : "info", git.mr);
     await persistWorkflowState(run, task);
 
     transition(run, "deploying", { message: "Recording Docker Compose deployment check" });

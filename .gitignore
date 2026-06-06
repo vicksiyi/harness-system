@@ -8,6 +8,7 @@ coverage/
 .harness/logs/*.log
 .harness/runs/*.json
 .harness/tasks/*.json
+.harness/git/*.json
 .harness/browser/
 .harness/mindmap/
 **/.harness/mindmap/

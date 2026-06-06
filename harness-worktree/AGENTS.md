@@ -15,6 +15,7 @@ HARNESS_TARGET_PROJECT=apps/mindmap-editor pnpm workflow:requirement "<需求>"
 - `scripts/run-workflow.mjs`
 - `scripts/create-mr-summary.mjs`
 - `scripts/deploy.mjs`
+- `scripts/git-finalize.mjs`
 - `scripts/health-check.mjs`
 - `scripts/install-skills.mjs`
 - `workflows/requirement.md`
@@ -27,6 +28,7 @@ HARNESS_TARGET_PROJECT=apps/mindmap-editor pnpm workflow:requirement "<需求>"
 pnpm workflow:requirement "<需求>"
 pnpm workflow:bugfix "<Bug 或日志>"
 pnpm workflow:polish "<优化目标>"
+pnpm workflow:git review -- --run-id <run-id>
 pnpm mr:summary
 pnpm deploy:local
 pnpm skills:install
@@ -37,6 +39,7 @@ pnpm skills:install
 - 脚本要能从仓库根目录稳定运行。
 - 普通需求、Bugfix、Polish 默认作用于 `apps/mindmap-editor`。
 - 失败必须写入 `docs/agent-journal.md` 和 `docs/test-log.md`。
+- Git 收尾脚本默认只记录 review；commit 必须传入显式文件列表。
 - 如果迁移为真实 git worktree，可用：
 
 ```bash

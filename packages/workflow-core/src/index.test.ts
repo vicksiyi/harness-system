@@ -4,9 +4,15 @@ import {
   attachAnalysisToTask,
   attachDeployment,
   attachDeploymentToTask,
+  attachGitCommitToTask,
+  attachGitIntegration,
+  attachGitPushToTask,
+  attachGitReviewToTask,
+  attachMrCreateToTask,
   attachTestResult,
   attachTestsToTask,
   completeOrBlockAfterDeploy,
+  createGitIntegration,
   createHarnessTaskFile,
   createWorkflowRun,
   decideAfterTest,
@@ -100,11 +106,11 @@ describe("workflow-core", () => {
     expect(decideAfterTest(run)).toBe("blocked");
   });
 
-  it("moves from passed tests to summarizing", () => {
+  it("moves from passed tests to git review", () => {
     const run = createWorkflowRun({ type: "polish", prompt: "优化状态展示" });
     attachTestResult(run, passingTest());
 
-    expect(decideAfterTest(run)).toBe("summarizing");
+    expect(decideAfterTest(run)).toBe("reviewing");
   });
 
   it("completes when deployment is healthy and includes MR sections", () => {
@@ -153,11 +159,16 @@ describe("workflow-core", () => {
       "coding",
       "automated-testing",
       "quality-validation",
+      "git-change-review",
+      "git-commit",
+      "git-push",
       "mr-summary",
+      "mr-create",
       "deployment",
       "execution-record"
     ]);
     expect(task.flow.steps.find((step) => step.id === "quality-validation")?.qualityGates.join(" ")).toContain("hard-coded path");
+    expect(task.flow.steps.find((step) => step.id === "git-commit")?.qualityGates.join(" ")).toContain("belong to the task");
   });
 
   it("attaches analysis as acceptance criteria and generated test cases", () => {
@@ -222,8 +233,12 @@ describe("workflow-core", () => {
     transition(run, "coding");
     transition(run, "testing");
     attachTestResult(run, passingTest());
+    transition(run, "reviewing");
+    transition(run, "committing");
+    transition(run, "pushing");
     transition(run, "summarizing");
     run.mrSummary = summarizeRun(run);
+    transition(run, "creating-mr");
     transition(run, "deploying");
     attachDeployment(run, {
       status: "healthy",
@@ -236,6 +251,69 @@ describe("workflow-core", () => {
     expect(task.status).toBe("passed");
     expect(task.currentStepId).toBe("execution-record");
     expect(task.flow.steps.find((step) => step.id === "execution-record")?.evidence).toContain(task.artifacts.taskJson);
+  });
+
+  it("records git review, commit, push, and MR create steps in task flow", () => {
+    const run = createWorkflowRun({ type: "bugfix", prompt: "完善 git flow" });
+    const task = createHarnessTaskFile(run);
+    const git = {
+      review: {
+        status: "dirty" as const,
+        branch: "feature/git-flow",
+        remote: "origin",
+        upstream: "origin/feature/git-flow",
+        baseBranch: "main",
+        changedFiles: ["packages/workflow-core/src/index.ts"],
+        statusShort: [" M packages/workflow-core/src/index.ts"],
+        recommendedCommitMessage: "feat: add git finalization flow",
+        notes: ["reviewed intended files"]
+      },
+      commit: {
+        status: "created" as const,
+        message: "feat: add git finalization flow",
+        hash: "abc1234"
+      },
+      push: {
+        status: "pushed" as const,
+        remote: "origin",
+        branch: "feature/git-flow"
+      },
+      mr: {
+        status: "manual" as const,
+        title: "Add git finalization flow",
+        url: "https://github.com/vicksiyi/harness-system/compare/main...feature/git-flow?expand=1"
+      }
+    };
+
+    attachGitIntegration(run, git);
+    attachGitReviewToTask(task, git.review);
+    attachGitCommitToTask(task, git.commit);
+    attachGitPushToTask(task, git.push);
+    attachMrCreateToTask(task, git.mr);
+
+    expect(run.git?.commit.hash).toBe("abc1234");
+    expect(summarizeRun(run)).toContain("Git: feature/git-flow commit abc1234; push pushed; MR manual.");
+    expect(task.flow.steps.find((step) => step.id === "git-change-review")?.status).toBe("passed");
+    expect(task.flow.steps.find((step) => step.id === "git-commit")?.evidence).toContain("commit=abc1234");
+    expect(task.flow.steps.find((step) => step.id === "git-push")?.status).toBe("passed");
+    expect(task.flow.steps.find((step) => step.id === "mr-create")?.status).toBe("passed");
+  });
+
+  it("derives git finalization from a repository snapshot", () => {
+    const run = createWorkflowRun({ type: "requirement", prompt: "重构 Harness 架构" });
+    const git = createGitIntegration(run, {
+      branch: "codex/refactor-harness-architecture",
+      remote: "git@github.com:vicksiyi/harness-system.git",
+      upstream: "origin/codex/refactor-harness-architecture",
+      baseBranch: "main",
+      changedFiles: ["services/orchestrator-rpc/src/git-adapter.ts"],
+      statusShort: [" M services/orchestrator-rpc/src/server.ts", "?? services/orchestrator-rpc/src/git-adapter.ts"]
+    });
+
+    expect(git.review.status).toBe("dirty");
+    expect(git.review.recommendedCommitMessage).toBe("feat: 重构 harness 架构");
+    expect(git.mr.status).toBe("manual");
+    expect(git.mr.url).toBe("https://github.com/vicksiyi/harness-system/compare/main...codex%2Frefactor-harness-architecture?expand=1");
   });
 
   it("writes concrete test case statuses after automated and browser quality checks", () => {
