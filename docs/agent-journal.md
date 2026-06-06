@@ -682,3 +682,42 @@
 - Deployment: healthy
 - Task JSON: .harness/tasks/run_mpi5t35u_46w08ajp.json
 - MR Summary: docs/generated-mr-summary.md
+
+## Workflow Script Failure
+
+- At: 2026-05-23T09:48:34.917Z
+- Type: bugfix
+- Prompt: Poll fallback勾选和不勾选没什么区别，判断是否为bug，若是bug修复
+- Error: Services did not become healthy within 30000ms. See /Users/icezero/code/harness/harness-system/.harness/logs/dev-services.log
+
+## Run run_mpi62h1x_nzht68gv
+
+- At: 2026-05-23T09:49:36.994Z
+- Type: bugfix
+- Prompt: Poll fallback勾选和不勾选没什么区别，判断是否为bug，若是bug修复
+- Target project: apps/mindmap-editor
+- Result: blocked at blocked
+- Tests: not passed with score 50
+- Deployment: not run
+- Task JSON: .harness/tasks/run_mpi62h1x_nzht68gv.json
+- MR Summary: docs/generated-mr-summary.md
+
+## Run run_mpi6frlk_0a4msfr0
+
+- At: 2026-05-23T09:59:44.511Z
+- Type: bugfix
+- Prompt: Poll fallback勾选和不勾选没什么区别，判断是否为bug，若是bug修复
+- Target project: apps/mindmap-editor
+- Result: passed at completed
+- Tests: passed with score 98
+- Deployment: healthy
+- Task JSON: .harness/tasks/run_mpi6frlk_0a4msfr0.json
+- MR Summary: docs/generated-mr-summary.md
+
+## Poll Fallback Auto Sync Gate
+
+- At: 2026-05-23
+- Root cause: `Poll fallback` only controlled the periodic pull timer; live SSE broadcast handling ignored the preference, so remote changes auto-applied even when the checkbox was unchecked.
+- Fix: introduced a domain-level auto-sync decision helper, applied it to live sync events, and kept the silent pull behavior when the control is re-enabled.
+- Secondary fix: new map creation now clears stale current file ID and file rows while the create request is pending, preventing the Files page from exposing the previous map during the transition.
+- Validation: `pnpm target:test`, `pnpm typecheck`, `pnpm test`, `pnpm target:build`, `pnpm target:browser`, task-specific browser evidence `.harness/browser/poll-gate-mpi6epxl-poll-fallback.json`, and workflow `run_mpi6frlk_0a4msfr0` all passed.

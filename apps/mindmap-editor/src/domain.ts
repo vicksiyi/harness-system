@@ -188,6 +188,17 @@ export interface EditorShortcutInput {
   targetIsTyping?: boolean;
 }
 
+export interface AutomaticRemoteSyncInput {
+  autoSyncEnabled: boolean;
+  currentMapId: string | null;
+  eventMapId: string;
+  clientId: string;
+  sourceClientId: string;
+  eventVersion: number;
+  currentVersion: number;
+  pendingOperationCount: number;
+}
+
 export function createNode(input: {
   id: string;
   title: string;
@@ -210,6 +221,16 @@ export function createNode(input: {
     parentId: input.parentId,
     updatedAt: input.updatedAt ?? new Date().toISOString()
   };
+}
+
+export function shouldApplyAutomaticRemoteSync(input: AutomaticRemoteSyncInput): boolean {
+  if (!input.autoSyncEnabled || !input.currentMapId || input.eventMapId !== input.currentMapId) {
+    return false;
+  }
+  if (input.sourceClientId === input.clientId) {
+    return false;
+  }
+  return input.eventVersion > input.currentVersion || input.pendingOperationCount > 0;
 }
 
 export function updateNode(node: MindNode, patch: Partial<Omit<MindNode, "id">>): MindNode {

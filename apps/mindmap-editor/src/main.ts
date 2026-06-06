@@ -32,6 +32,7 @@ import {
   redoHistory,
   resolveEditorShortcut,
   restoreSnapshot,
+  shouldApplyAutomaticRemoteSync,
   suggestFocusQueue,
   summarizeMap,
   undoHistory,
@@ -337,8 +338,17 @@ async function initializeRemoteLibrary(): Promise<void> {
 }
 
 async function createMapFile(): Promise<void> {
+  const previous = {
+    mapId: state.mapId,
+    mapTitle: state.mapTitle,
+    mapVersion: state.mapVersion,
+    mapFiles: state.mapFiles
+  };
   try {
     const nodes = seedNodes();
+    state.mapId = null;
+    state.mapVersion = 0;
+    state.mapFiles = [];
     state.rpcStatus = "saving";
     state.rpcMessage = "Creating database file";
     render();
@@ -349,6 +359,10 @@ async function createMapFile(): Promise<void> {
     });
     applyRemoteMap(created, "Created new database file");
   } catch (error) {
+    state.mapId = previous.mapId;
+    state.mapTitle = previous.mapTitle;
+    state.mapVersion = previous.mapVersion;
+    state.mapFiles = previous.mapFiles;
     state.rpcStatus = "error";
     state.rpcMessage = error instanceof Error ? error.message : "Could not create map file";
     render();
@@ -665,10 +679,21 @@ function connectRemoteSyncEvents(): void {
 }
 
 async function handleRemoteSyncEvent(event: MindMapSyncEvent): Promise<void> {
-  if (event.type !== "mindmap-sync" || event.mapId !== state.mapId || event.sourceClientId === state.clientId) {
+  if (event.type !== "mindmap-sync") {
     return;
   }
-  if (event.version <= state.mapVersion && state.pendingOperations.length === 0) {
+  if (
+    !shouldApplyAutomaticRemoteSync({
+      autoSyncEnabled: state.autoPullEnabled,
+      currentMapId: state.mapId,
+      eventMapId: event.mapId,
+      clientId: state.clientId,
+      sourceClientId: event.sourceClientId,
+      eventVersion: event.version,
+      currentVersion: state.mapVersion,
+      pendingOperationCount: state.pendingOperations.length
+    })
+  ) {
     return;
   }
   if (remoteSyncTimer !== null) {

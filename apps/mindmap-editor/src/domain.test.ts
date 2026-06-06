@@ -32,6 +32,7 @@ import {
   redoHistory,
   restoreSnapshot,
   resolveEditorShortcut,
+  shouldApplyAutomaticRemoteSync,
   summarizeMap,
   suggestFocusQueue,
   undoHistory,
@@ -207,6 +208,26 @@ describe("mind map domain", () => {
     expect(visibleNodesByCollapse(nestedNodes, ["missing"]).map((node) => node.id)).toEqual(["root", "research", "story", "draft"]);
     expect(collapsedDescendantCount(nestedNodes, "root")).toBe(3);
     expect(collapsedDescendantCount(nestedNodes, "research")).toBe(0);
+  });
+
+  it("gates automatic remote sync behind the auto sync preference", () => {
+    const baseInput = {
+      autoSyncEnabled: true,
+      currentMapId: "map-1",
+      eventMapId: "map-1",
+      clientId: "client-a",
+      sourceClientId: "client-b",
+      eventVersion: 5,
+      currentVersion: 4,
+      pendingOperationCount: 0
+    };
+
+    expect(shouldApplyAutomaticRemoteSync(baseInput)).toBe(true);
+    expect(shouldApplyAutomaticRemoteSync({ ...baseInput, autoSyncEnabled: false })).toBe(false);
+    expect(shouldApplyAutomaticRemoteSync({ ...baseInput, sourceClientId: "client-a" })).toBe(false);
+    expect(shouldApplyAutomaticRemoteSync({ ...baseInput, eventMapId: "map-2" })).toBe(false);
+    expect(shouldApplyAutomaticRemoteSync({ ...baseInput, eventVersion: 4, currentVersion: 4 })).toBe(false);
+    expect(shouldApplyAutomaticRemoteSync({ ...baseInput, eventVersion: 4, currentVersion: 4, pendingOperationCount: 1 })).toBe(true);
   });
 
   it("builds a depth ordered outline", () => {
